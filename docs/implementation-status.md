@@ -8,7 +8,7 @@ The October 30 review findings have been addressed. See [the review, resolutions
 
 - React Router framework application, React Compiler, strict TypeScript, PostgreSQL/Drizzle migrations, and Docker web/worker/database services with host-mounted persistence.
 - Passkey-only first setup and sign-in, open/invited registration, single-use invitations, multiple passkeys, account disabling, administrator-assisted recovery, and server administrator recovery.
-- Private libraries, search/sorting, track metadata/covers, filename suggestions, version descriptions/status, upload, original downloads, and protected range delivery.
+- Private libraries, search/sorting, track metadata/covers, filename suggestions, version descriptions/status, upload, WAV/320 kbps MP3 downloads for newly processed audio, legacy original downloads, and protected range delivery.
 - Version-aware share links with independent download permissions, visibility anchors, editing, deactivation, and missing-audio fallback.
 - Link/version-scoped threads and replies, deletion ownership, modal timestamp/range/general feedback and replies, owner version/link filters, timestamp navigation, and browser-local unread indications.
 - Waveform, zoom, range selection, preserved playback position/state, custom play/pause/time/repeat controls, Space shortcut, wheel/pinch zoom, bidirectional comment selection, and Media Session handlers.
@@ -39,6 +39,9 @@ The player now uses custom play/pause, elapsed/total time, and a repeat icon wit
 
 The page uses a black background, darker panels/buttons, brighter text/borders, a compact version selector and responsive full-width spacing. Desktop browser checks verified Space from the page and another focused button, preserved typing spaces, general-comment submission, point-comment timing, reply submission, Escape/focus restoration, repeat state and wheel zoom. The final modal focus and 390-pixel layout were also checked. Gesture tests cover left/right ranges, zoomed coordinates, touch hold, pinch cancellation and pointer cancellation. Physical iPhone pinch/long-press behavior remains a device acceptance check.
 
+
+New audio uses a single playback/download master capped independently at 24 bit and 48 kHz, with triangular dithering for bit-depth reduction above 24. Lossless sources offer WAV (default) and lazily cached LAME 320 kbps MP3; lossy sources offer MP3 only. Existing published files are unchanged. Source-duration metadata is retained for replacement checks. File replacement/removal also cleans cached exports.
+
 ## Public artists and releases
 
 The Releases workspace is available from the library at `/releases`. It supports multiple owned artist profiles, public artist pages, single/EP/album drafts, manual publication and unpublishing, independently uploaded artwork and masters, editable metadata/credits, and streaming/shop links. Public addresses use `/artists/<artist>/<release>`; slugs are chosen at creation and stay stable when names or titles change. Explicit address changes and redirects are not implemented in this initial version.
@@ -62,3 +65,5 @@ Verification: all 28 tests passed against the isolated database, including the n
 ## Readable download package names
 
 Release ZIPs now contain a directory named `Artist - Release title`; individual-track ZIPs and directories use `Artist - Track title`. WAV entries use `NN - Artist - Track title.wav`, preserving release track numbers and using a track-specific artist when supplied. Artwork and credits are inside the same directory. Unicode filenames are preserved through ZIP entries and the HTTP download header; unsafe filesystem characters are replaced and component lengths are bounded. All 29 tests, type checking, lint and the production build pass, including extracted package paths, Swedish names, artist fallback, partial-release numbering and unchanged original WAV bytes.
+
+PR 3 review: merged the public-release and share-preview changes from main, rejected damaged/unsafe floating-point conversions before publication, and kept native Space behavior inside modal dialogs. All 46 tests pass with the isolated database, including release preservation and permission revocation during an in-flight download.

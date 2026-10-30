@@ -19,6 +19,7 @@ import {
 import { trackAccess } from "../server/access";
 import { sameOrigin } from "../server/security";
 import { limitedBody } from "../server/request";
+import { removeAudioFiles } from "../server/audio-files";
 import { boss, queue } from "../server/queue";
 export async function action({ request, params }: ActionFunctionArgs) {
   sameOrigin(request);
@@ -234,8 +235,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
       );
     }
   }
-  await Promise.all(
-    removedFiles.map((p) => unlink(join(directory, p)).catch(() => {})),
-  );
+  await removeAudioFiles(directory, removedFiles);
   return redirect("/tracks/" + access.track.id);
 }

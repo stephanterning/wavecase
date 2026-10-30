@@ -9,6 +9,7 @@ import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import type { LoaderFunctionArgs } from "react-router";
+import { mp3Download } from "../server/download";
 import { versionAccess } from "../server/access";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const query = new URL(request.url).searchParams;
@@ -20,27 +21,65 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const download = query.has("download");
   if (download && !owner && !(link?.download && version.download))
     throw new Response("Download unavailable", { status: 403 });
-  const file = download ? version.original : version.playback;
+  const modern = version.metadata?.audioPolicy === 2;
+  const format = download
+    ? query.get("format") ||
+      (modern ? (version.metadata?.wavDownload ? "wav" : "mp3") : "original")
+    : "playback";
+  if (
+    download &&
+    (modern
+      ? !["wav", "mp3"].includes(format) ||
+        (format === "wav" && !version.metadata?.wavDownload)
+      : format !== "original")
+  )
+    throw new Response("Download format unavailable", { status: 400 });
+  let file = download ? version.original : version.playback;
   if (!file || version.state !== "ready")
     throw new Response("Audio file missing", { status: 404 });
-  const path = join(process.env.DATA_DIR || "data/audio", file);
+  const directory = process.env.DATA_DIR || "data/audio";
+  if (format === "mp3") {
+    try {
+      file = await mp3Download(version.id, file, directory);
+    } catch (error) {
+      if (error instanceof Response) throw error;
+      console.error(
+        "MP3 encoding failed",
+        error instanceof Error ? error.message : error,
+      );
+      throw new Response("MP3 could not be prepared. Please try again.", {
+        status: 503,
+      });
+    }
+    // A first download can take time. Revoked permissions must still take effect.
+    const fresh = await versionAccess(
+      request,
+      params.id!,
+      query.get("share") || undefined,
+    );
+    if (!fresh.owner && !(fresh.link?.download && fresh.version.download))
+      throw new Response("Download unavailable", { status: 403 });
+    if (
+      fresh.version.original !== version.original ||
+      fresh.version.state !== "ready"
+    )
+      throw new Response("Audio changed. Please try again.", { status: 409 });
+  }
+  const path = join(directory, file);
   const { size } = await stat(path);
   const headers = new Headers({
     "Content-Type": download
-      ? "application/octet-stream"
+      ? format === "mp3"
+        ? "audio/mpeg"
+        : format === "wav"
+          ? "audio/wav"
+          : "application/octet-stream"
       : String(version.metadata?.mime || "audio/wav"),
     "Accept-Ranges": "bytes",
     "Cache-Control": "private, no-cache",
     "X-Content-Type-Options": "nosniff",
   });
-  const etag =
-    '"' +
-    version.original +
-    ":" +
-    (download ? "original" : "playback") +
-    ":" +
-    size +
-    '"';
+  const etag = '"' + version.original + ":" + format + ":" + size + '"';
   headers.set("ETag", etag);
   // Authorization runs before conditional responses so cached bytes never bypass a revoked link.
   if (
@@ -52,7 +91,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   if (download)
     headers.set(
       "Content-Disposition",
-      `attachment; filename*=UTF-8''${encodeURIComponent(version.filename).replace(/['()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase())}`,
+      `attachment; filename*=UTF-8''${encodeURIComponent(format === "mp3" ? version.filename.replace(/\.[^.]+$/, "") + ".mp3" : version.filename).replace(/['()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase())}`,
     );
   let start = 0,
     end = size - 1,
@@ -98,7 +137,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       session: session.success ? session.data : randomUUID(),
       kind: "download-started",
       name: previous?.name,
-      context: await visitorContext(request, context?.referrer),
+      context: {
+        ...(await visitorContext(request, context?.referrer)),
+        format,
+      },
     });
   }
   headers.set("Content-Length", String(end - start + 1));

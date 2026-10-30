@@ -429,6 +429,21 @@ button:hover:not(:disabled),
   }
 }
 
+.download-formats {
+  border: 1px solid #39413d;
+  border-radius: 8px;
+  margin-top: 16px;
+  padding: 12px;
+}
+.download-formats .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.download-formats input {
+  width: auto;
+}
+
 /* Released music has its own artwork-led public presentation. */
 .release-public {
   max-width: 1120px;
