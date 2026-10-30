@@ -1,3 +1,5 @@
+import { TrackArtistField } from "../components/track-artist-field";
+import { artistChoices, linkedArtist } from "../server/track-artist";
 import { uploadVersion } from "../server/upload";
 import { limitedBody } from "../server/request";
 import { Player, type Playback } from "../components/player";
@@ -29,13 +31,23 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     id = link.trackId;
   }
   const access = await trackAccess(request, id!, share);
+  const artist = await linkedArtist(
+    access.track.ownerId,
+    access.track.artistId,
+  );
   const all = await db
     .select()
     .from(versions)
     .where(eq(versions.trackId, id!))
     .orderBy(desc(versions.position));
   return {
-    track: { ...access.track, cover: !!access.track.cover },
+    track: {
+      ...access.track,
+      artist: artist?.name || access.track.artist,
+      cover: !!access.track.cover,
+    },
+    artistUrl: artist ? `/artists/${artist.slug}` : null,
+    artists: access.owner ? await artistChoices(access.track.ownerId) : [],
     requests: access.owner
       ? await db
           .select()
@@ -148,7 +160,15 @@ export default function Track() {
           </a>
         </p>
       )}
-      <p className="eyebrow">{data.track.artist || "MUSIC IN PROGRESS"}</p>
+      <p className="eyebrow">
+        {data.artistUrl ? (
+          <a href={data.artistUrl} rel="noreferrer">
+            {data.track.artist}
+          </a>
+        ) : (
+          data.track.artist || "MUSIC IN PROGRESS"
+        )}
+      </p>
       {data.track.cover && (
         <img
           className="cover"
@@ -456,10 +476,12 @@ export default function Track() {
               Title
               <input name="title" defaultValue={data.track.title} required />
             </label>
-            <label>
-              Artist
-              <input name="artist" defaultValue={data.track.artist} />
-            </label>
+            <TrackArtistField
+              key={`${data.track.id}:${data.track.artistId}:${data.track.artist}`}
+              profiles={data.artists}
+              artistId={data.track.artistId}
+              name={data.track.artist}
+            />
             <label>
               Description
               <textarea

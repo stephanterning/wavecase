@@ -416,3 +416,156 @@ button:hover:not(:disabled),
     max-width: 32em;
   }
 }
+
+/* Released music has its own artwork-led public presentation. */
+.release-public {
+  max-width: 1120px;
+  margin: 4vh auto;
+}
+.release-backdrop {
+  position: fixed;
+  inset: -50px;
+  z-index: -1;
+  background-image: linear-gradient(#000b, #000e), var(--release-art);
+  background-size: cover;
+  background-position: center;
+  filter: blur(35px);
+  pointer-events: none;
+}
+.release-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(24px, 4vw, 56px);
+}
+.release-cover {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 12px;
+  box-shadow: 0 20px 70px #0006;
+}
+.release-content {
+  padding: 24px;
+  background: #0a0c0bd9;
+  border: 1px solid #ffffff25;
+  border-radius: 12px;
+}
+.release-content h1 {
+  font-size: clamp(30px, 4vw, 48px);
+  margin-bottom: 12px;
+}
+.release-artist {
+  font-size: 22px;
+}
+.release-tracklist {
+  padding: 0;
+  list-style: none;
+  margin: 28px 0;
+}
+.release-tracklist li {
+  border-top: 1px solid #ffffff25;
+  padding: 16px 0;
+}
+.release-track-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.release-track-row > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.release-track-row small {
+  display: block;
+  color: #bec7c3;
+  font-size: 12px;
+}
+.release-seek {
+  font-size: 13px;
+}
+.service-links {
+  display: grid;
+  gap: 10px;
+}
+.service-links a {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1px solid #ffffff40;
+  background: #ffffff0a;
+  color: #fff;
+  border-radius: 7px;
+  text-decoration: none;
+}
+.service-links a:hover {
+  background: #ffffff20;
+}
+.release-download {
+  padding: 4px 0 24px;
+  border-bottom: 1px solid #ffffff25;
+}
+.release-credits {
+  margin-top: 24px;
+}
+.release-credits dt {
+  color: #bec7c3;
+  text-transform: capitalize;
+}
+.release-credits dd {
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+.release-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0 20px;
+}
+.release-thumb {
+  width: 160px;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.artist-page {
+  max-width: 1120px;
+  margin: 4vh auto;
+}
+.artist-image {
+  width: 160px;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+  margin-top: 24px;
+}
+.release-card {
+  text-decoration: none;
+  color: inherit;
+}
+.release-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.preserve-lines {
+  white-space: pre-wrap;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+@media (max-width: 760px) {
+  .release-layout {
+    grid-template-columns: 1fr;
+  }
+  .release-public {
+    margin-top: 20px;
+  }
+  .release-content {
+    padding: 18px;
+  }
+}

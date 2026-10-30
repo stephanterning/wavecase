@@ -1,5 +1,11 @@
 import { index, route, type RouteConfig } from "@react-router/dev/routes";
 export default [
+  route("releases", "routes/releases.tsx"),
+  route("releases/:id", "routes/release-edit.tsx"),
+  route("artists/:artist", "routes/artist.tsx"),
+  route("artists/:artist/:release", "routes/release-page.tsx"),
+  route("release-assets/:id/:kind", "routes/release-assets.ts"),
+  route("artist-images/:id", "routes/artist-image.ts"),
   route("health", "routes/health.ts"),
   route("cover/:id", "routes/cover.ts"),
   route("account", "routes/account.tsx"),

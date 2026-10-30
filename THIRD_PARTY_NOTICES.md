@@ -30,6 +30,7 @@ Generated with `npm run notices`.
 | @types/node | 24.19.2 | MIT |
 | @types/pg | 8.23.1 | MIT |
 | asn1js | 3.1.0 | BSD-3-Clause |
+| buffer-crc32 | 1.0.0 | MIT |
 | cron-parser | 5.10.2 | MIT |
 | debug | 4.4.3 | MIT |
 | detect-europe-js | 0.1.2 | MIT |
@@ -69,4 +70,5 @@ Generated with `npm run notices`.
 | ua-parser-js | 2.0.10 | AGPL-3.0-or-later |
 | undici-types | 7.24.6 | MIT |
 | wavesurfer.js | 8.0.3 | BSD-3-Clause |
+| yazl | 3.3.1 | MIT |
 | zod | 4.6.7 | MIT |
