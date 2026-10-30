@@ -7,8 +7,8 @@ export function attachMediaSession(
 ) {
   if (!("mediaSession" in navigator)) return () => {};
   const session = navigator.mediaSession;
-  if (typeof MediaMetadata !== "undefined")
-    session.metadata = new MediaMetadata(metadata);
+  const description =
+    typeof MediaMetadata !== "undefined" ? new MediaMetadata(metadata) : null;
   const handlers = {
     play: () => void media.play().catch(onError),
     pause: () => media.pause(),
@@ -24,9 +24,15 @@ export function attachMediaSession(
     }
   }
   const updateState = () => {
+    if (media.error) {
+      session.metadata = null;
+      session.playbackState = "none";
+      return;
+    }
+    if (session.metadata !== description) session.metadata = description;
     session.playbackState = media.paused || media.ended ? "paused" : "playing";
   };
-  const events = ["play", "playing", "pause", "ended"] as const;
+  const events = ["play", "playing", "pause", "ended", "error"] as const;
   for (const event of events) media.addEventListener(event, updateState);
   updateState();
   const stop = () => {

@@ -182,6 +182,7 @@ export default function ReleasePage() {
             preload="none"
             onPlaying={() => {
               setPlaying(true);
+              setError("");
               if (!counted.current && selected) {
                 counted.current = true;
                 event("play", { track: selected });

@@ -6,6 +6,7 @@ class Media extends EventTarget {
   currentTime = 0;
   paused = true;
   ended = false;
+  error: { code: number } | null = null;
   async play() {
     this.paused = false;
     this.dispatchEvent(new Event("play"));
@@ -78,6 +79,21 @@ test("media sessions show the current track and clear private metadata and contr
   handlers.get("pause")!({ action: "pause" });
   assert.equal(media.paused, true);
   assert.equal(session.playbackState, "paused");
+
+  // A decoder/network error can stop audio without setting paused or firing pause.
+  await media.play();
+  media.error = { code: 3 };
+  media.dispatchEvent(new Event("error"));
+  assert.equal(session.metadata, null);
+  assert.equal(session.playbackState, "none");
+  media.pause();
+  assert.equal(session.metadata, null);
+  assert.equal(session.playbackState, "none");
+  // Reloading a valid source clears the media error; playback restores metadata.
+  media.error = null;
+  handlers.get("play")!({ action: "play" });
+  assert.equal(metadata()?.title, "Demo title");
+  assert.equal(session.playbackState, "playing");
 
   window.dispatchEvent(new Event("wavecase-access-revoked"));
   assert.equal(session.metadata, null);
