@@ -1,5 +1,6 @@
 import { releasePath } from "../domain/releases";
 import { getReleaseServiceIcon } from "../domain/release-services";
+import { useMediaSession } from "../components/media-session";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   useLoaderData,
@@ -84,6 +85,16 @@ export default function ReleasePage() {
   const visited = useRef("");
   const selectedTrack = available.find((t) => t.id === selected);
   const endpoint = `/release-assets/${d.release.id}`;
+  useMediaSession(
+    audio,
+    {
+      title: selectedTrack?.title,
+      artist: selectedTrack?.metadata.artist || d.artist.name,
+      album: d.release.title,
+      artwork: d.image,
+    },
+    () => setError("Playback could not start. Please try again."),
+  );
   function event(kind: string, extra: Record<string, string> = {}) {
     if (d.owner || !d.release.published) return;
     void fetch(`${endpoint}/events`, {

@@ -8,6 +8,7 @@ import {
 import WaveSurfer from "wavesurfer.js";
 import { observeListening } from "./listening";
 import { Icon } from "./icons";
+import { useMediaSession } from "./media-session";
 import {
   attachWaveformGestures,
   type CommentSelection,
@@ -19,6 +20,9 @@ export function Player({
   url,
   peaks,
   duration,
+  title,
+  artist,
+  artwork,
   share,
   versionId,
   playbackRef,
@@ -30,6 +34,9 @@ export function Player({
   url: string;
   peaks: number[];
   duration: number;
+  title: string;
+  artist: string;
+  artwork?: string;
   share?: string;
   versionId: string;
   playbackRef: RefObject<Playback>;
@@ -43,6 +50,9 @@ export function Player({
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [error, setError] = useState("");
+  useMediaSession(audioRef, { title, artist, artwork }, () =>
+    setError("Audio could not play. Please try again."),
+  );
   const comment = useEffectEvent((selection: CommentSelection) =>
     onComment?.(selection),
   );
@@ -144,21 +154,6 @@ export function Player({
     media.addEventListener("pause", pause);
     media.addEventListener("error", fail);
     if (media.readyState >= 1) restore();
-    if ("mediaSession" in navigator) {
-      navigator.mediaSession.setActionHandler(
-        "play",
-        () => void media.play().catch(fail),
-      );
-      navigator.mediaSession.setActionHandler("pause", () => media.pause());
-      try {
-        navigator.mediaSession.setActionHandler("seekto", (details) => {
-          if (details.seekTime !== undefined)
-            media.currentTime = details.seekTime;
-        });
-      } catch {
-        /* Some browsers provide play/pause but not seek-to. */
-      }
-    }
     const revoke = () => {
       media.pause();
       media.removeAttribute("src");
@@ -181,14 +176,6 @@ export function Player({
       media.pause();
       media.removeAttribute("src");
       media.load();
-      if ("mediaSession" in navigator)
-        for (const action of ["play", "pause", "seekto"] as const) {
-          try {
-            navigator.mediaSession.setActionHandler(action, null);
-          } catch {
-            /* Unsupported action. */
-          }
-        }
     };
   }, [audioRef, playbackRef, duration, canComment, share, url, versionId]);
   return (

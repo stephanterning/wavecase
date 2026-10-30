@@ -43,6 +43,8 @@ The integration suite creates synthetic accounts and media in `wavecase_test`. I
 
 Use HTTPS with the configured `APP_URL` for phone testing. Check upload, playback, comments, background audio, lock-screen controls, and narrow-screen layout in Safari on the iPhone. Native passkey prompts, actual audio output, and mobile background behavior need this manual device verification even when server tests pass.
 
+For lock-screen metadata, play a demo through a private share link and a release on a real phone. Confirm the track title, artist and cover match the page; check release track changes (including automatic progression and a track-specific artist), pause/resume from the lock screen, and a demo without artwork. Leaving the player must clear its metadata. Private demo covers must still require an active share link or the owner's session.
+
 ## Review regressions to include in the owner walkthrough
 
 - Create an onward link after the newest version loses its audio. Older versions must remain hidden. Creating that policy before any version is published must show a clear error.
