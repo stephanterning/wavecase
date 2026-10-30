@@ -1,23 +1,25 @@
+const amazonStorefronts = [
+  "amazon.com",
+  "amazon.co.uk",
+  "amazon.de",
+  "amazon.fr",
+  "amazon.it",
+  "amazon.es",
+  "amazon.co.jp",
+  "amazon.ca",
+  "amazon.com.au",
+  "amazon.com.br",
+  "amazon.com.mx",
+  "amazon.in",
+];
+
 const services = [
   { icon: "spotify", domains: ["spotify.com", "spotify.link"] },
   { icon: "deezer", domains: ["deezer.com", "deezer.page.link"] },
   { icon: "soundcloud", domains: ["soundcloud.com"] },
   {
     icon: "amazon-music",
-    domains: [
-      "music.amazon.com",
-      "music.amazon.co.uk",
-      "music.amazon.de",
-      "music.amazon.fr",
-      "music.amazon.it",
-      "music.amazon.es",
-      "music.amazon.co.jp",
-      "music.amazon.ca",
-      "music.amazon.com.au",
-      "music.amazon.com.br",
-      "music.amazon.com.mx",
-      "music.amazon.in",
-    ],
+    domains: amazonStorefronts.map((domain) => `music.${domain}`),
   },
   { icon: "qobuz", domains: ["qobuz.com"] },
   { icon: "youtube", domains: ["youtube.com", "youtu.be"] },
@@ -34,6 +36,16 @@ export function getReleaseServiceIcon(url: string): string | undefined {
     return undefined;
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return;
+  // Amazon also shares player links on its storefronts; ordinary shop links are not music links.
+  if (
+    parsed.pathname.startsWith("/music/player/") &&
+    amazonStorefronts.some(
+      (domain) =>
+        parsed.hostname === domain || parsed.hostname === `www.${domain}`,
+    )
+  ) {
+    return "/service-icons/amazon-music.png";
+  }
   const service = services.find(({ domains }) =>
     domains.some(
       (domain) =>

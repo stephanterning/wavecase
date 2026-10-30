@@ -68,6 +68,32 @@ test("unknown destinations and service names outside the hostname have no icon",
   }
 });
 
+test("Amazon storefronts identify only links to the music player", () => {
+  for (const url of [
+    "https://amazon.com/music/player/albums/B0GYQFC27P",
+    "https://www.amazon.com/music/player/albums/B0084DSWD2?ref=dm_sh_example",
+    "https://www.amazon.co.uk/music/player/tracks/B0084DSWD2",
+    "https://amazon.de/music/player/albums/B0084DSWD2",
+  ]) {
+    assert.equal(
+      getReleaseServiceIcon(url),
+      "/service-icons/amazon-music.png",
+      url,
+    );
+  }
+  for (const url of [
+    "https://www.amazon.com/dp/B0084DSWD2",
+    "https://www.amazon.com/music",
+    "https://www.amazon.com/music/player-accessories/",
+    "https://www.amazon.com/?next=/music/player/albums/B0084DSWD2",
+    "https://www.amazon.com.example.org/music/player/albums/B0084DSWD2",
+    "https://www.amazon.com@example.org/music/player/albums/B0084DSWD2",
+    "https://shop.amazon.com/music/player/albums/B0084DSWD2",
+  ]) {
+    assert.equal(getReleaseServiceIcon(url), undefined, url);
+  }
+});
+
 test("invalid URLs and unsupported protocols have no icon", () => {
   for (const url of [
     "",

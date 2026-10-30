@@ -240,7 +240,7 @@ Release creation initially uses a separate upload and metadata-entry workflow. R
 
 Each artist has a public page listing their published releases. Each release has its own public page with artwork, relevant metadata and credits, and owner-supplied links to streaming services and online shops such as Bandcamp. Visitors do not need a Wavecase account to view these pages.
 
-On release pages, links to Spotify, Deezer, SoundCloud, Amazon Music, Qobuz, YouTube, Apple Music, Tidal, and TikTok display the supplied service icon beside the owner's link label. Identify the service from the destination hostname and serve the icons locally. Other destinations keep their text links.
+On release pages, links to Spotify, Deezer, SoundCloud, Amazon Music, Qobuz, YouTube, Apple Music, Tidal, and TikTok display the supplied service icon beside the owner's link label. Identify the service from the destination hostname and serve the icons locally. On Amazon storefront hosts, only `/music/player/` links receive the Amazon Music icon. Other destinations keep their text links.
 
 ### Public addresses and presentation
 
