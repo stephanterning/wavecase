@@ -1,0 +1,50 @@
+services:
+  db:
+    restart: unless-stopped
+    image: postgres:17
+    environment:
+      POSTGRES_USER: wavecase
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: wavecase
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U wavecase]
+      interval: 3s
+      retries: 20
+  web:
+    restart: unless-stopped
+    build: .
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    ports: ["${BIND_ADDRESS:-127.0.0.1}:3000:3000"]
+    environment: &environment
+      DATABASE_URL: postgres://wavecase:${POSTGRES_PASSWORD}@db:5432/wavecase
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      DATA_DIR: /data/audio
+      PORT: 3000
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-256}
+      MAX_DURATION_SECONDS: ${MAX_DURATION_SECONDS:-7200}
+      TRUST_PROXY: ${TRUST_PROXY:-}
+      GEOIP_DATABASE: ${GEOIP_DATABASE:-}
+    volumes: [./data/audio:/data/audio]
+    depends_on:
+      db: { condition: service_healthy }
+  worker:
+    restart: unless-stopped
+    build: .
+    command: [npm, run, worker]
+    environment: *environment
+    volumes: [./data/audio:/data/audio]
+    depends_on:
+      web: { condition: service_healthy }

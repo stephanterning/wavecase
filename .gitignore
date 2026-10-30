@@ -8,3 +8,4 @@ build/
 coverage/
 data/
 *.log
+.react-router/

@@ -1,0 +1,63 @@
+# Local testing
+
+No implementation changes should be pushed before the owner has tested them.
+
+## Automated checks
+
+```sh
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+The default tests exercise audio conversion, exact duration comparison, interval coverage, and cross-origin rejection. Database-dependent tests are explicitly skipped without an isolated test database.
+
+With the Compose database running, create the test database once:
+
+```sh
+docker compose exec db createdb -U wavecase wavecase_test
+```
+
+Build the current image and run its integration tests:
+
+```sh
+docker compose build
+docker compose run --rm --no-deps web sh -c 'export DATABASE_URL="${DATABASE_URL%/wavecase}/wavecase_test"; npm run db:migrate && npm test'
+```
+
+The integration suite creates synthetic accounts and media in `wavecase_test`. It verifies signed WebAuthn registration/authentication, setup closure, challenge replay rejection, invitation consumption, owner isolation, version visibility, comment isolation, and background audio replacement. It never uses the normal installation database. Test audio is created in temporary directories and removed after testing.
+
+## Owner walkthrough
+
+1. Open `http://localhost:3000`, create your first administrator account with a passkey, and select invitation-only registration. Sign out and back in.
+2. Create a track from a WAV file. Confirm the suggested title, version label, processing state, player, waveform, and measurements. Try a high-resolution WAV and a lower-quality MP3.
+3. Upload a second version. Change labels, descriptions, status, and download permissions. Switch versions while playing and paused. Try repeat, Space to play/pause, wheel zoom, and right-button range selection in both directions.
+4. Create two differently named links. Use a private browser window for listener testing so owner playback is not excluded. Check each link's version range and original download permissions.
+5. Comment under a chosen name, add replies from both sides, filter owner feedback by version and link, navigate from a timestamp, and delete your own comments. Confirm other links cannot see those threads.
+6. Listen, seek forward/back, and repeat a passage. Inspect listening activity, session details, coverage, and heatmaps. Location requires an optional configured MMDB file; unavailable information should remain unknown.
+7. Disable a link and verify its public page becomes neutral and direct media access fails. Re-enable it and verify its previous comments remain.
+8. Replace a commented version with an unequal-duration file and confirm rejection preserves the existing playable file. Replace it with an equal-duration file and confirm comments remain. Remove audio, request reupload as a listener, and restore the version.
+9. Add a second passkey. Create an invitation, register a second account, and verify private library separation. Test account disablement and recovery with a disposable second account before relying on recovery for your main account.
+10. Restart the containers and verify metadata, comments and audio remain. Test a worker restart during processing.
+
+Use HTTPS with the configured `APP_URL` for phone testing. Check upload, playback, comments, background audio, lock-screen controls, and narrow-screen layout in Safari on the iPhone. Native passkey prompts, actual audio output, and mobile background behavior need this manual device verification even when server tests pass.
+
+## Review regressions to include in the owner walkthrough
+
+- Create an onward link after the newest version loses its audio. Older versions must remain hidden. Creating that policy before any version is published must show a clear error.
+- Switch between versions with different statuses and download settings. The settings form must reflect the selected version, including after changing an unsaved field on the previous version.
+- Listen before entering a name, then comment. Earlier activity through that link must acquire the name. Changing versions must not add another visit; revisiting the page should.
+- Inspect link/browser summaries, session timelines, visitor context and download details. An unused link should show zero activity. Unknown location or referrer must remain unknown.
+- Request reupload after commenting under a name. Check the listener confirmation and the name in the owner's request item.
+- Upload a CAF source and choose a musical status. Check the inferred version label, automatic publication, correct status and playable WAV derivative. The original download must remain the CAF file when allowed.
+
+The follow-up browser checks used an isolated local test service with synthetic audio and temporary authenticated test sessions. They did not exercise native passkey enrollment or simulate an iPhone operating system. Do not substitute the narrow desktop viewport check for real phone testing.
+
+## Player and comment interaction checks
+
+- Space toggles playback even when a non-input control has focus; typing spaces in the comment modal must not affect playback.
+- Add comment opens a modal with no time inputs. Right-clicking the waveform opens a point comment with a start time. Drag the right mouse button in either direction to create a range with ordered start/end times, including after zooming and panning.
+- On a phone, pinch to zoom. A touch hold selects a point; hold then drag to select a range. Pinch or a cancelled pointer must not accidentally open a comment. Check these gestures on a real device, not just a narrow desktop viewport.
+- Escape/cancel dismisses the modal and restores focus. Successful submission closes it and displays the new thread. Replies also use a modal and keep their original link/version context.
+- Confirm the player has custom play/pause and elapsed/total time, a repeat icon toggle and tooltip, and a separate download icon. No native audio controls, restart button, or zoom slider should remain.

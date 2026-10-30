@@ -4,7 +4,7 @@ Wavecase lets musicians share work in progress, collect feedback on particular v
 
 The initial personal installation serves one uploader and approximately ten listeners per month. The public open-source project must also support independent installations with multiple uploaders. Application limits must be configurable rather than tied to the initial installation.
 
-This specification captures the product interview through October 30, 2026. Product requirements and the selected stack are recorded below. Proposed implementation defaults and remaining details are explicitly separated from agreed requirements. Implementation has not started.
+This specification captures the product interview through October 30, 2026. Product requirements and the selected stack are recorded below. Proposed implementation defaults and remaining details are explicitly separated from agreed requirements. Implementation is being validated locally; see [implementation status](implementation-status.md).
 
 ## Project scope
 
@@ -99,7 +99,7 @@ Each link has one of two policies:
 | All versions | All existing and future versions of the track. |
 | From a version onward | The latest version at link creation and all versions uploaded after it. Earlier versions are hidden. |
 
-The second policy stores a fixed starting version. The uploader can later edit the policy and its starting point, as well as the link label and download setting, without changing the share URL.
+New share links default to Latest and future versions (the second policy). The second policy stores a fixed starting version. The uploader can later edit the policy and its starting point, as well as the link label and download setting, without changing the share URL.
 
 An active link opens its newest visible version with an available, ready audio file. If the newest visible version has no audio, use the next newest playable version allowed by that link. Never fall back to a version outside the link's allowed range. If none are playable, show the retained information without playback.
 
@@ -150,7 +150,11 @@ The initial approach is to revisit the share page and see new replies, with unre
 
 ## Playback experience
 
-Both uploader and listener views must work on desktop and mobile, including mobile uploads. Provide a waveform with seeking, zoom, timestamp selection, and range selection for comments. Include play and pause, volume, time display, version selection, and repeat on or off for the entire track. There is no tool for looping a selected interval.
+Both uploader and listener views must work on desktop and mobile, including mobile uploads. Use application-styled player controls: play/pause, elapsed/total time, and a repeat icon toggle with a tooltip. Do not expose native browser audio controls, a restart button, a volume control, or a zoom slider. Original download is an icon with a tooltip outside the playback controls. Space toggles playback throughout the track page, except in text-entry fields, selects, or modified keyboard shortcuts so typing and native input behavior remain usable.
+
+Render the waveform at 220 pixels high. Its visual amplitude may be normalized for legibility without changing the audio. A regular click/tap seeks. Wheel scrolling over the waveform zooms around the pointer; two-finger pinch zooms around the touch midpoint. Dragging pans a zoomed waveform. Arrow keys seek and plus/minus keys zoom when the waveform has focus. There is no tool for looping a selected interval.
+
+Comment creation and replies use a modal, with no inline feedback form on the listening page. The listener's Add comment button opens a whole-version comment with no time inputs. Right-click or touch-and-hold on the waveform selects a point; releasing opens the modal with its start time filled. Holding the right button (or dragging after a touch hold) selects a range in either direction; releasing opens the modal with ordered start/end times. Pinching cancels a pending long press. Keyboard users can open a point comment with the context-menu key or Shift+F10. The modal retains its original version/thread context, traps focus, supports Escape/cancel, and closes after a successful submission.
 
 Support background playback and lock-screen media controls where supported by the platform. Repeat is controlled from the web player; a repeat command is not available in the standard Media Session action set.
 
@@ -184,7 +188,7 @@ Heatmaps measure observed playback rather than buffer downloads. Distinguish tot
 
 Keep detailed analytics until the uploader explicitly deletes them. Removing a track's audio does not remove its analytics. Replacing a version's audio keeps one combined history; do not split reports by file replacement or introduce a visible file-revision history.
 
-Count a play when audio playback first starts. Pausing and resuming or seeking within an ongoing play does not increment the counter. An explicit restart from the beginning, each new whole-track repeat cycle, and starting playback of another version each count as a new play. Every increment requires actual playback; changing versions while paused does not count. Seeking to the beginning alone remains a seek rather than an explicit restart.
+Count a play when audio playback first starts. Pausing and resuming or seeking within an ongoing play does not increment the counter. Each new whole-track repeat cycle and starting playback of another version count as a new play. Every increment requires actual playback; changing versions while paused does not count. Seeking to the beginning alone remains a seek; there is no separate restart control.
 
 Session boundaries remain an implementation detail to finalize. Preserve the underlying playback events so session grouping does not change the agreed play-counting rules.
 
@@ -208,9 +212,9 @@ The uploader can restore a missing file to its existing version, subject to the 
 
 Use a dark theme with clear typography, a prominent waveform, accessible controls, and easy version selection. Keep detailed analytics and administration in their own views so the listening page stays focused on the track and feedback.
 
-The owner's visual references are [Visona](https://visona.org) and [Demmo](https://www.demmo.link). A visual review of those references remains before finalizing the interface. No detailed visual attributes of Visona have been assumed.
+The owner's visual references are [Visona](https://visona.org) and [Demmo](https://www.demmo.link). The approved initial mockup is the implementation's visual baseline; no detailed visual attributes of Visona have been assumed.
 
-The initial layout proposal uses charcoal surfaces, warm off-white text, and a restrained mint accent for playback and primary actions. The listener view gives the track, version selector, waveform, and feedback most of the space. The uploader view puts Feedback below the player, defaulting to the selected version across all links, with version and share-link filters. Compact version and share-link lists and a small activity summary follow. On narrow screens, feedback and management sections stack below the player. This visual direction is a proposal for review, not a finalized interface specification.
+The current layout uses a pure black page background, near-black surfaces and buttons, high-contrast light text and borders, and a restrained mint accent for playback. Pages use the available screen width with modest side padding and smaller vertical spacing; the version selector uses only the space its content needs. The listener view gives the track, version selector, waveform, and feedback most of the space. The uploader view puts Feedback below the player, defaulting to the selected version across all links, with version and share-link filters. Compact version and share-link lists and a small activity summary follow. On narrow screens, feedback and management sections stack below the player. This initial visual direction is approved; final browser and mobile polish remains part of acceptance testing.
 
 ## Selected technology
 
@@ -234,7 +238,7 @@ Keep web routes, shared validation, domain rules, database schema, and worker co
 
 Docker Compose contains three services: the web application, an audio processing worker, and PostgreSQL. The web application and worker share the codebase and mounted audio storage. pg-boss stores jobs in PostgreSQL, so the architecture does not require a separate queue service.
 
-Store original uploads, playback derivatives, and generated waveform data as files in a host-mounted data directory. Store accounts, metadata, ownership, link settings, comments, analytics, and job state in PostgreSQL. PostgreSQL also uses explicitly persistent storage outside its container writable layer.
+Store original uploads and playback derivatives as files in a host-mounted data directory. Store accounts, metadata, generated waveform peaks, ownership, link settings, comments, analytics, and job state in PostgreSQL. Waveform peaks are kept with version metadata to make publication atomic without coordinating a separate waveform file; they remain part of database backups. PostgreSQL also uses explicitly persistent storage outside its container writable layer.
 
 ### Audio processing and delivery
 
@@ -255,17 +259,18 @@ These defaults fill smaller gaps without changing the agreed feature scope. They
 - Use automatic retries for recoverable processing failures and preserve the last valid audio until a replacement succeeds.
 - Derive heatmaps and coverage from recorded played intervals rather than treating transferred bytes as listening.
 
-## Remaining details
+## Initial implementation decisions
 
-The following details should be settled before their affected components are built:
-
-1. Choose session boundaries while preserving the agreed play-counting rules.
-2. Specify exact duration comparison across source formats and sample rates, preserving the requirement for exact equality when comments exist.
-3. Define the conversion behavior for mixed source properties, such as high bit depth at a sample rate below 44.1 kHz, and select supported browser and audio format fixtures.
-4. Define the administrator-assisted passkey replacement and server recovery protocols.
-5. Select the approximate geolocation data source and its installation requirements.
-6. Review the visual references and refine the initial layout proposal for desktop and mobile.
-7. Maintain copyright and dependency notices as implementation dependencies are introduced. The AGPL version 3 license is included in the repository at https://github.com/stephanterning/wavecase.
+- Sessions use a browser-tab session identifier per share link, renewed after 30 minutes without recorded activity. A share-page visit is recorded independently of its player, including when no version has audio. Raw events are retained so grouping can be revised independently of play counts. Temporary telemetry failures retry with stable event IDs while the page remains alive; closing a page can still lose unacknowledged activity. Referring websites are stored as origins only, without paths, query strings or share tokens.
+- Compare replacement duration using decoded source sample frames and sample rate, cross-multiplied as integers. This avoids rounded timestamps and permits exactly equal durations at different sample rates.
+- Preserve compatible lossy originals; for higher-resolution PCM, reduce each property independently without increasing a lower sample rate. Preserve compatible lower-resolution PCM originals. Playback measurements describe the actual playback file.
+- Version visibility uses a monotonic upload order, independent of labels, processing completion, and timestamp precision.
+- Administrator-assisted recovery uses a single-use, 15-minute enrollment link after the administrator verifies identity. Successful recovery replaces prior passkeys and sessions. Administrator recovery requires the server command. Neither path uses email authentication.
+- Optional approximate geolocation uses a local GeoIP City MMDB file supplied by the installation operator. No external lookup is performed. Missing data remains unknown.
+- HTTP media caching requires revalidation; ownership and current link permissions are checked before conditional responses. Already delivered audio cannot be recalled.
+- Unread reply indications are remembered per browser. A cleared browser storage starts without previous read history.
+- Default upload and duration limits are configurable. Supported audio containers are WAV, AIFF, FLAC, MP3, MP4/M4A/MOV, Matroska/WebM, Ogg, AAC, ASF/WMA, APE, WavPack, AU, and CAF, subject to the shipped FFmpeg decoders. Files outside this supported set fail clearly.
+- Device passkey prompts, iPhone background playback, lock-screen controls, and the final desktop/mobile layout require the owner's acceptance testing before publication.
 
 Web push, folders, collaborative track administration, thread resolution states, selected-range looping, and Atmos playback are outside the first release.
 
@@ -291,7 +296,7 @@ Use focused behavior tests and a small set of end-to-end journeys. These scenari
 16. Restarting or recreating containers preserves accounts, metadata, analytics, and files. A worker restart can recover queued work without publishing duplicate versions.
 17. The production build uses React Compiler. Relevant lint, type checking, build, authorization, media processing, and browser checks pass before a release is considered usable.
 18. A successful registration consumes its invitation. Expired, revoked, and already-used invitations cannot create accounts; unsuccessful registration does not consume an otherwise valid invitation.
-19. First playback, explicit restart, whole-track repeat, and playback of another version each increment the play counter. Pause and resume, seeking, and a version change while paused do not.
+19. First playback, whole-track repeat, and playback of another version each increment the play counter. Pause and resume, seeking, and a version change while paused do not.
 20. Owner feedback defaults to the selected version across all links. Choosing all versions includes older threads, and filtering by link narrows either view. Replying preserves the thread's original context. Missing audio prevents seeking but not reading or replying.
 
 ## Technical references
