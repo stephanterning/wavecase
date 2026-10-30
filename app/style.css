@@ -504,10 +504,7 @@ button:hover:not(:disabled),
 .service-links a:hover {
   background: #ffffff20;
 }
-.release-download {
-  padding: 4px 0 24px;
-  border-bottom: 1px solid #ffffff25;
-}
+.release-download,
 .release-credits {
   margin-top: 24px;
 }

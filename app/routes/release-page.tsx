@@ -239,9 +239,28 @@ export default function ReleasePage() {
             ))}
           </ol>
           {error && <p role="alert">{error}</p>}
+          {!!d.release.links.length && (
+            <section>
+              <h2>Stream or buy</h2>
+              <div className="service-links">
+                {d.release.links.map((l, i) => (
+                  <a
+                    key={i}
+                    href={l.url}
+                    onClick={() => event("click", { link: String(i) })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {l.label}
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
           {!!available.length && d.release.published && (
-            <section className="release-download">
-              <h2>Download masters</h2>
+            <details className="release-download">
+              <summary>Download</summary>
               <p>
                 {available.length} of {d.tracks.length} tracks included:{" "}
                 {available.map((t) => t.title).join(", ")}.
@@ -276,31 +295,11 @@ export default function ReleasePage() {
                 </label>
                 <p className="muted">
                   Your address is shared with the release owner and saved with
-                  this download request. This does not subscribe you to a
-                  mailing list.
+                  this download request.
                 </p>
                 <button>Download ZIP</button>
               </form>
-            </section>
-          )}
-          {!!d.release.links.length && (
-            <section>
-              <h2>Listen & buy</h2>
-              <div className="service-links">
-                {d.release.links.map((l, i) => (
-                  <a
-                    key={i}
-                    href={l.url}
-                    onClick={() => event("click", { link: String(i) })}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {l.label}
-                    <span aria-hidden="true">↗</span>
-                  </a>
-                ))}
-              </div>
-            </section>
+            </details>
           )}
           <details className="release-credits">
             <summary>Metadata & credits</summary>
