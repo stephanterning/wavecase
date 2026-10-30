@@ -138,6 +138,9 @@ export default function Track() {
     data.versions.find((v) => v.state === "ready") ||
     data.versions[0];
   const revalidator = useRevalidator();
+  const artwork = data.track.cover
+    ? `/cover/${data.track.id}${data.share ? "?share=" + data.share : ""}`
+    : undefined;
   useEffect(() => {
     if (
       data.owner &&
@@ -175,15 +178,7 @@ export default function Track() {
         )}
       </p>
       {data.track.cover && (
-        <img
-          className="cover"
-          alt="Track cover"
-          src={
-            "/cover/" +
-            data.track.id +
-            (data.share ? "?share=" + data.share : "")
-          }
-        />
+        <img className="cover" alt="Track cover" src={artwork} />
       )}
       <h1>{data.track.title}</h1>
       <p className="muted">{data.track.description}</p>
@@ -263,6 +258,9 @@ export default function Track() {
           {current.state === "ready" ? (
             <Player
               key={current.id + current.revision}
+              title={data.track.title}
+              artist={data.track.artist}
+              artwork={artwork}
               playbackRef={cursor}
               audioRef={audio}
               repeat={repeat}

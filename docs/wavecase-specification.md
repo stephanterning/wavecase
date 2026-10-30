@@ -172,6 +172,8 @@ Comment creation and replies use a modal, with no inline feedback form on the li
 
 Support background playback and lock-screen media controls where supported by the platform. Repeat is controlled from the web player; a repeat command is not available in the standard Media Session action set.
 
+For both demos and releases, provide the playing track's title, artist and available cover artwork to the platform's media session. Releases use the track-specific artist when supplied, otherwise the release artist, and include the release title as the album. Update the metadata when tracks change and clear it when leaving the player or learning that access was revoked. Private demo artwork retains the same access checks as on the listening page.
+
 When switching versions, preserve the playback position when it exists in the destination version and preserve the play or pause state. Starting from zero when the position is outside the new duration is the proposed fallback. Cache already opened versions where practical to make subsequent switches fast. This is an interaction performance requirement, not an offline listening feature.
 
 ## Listening and download analytics
