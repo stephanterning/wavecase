@@ -47,6 +47,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       cover: !!access.track.cover,
     },
     artistUrl: artist ? `/artists/${artist.slug}` : null,
+    artistImageUrl: artist?.hasImage ? `/artist-images/${artist.id}` : null,
     artists: access.owner ? await artistChoices(access.track.ownerId) : [],
     requests: access.owner
       ? await db
@@ -162,8 +163,11 @@ export default function Track() {
       )}
       <p className="eyebrow">
         {data.artistUrl ? (
-          <a href={data.artistUrl} rel="noreferrer">
-            {data.track.artist}
+          <a className="demo-artist" href={data.artistUrl} rel="noreferrer">
+            {data.artistImageUrl && (
+              <img src={data.artistImageUrl} alt="" width={32} height={32} />
+            )}
+            <span>{data.track.artist}</span>
           </a>
         ) : (
           data.track.artist || "MUSIC IN PROGRESS"

@@ -54,6 +54,18 @@ p {
   letter-spacing: 2px;
   color: #b2e0cd;
 }
+.demo-artist {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.demo-artist img {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+}
 .welcome {
   max-width: 620px;
   margin: 8vh auto;

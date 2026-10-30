@@ -18,7 +18,10 @@ export async function artistChoices(ownerId: string) {
 export async function linkedArtist(ownerId: string, artistId: string | null) {
   if (!artistId) return null;
   const [artist] = await db
-    .select(profileFields)
+    .select({
+      ...profileFields,
+      hasImage: sql<boolean>`${artists.image} is not null`,
+    })
     .from(artists)
     .where(and(eq(artists.id, artistId), eq(artists.ownerId, ownerId)));
   return artist || null;
