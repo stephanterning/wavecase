@@ -17,7 +17,7 @@ import { recordVisit, listenerIdentity } from "../components/telemetry";
 import { useEffect, useRef, useState } from "react";
 import { db } from "../server/db";
 import { versions, links, reuploadRequests } from "../server/schema";
-import { sameOrigin, token, hash } from "../server/security";
+import { sameOrigin, token, hash, origin } from "../server/security";
 import { trackAccess } from "../server/access";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let id = params.id;
@@ -44,6 +44,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       : [],
     owner: access.owner,
     share,
+    shareUrl: share ? `${origin}/s/${encodeURIComponent(share)}` : null,
     versions: all
       .filter(
         (v) =>
