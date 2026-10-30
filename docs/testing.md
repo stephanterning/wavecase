@@ -61,3 +61,24 @@ The follow-up browser checks used an isolated local test service with synthetic 
 - On a phone, pinch to zoom. A touch hold selects a point; hold then drag to select a range. Pinch or a cancelled pointer must not accidentally open a comment. Check these gestures on a real device, not just a narrow desktop viewport.
 - Escape/cancel dismisses the modal and restores focus. Successful submission closes it and displays the new thread. Replies also use a modal and keep their original link/version context.
 - Confirm the player has custom play/pause and elapsed/total time, a repeat icon toggle and tooltip, and a separate download icon. No native audio controls, restart button, or zoom slider should remain.
+
+## Release feature walkthrough
+
+The `tests/releases.test.ts` suite checks readable addresses and safe external links, unchanged masters with AAC derivatives, private draft and owner isolation (including another administrator), publication, audio range delivery, coupled audio access, email syntax gating, full/individual ZIP contents, partial-track disclosures, recorded addresses, event deduplication, artist listings and unpublishing. ZIP tests compare extracted WAV bytes to the original upload and inspect artwork and `release-info.txt`. Database scenarios use only `wavecase_test`.
+
+1. Open **Artists & releases** from the library. Create two artist profiles and a release under each. Confirm the pages use readable artist/release addresses and remain stable after title edits.
+2. Create a draft EP with several named tracks. Add artwork, label, release date, credits, ISRCs and streaming/shop links. Preview while signed in; verify the draft is unavailable in a private browser.
+3. Upload a 24-bit/48 kHz PCM WAV for only one track. Wait for processing and enable playback/downloads. Confirm the remaining tracks remain listed without audio. Try a different WAV resolution and verify the displayed format reflects the source.
+4. Publish and open the public page signed out. Check the artist's public listing, artwork background, metadata, desktop and mobile layout, full playback and automatic progression between available tracks.
+5. Try an invalid email, then a valid-looking unverified address. Download all available tracks and an individual track. Verify original WAV bytes, artwork and `release-info.txt`, including the partial track list. No verification email or account should be required.
+6. Check owner statistics for visits, plays, external clicks and requested packages with the submitted addresses. Another account, including an installation administrator, must not access this view.
+7. Replace a ready master with an invalid file. Confirm the error is shown and the existing audio remains usable. Remove audio and verify both playback and download stop for that track. Disable the release audio setting and verify direct audio/download requests fail while the public page remains available.
+8. Unpublish: the public release URL and its media become inaccessible to visitors, and the artist listing excludes it. Republish to the same address.
+
+Physical iPhone playback, actual sound quality and the owner's real artwork/masters still require device acceptance testing. Browser automation with a narrow viewport does not replace it.
+
+## Demo artist profile links
+
+`tests/track-artist.test.ts` covers own-account suggestions/matching, explicit selection, rejection of another account's profile ID, ambiguous names, case/whitespace normalization, rename stability, clearing/free text, private and inactive share links, actual rendered artist links, and the migration backfill without reassigning existing links. Public artist listings still contain only releases.
+
+For a manual check, create a demo with a name matching an owned artist, open its share page, and follow the artist link. Rename that artist and reload the demo: the displayed name should update while the link stays stable. Choose **Match by name / free text** to replace or clear the association. Duplicate profile names can be distinguished by their displayed addresses in the profile selector.

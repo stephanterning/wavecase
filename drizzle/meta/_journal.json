@@ -43,6 +43,20 @@
       "when": 1793348376321,
       "tag": "0005_luxuriant_roughhouse",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793373081022,
+      "tag": "0006_lazy_anita_blake",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793384579080,
+      "tag": "0007_dizzy_sandman",
+      "breakpoints": true
     }
   ]
 }

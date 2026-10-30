@@ -5,8 +5,10 @@ import { db } from "./db";
 import { versions, comments } from "./schema";
 import { boss, queue } from "./queue";
 import { processAudio, sameDuration } from "./audio";
+import { startReleaseWorker, reconcileReleases } from "./release-worker";
 const directory = process.env.DATA_DIR || "data/audio";
 await queue();
+await startReleaseWorker();
 await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
   for (const job of jobs) {
     const version = await db.query.versions.findFirst({
@@ -98,6 +100,7 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
 });
 // Reconcile pending uploads so a crash between storing a file and queueing it is recoverable.
 async function reconcile() {
+  await reconcileReleases();
   const pending = await db
     .select({ id: versions.id })
     .from(versions)

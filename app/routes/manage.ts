@@ -1,3 +1,4 @@
+import { resolveTrackArtist } from "../server/track-artist";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { ActionFunctionArgs } from "react-router";
@@ -112,7 +113,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       .update(tracks)
       .set({
         title: z.string().trim().min(1).max(200).parse(form.get("title")),
-        artist: String(form.get("artist") || "").slice(0, 200),
+        ...(await resolveTrackArtist(access.track.ownerId, form)),
         description: String(form.get("description") || "").slice(0, 5000),
       })
       .where(eq(tracks.id, access.track.id));

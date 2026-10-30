@@ -6,6 +6,8 @@ The initial personal installation serves one uploader and approximately ten list
 
 This specification captures the product interview through October 30, 2026. Product requirements and the selected stack are recorded below. Proposed implementation defaults and remaining details are explicitly separated from agreed requirements. Implementation is being validated locally; see [implementation status](implementation-status.md).
 
+Wavecase also includes a separate Releases feature for finished, released music: public artist and release pages, streaming and shop links, optional full-track playback, and email-gated downloads of original masters with artwork and credits. These requirements describe agreed scope, not implementation completion.
+
 ## Project scope
 
 The project includes the application, Docker packaging, first-run setup, persistent storage integration, and documentation needed to run the application. The selected license is GNU AGPL version 3. All committed content is in English, including interface text.
@@ -38,6 +40,10 @@ An uploader account requires a display name and email address. The email address
 
 The application must provide an administrator-assisted process to enroll a replacement passkey after a user loses all existing passkeys. Recovery of the installation administrator requires access to the server. The exact recovery protocol remains a technical design item; it must not introduce ordinary password or email login.
 
+## Work-in-progress library and feedback
+
+The library, version, share-link, playback, analytics, and visual requirements in the following sections describe the work-in-progress and feedback workflow. Public releases have their own requirements under Public artists and releases, including different playback formats, download access, and analytics scope.
+
 ## Library and metadata
 
 The initial library has search and sorting, without folders or shared projects.
@@ -45,9 +51,13 @@ The initial library has search and sorting, without folders or shared projects.
 | Track field | Requirement |
 | --- | --- |
 | Title | Required; suggest a title from the upload filename. |
-| Artist name | Optional. |
+| Artist name | Optional free text or a linked artist profile owned by the same account. |
 | Cover image | Optional. |
 | Description | Optional; shared across versions. |
+
+The artist field offers the account's own artist profiles while retaining free-text entry. Selecting a profile stores its ID. Saving a free-text name automatically links exactly one matching profile in the same account, ignoring letter case and surrounding whitespace. Ambiguous and unmatched names remain unlinked until the owner chooses a profile. Existing demos receive the same unambiguous matching in the migration; already linked demos are not reassigned.
+
+On both the owner's demo page and authorized share pages, a linked artist displays the profile's current name as a link to its public artist page, including when that page has no published releases. If the profile has an image, show a small thumbnail to the left of the name within the same link. Renaming a profile preserves the relationship and URL. Free-text names stay plain text. The link does not publish the demo or list it on the artist page, and private share-link access rules remain unchanged. Listener responses must not include the owner's other artist-profile choices.
 
 Each version has its own name, description, upload timestamp, download permission, and status. Version names are user-defined, such as `v1`, `v1.1`, or `v3.2`. Suggest a version name from the filename when recognizable and allow the uploader to correct it. Labels do not determine ordering.
 
@@ -216,6 +226,87 @@ The owner's visual references are [Visona](https://visona.org) and [Demmo](https
 
 The current layout uses a pure black page background, near-black surfaces and buttons, high-contrast light text and borders, and a restrained mint accent for playback. Pages use the available screen width with modest side padding and smaller vertical spacing; the version selector uses only the space its content needs. The listener view gives the track, version selector, waveform, and feedback most of the space. The uploader view puts Feedback below the player, defaulting to the selected version across all links, with version and share-link filters. Compact version and share-link lists and a small activity summary follow. On narrow screens, feedback and management sections stack below the player. This initial visual direction is approved; final browser and mobile polish remains part of acceptance testing.
 
+## Public artists and releases
+
+### Scope and ownership
+
+Account holders can manage multiple artist profiles within the same Wavecase account. Each release belongs to one primary artist profile; guest artists are recorded in metadata. Support singles, EPs, and albums from the first version of this feature, with an ordered track list.
+
+Release creation initially uses a separate upload and metadata-entry workflow. Release masters and metadata are independent of work-in-progress tracks, versions, private share links, and feedback. Editing or removing work-in-progress audio must not change a published release. Creating a release from an existing work-in-progress track is deferred.
+
+Each artist has a public page listing their published releases. Each release has its own public page with artwork, relevant metadata and credits, and owner-supplied links to streaming services and online shops such as Bandcamp. Visitors do not need a Wavecase account to view these pages.
+
+### Public addresses and presentation
+
+Artist and release URLs must be logical, human-readable, and suitable for search engines, using meaningful artist names and release titles rather than opaque generated identifiers.
+
+The visual references supplied by the owner are [Anjunachill](https://anjunachill.co/abc01.gcn) and [Martin Dice — Pressure on Amuse](https://share.amuse.io/track/martin-dice-pressure). Screenshots were supplied during the product discussion. Use the release artwork to form the full-page background, alongside a clearly displayed cover, artist, title, and service links. The exact layout remains a proposed design below.
+
+### Optional audio and coupled availability
+
+Audio uploads are optional. A release may contain only artwork, metadata, and external links, or may have audio for only some tracks. Show the full track list and make audio availability clear.
+
+Playback and download availability are controlled together by one release-level setting; there are no independent playback-only or download-only modes. When enabled, tracks with uploaded, ready audio can be played in full on the release page and downloaded. Playback does not require an email address. When disabled, the public artwork, metadata, and external links remain available, but Wavecase playback and downloads are unavailable. Enforce this setting on direct media and download requests as well as in the interface.
+
+Accept WAV masters, preferring 24-bit, 48 kHz uploads. Other WAV bit depths and sample rates may be uploaded without conversion for download. Preserve the uploaded master unchanged, including existing tags; never claim a download is 24-bit, 48 kHz unless that is its actual format. Show the actual download format.
+
+Separate playback derivatives may be generated. AAC at 256 kbit/s is the agreed minimum playback quality. This permission to create listening copies does not permit rewriting or converting the downloadable masters and is separate from the work-in-progress WAV playback policy.
+
+### Download packages and email gate
+
+Offer both a complete-release ZIP and individual-track ZIPs. Every ZIP includes:
+
+- The unchanged original WAV file or files included in that download.
+- Release artwork in PNG or JPG format.
+- A readable `release-info.txt` containing relevant metadata and credits. An individual-track package includes release-level information and that track's information.
+
+Download names remain readable outside Wavecase. A release ZIP and its enclosing directory are named `Artist - Release title`; an individual-track ZIP and directory are named `Artist - Track title`. WAV filenames use `NN - Artist - Track title.wav`, preserving the track's release number even in partial or individual downloads. Use a track-specific artist when supplied, otherwise the primary release artist. All files, including `artwork.png` and `release-info.txt`, go inside the named directory. Preserve spaces and Unicode letters, including Swedish characters; replace unsafe filesystem characters and bound filename length. Renaming package entries must not change WAV contents.
+
+For a release with only some masters uploaded, the release ZIP contains only the available tracks. Before download, clearly identify the included tracks and the partial coverage, for example, `3 of 5 tracks included`. Include the package's track list in `release-info.txt` as well. Do not imply that unavailable audio is included.
+
+A visitor must enter an email address with valid syntax before downloading. Do not require an account, mailbox verification, a confirmation email, or proof that the address exists. After accepting the address, start the requested download immediately and save the supplied address with the download event in the database. The gate must also apply to direct package requests; an entered address must not grant access to disabled or otherwise unavailable downloads.
+
+The address is self-reported, not a verified identity. Associate each download event with the requested release or individual track, the package contents, and the time. A request or initiated transfer must not be presented as proof that the entire download completed.
+
+### Metadata and credits
+
+Include relevant release and track metadata and credits on the release page and in the download text file. Label and track-level ISRC are explicitly required fields to support; guest artists are metadata rather than additional primary profile ownership. The proposed field inventory below remains subject to refinement, including which fields are mandatory to publish.
+
+### Release analytics
+
+The initial release analytics scope is:
+
+- Page views.
+- Plays per track.
+- Clicks on external links, attributed to the selected link.
+- Download events with the supplied email address, time, and requested release or track.
+
+Display this information inside Wavecase for the owner. CSV export is deferred. Do not include heatmaps, detailed listening timelines, or the work-in-progress workflow's detailed listening analysis in this feature. Download addresses and non-public statistics follow account ownership boundaries; public pages must not expose them, and installation administrator status alone does not grant access to another owner's data.
+
+### Proposed release defaults and remaining details
+
+The following proposals were discussed but have not been individually finalized. They must not be mistaken for additional agreed requirements:
+
+- Publication workflow: private draft, preview, manual publication, editing, and unpublishing. Only published releases appear on the artist page; republication retains the address. Exact editing and publication behavior remains to be finalized.
+- Address pattern: `/artists/martin-dice` and `/artists/martin-dice/pressure`. Suggest lowercase, hyphenated slugs from names and titles, allow edits before publication, and resolve conflicts with meaningful suffixes. Keep published addresses stable when display names change; redirect old addresses after an explicit URL change. Namespace and collision rules remain to be finalized.
+- Search and sharing: index published pages, provide descriptive page titles and descriptions, cover-image link previews, and structured music metadata.
+- Artist page: artist name, optional profile image, short biography, external links, and published releases ordered by release date, newest first.
+- Release layout: large cover beside the player and track list on desktop; a single column on mobile. Use a blurred, darkened artwork background, ordinary page scrolling, consistent service-link styling, and expandable detailed metadata. Keep feedback threads and work-in-progress version controls out of this page. Automatic progression through the track list is a proposed player behavior.
+- Release metadata: title, primary artist, release type, release date, label, catalog number, UPC/EAN, artwork, description, genre, and phonographic/copyright notices. Track metadata: title, artist and guests, track number, version designation, ISRC, songwriters, producers, other credits, explicit marking, and measured duration.
+- Email handling: explain at entry that the supplied address is shared with the release owner and stored with the download. Mailing-list subscription would require a separate choice and is not included in the agreed feature. Retention/deletion rules and whether repeat downloads reuse an earlier submission remain to be finalized.
+- Counting: exclude the authenticated owner's own visits and test playback; count plays only after playback actually starts. Exact visit, replay, and duplicate-event counting rules, and whether artist-page views need a separate report, remain to be finalized.
+
+### Release acceptance scenarios
+
+1. One account manages multiple artist profiles. Each release belongs to one primary profile, while guest artists remain metadata. Public artist pages list the appropriate published releases using readable URLs.
+2. A single, EP, or album can be published without audio. Its artwork, metadata, track list, and external links remain usable without a visitor account.
+3. A release with audio for three of five tracks shows all five tracks, allows full playback of the three available tracks when enabled, and clearly identifies those three as the release ZIP contents.
+4. Turning the release's audio setting off disables both playback and downloads, including direct requests, while preserving the public page and external links. Turning it on restores both for ready audio.
+5. Invalid email syntax prevents a download. A syntactically valid but unverified address starts the requested download without account creation or an email-confirmation step and is recorded with the event.
+6. Both release and individual-track ZIPs include artwork and `release-info.txt`. Each WAV matches its original upload, including when its resolution differs from the preferred 24-bit, 48 kHz format. Playback derivatives do not alter those originals.
+7. Owners can inspect page views, per-track plays, external-link clicks, and download events with supplied addresses inside Wavecase. Public visitors and other account holders cannot inspect private download addresses or analytics.
+8. Removing or replacing work-in-progress audio does not change a release's independently uploaded masters, metadata, or public availability.
+
 ## Selected technology
 
 | Responsibility | Technology |
@@ -311,3 +402,11 @@ Use focused behavior tests and a small set of end-to-end journeys. These scenari
 - [Media Session actions](https://developer.mozilla.org/en-US/docs/Web/API/MediaSession/setActionHandler) define browser integration with media controls.
 - [Apple Web Push requirements](https://developer.apple.com/documentation/usernotifications/sending-web-push-notifications-in-web-apps-and-browsers) describe platform requirements for a future notification feature.
 - [GNU AGPL version 3](https://choosealicense.com/licenses/agpl-3.0/) describes the selected source-availability obligations.
+
+## Initial release-feature implementation decisions
+
+The first implementation uses the proposed private draft, preview, manual publish/unpublish workflow. Publishing requires artwork and at least one named track; audio and the remaining metadata are optional. Published metadata edits take effect when saved. Artist and release slugs are set at creation, with explicit validation and readable alternatives required for collisions; changing names does not change URLs. Explicit URL renaming/redirect management remains deferred.
+
+Release playback uses mono/stereo AAC at a target of 256 kbit/s in M4A files. WAV masters remain unchanged. Artwork is normalized to PNG at up to 2000 pixels per side and included in every ZIP. Downloads stream directly rather than assembling entire albums in memory. Each request requires an email submission and is recorded, including owner download requests; authenticated owner visits and plays are excluded from public statistics. Download addresses are not verified or subscribed to a mailing list.
+
+The initial statistics view counts release-page visits, actual per-track playback starts, external-link clicks and download requests. Pause/resume is not a new play; replaying after the end is. Event IDs deduplicate duplicate submissions. Artist-page view counts, detailed listening telemetry, CSV export, address-retention tooling and explicit slug changes are outside this implementation. The existing work-in-progress analytics remain unchanged.
