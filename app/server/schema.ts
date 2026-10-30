@@ -1,5 +1,7 @@
 import {
   pgTable,
+  uniqueIndex,
+  index,
   uuid,
   text,
   boolean,
@@ -65,6 +67,7 @@ export const invitations = pgTable("invitations", {
 });
 export const tracks = pgTable("tracks", {
   id: id(),
+  artistId: uuid().references(() => artists.id, { onDelete: "set null" }),
   ownerId: uuid()
     .notNull()
     .references(() => users.id),
@@ -157,3 +160,81 @@ export const reuploadRequests = pgTable("reupload_requests", {
   name: text(),
   createdAt: created(),
 });
+
+export const artists = pgTable("artists", {
+  id: id(),
+  ownerId: uuid()
+    .notNull()
+    .references(() => users.id),
+  name: text().notNull(),
+  slug: text().notNull().unique(),
+  bio: text().notNull().default(""),
+  image: text(),
+  links: jsonb()
+    .$type<{ label: string; url: string }[]>()
+    .notNull()
+    .default([]),
+  createdAt: created(),
+});
+export const releases = pgTable(
+  "releases",
+  {
+    id: id(),
+    artistId: uuid()
+      .notNull()
+      .references(() => artists.id),
+    title: text().notNull(),
+    slug: text().notNull(),
+    kind: text().notNull().default("single"),
+    description: text().notNull().default(""),
+    cover: text(),
+    metadata: jsonb()
+      .$type<import("../domain/releases").ReleaseMetadata>()
+      .notNull()
+      .default({}),
+    links: jsonb()
+      .$type<{ label: string; url: string }[]>()
+      .notNull()
+      .default([]),
+    published: boolean().notNull().default(false),
+    audioEnabled: boolean().notNull().default(false),
+    createdAt: created(),
+  },
+  (table) => [
+    uniqueIndex("release_artist_slug").on(table.artistId, table.slug),
+  ],
+);
+export const releaseTracks = pgTable("release_tracks", {
+  id: id(),
+  releaseId: uuid()
+    .notNull()
+    .references(() => releases.id),
+  title: text().notNull(),
+  position: integer().notNull(),
+  metadata: jsonb()
+    .$type<import("../domain/releases").TrackMetadata>()
+    .notNull()
+    .default({}),
+  original: text(),
+  playback: text(),
+  pendingOriginal: text(),
+  error: text(),
+  duration: doublePrecision(),
+  sampleRate: integer(),
+  bitDepth: integer(),
+});
+export const releaseEvents = pgTable(
+  "release_events",
+  {
+    id: id(),
+    releaseId: uuid()
+      .notNull()
+      .references(() => releases.id),
+    kind: text().notNull(),
+    trackId: uuid().references(() => releaseTracks.id),
+    email: text(),
+    detail: text(),
+    createdAt: created(),
+  },
+  (table) => [index("release_events_release").on(table.releaseId)],
+);

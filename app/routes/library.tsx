@@ -1,3 +1,5 @@
+import { TrackArtistField } from "../components/track-artist-field";
+import { artistChoices, resolveTrackArtist } from "../server/track-artist";
 import { uploadVersion } from "../server/upload";
 import { limitedBody } from "../server/request";
 import { versionStatuses } from "../domain/versions";
@@ -13,6 +15,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const search = new URL(request.url).searchParams.get("q") || "";
   return {
     user,
+    artists: await artistChoices(user.id),
     search,
     sort: new URL(request.url).searchParams.get("sort") || "newest",
     tracks: await db
@@ -43,9 +46,17 @@ export async function action({ request }: ActionFunctionArgs) {
   const title = String(form.get("title") || "").trim();
   if (!title || title.length > 200)
     return { error: "Enter a title of up to 200 characters." };
+  let artist;
+  try {
+    artist = await resolveTrackArtist(user.id, form);
+  } catch (error) {
+    if (error instanceof Response && error.status === 400)
+      return { error: await error.text() };
+    throw error;
+  }
   const [track] = await db
     .insert(tracks)
-    .values({ ownerId: user.id, title })
+    .values({ ownerId: user.id, title, ...artist })
     .returning();
   const file = form.get("audio");
   if (file instanceof File && file.size) await uploadVersion(track.id, form);
@@ -58,6 +69,7 @@ export default function Library() {
     <>
       <div className="heading">
         <div>
+          <a href="/releases">Artists & releases</a>
           <p className="eyebrow">YOUR LIBRARY</p>
           <h1>Music in progress.</h1>
         </div>
@@ -140,6 +152,7 @@ export default function Library() {
           Title
           <input name="title" required maxLength={200} />
         </label>
+        <TrackArtistField profiles={data.artists} />
         <button>Create track</button>
         {result?.error && <p role="alert">{result.error}</p>}
       </Form>

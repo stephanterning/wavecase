@@ -73,3 +73,24 @@ The follow-up browser checks used an isolated local test service with synthetic 
 - On desktop and phone, check dialog focus, Escape/close, mutually exclusive radios, and actual downloaded files. Real Safari/iPhone audio output remains a device acceptance check.
 
 Validation for the audio ceiling change: all 34 tests passed in the Docker image against `wavecase_test`, including real FFmpeg conversion and worker tests. Lint, TypeScript and production builds passed. Browser checks confirmed the default WAV choice, mutually exclusive format radios, MP3-only choices for lossy sources, Escape/focus restoration, and an actual downloaded MP3 verified as 320 kbps at 48 kHz. The dialog was visually checked in a narrow browser viewport; this does not replace real iPhone playback testing.
+
+## Release feature walkthrough
+
+The `tests/releases.test.ts` suite checks readable addresses and safe external links, unchanged masters with AAC derivatives, private draft and owner isolation (including another administrator), publication, audio range delivery, coupled audio access, email syntax gating, full/individual ZIP contents, partial-track disclosures, recorded addresses, event deduplication, artist listings and unpublishing. ZIP tests compare extracted WAV bytes to the original upload and inspect artwork and `release-info.txt`. Database scenarios use only `wavecase_test`.
+
+1. Open **Artists & releases** from the library. Create two artist profiles and a release under each. Confirm the pages use readable artist/release addresses and remain stable after title edits.
+2. Create a draft EP with several named tracks. Add artwork, label, release date, credits, ISRCs and streaming/shop links. Preview while signed in; verify the draft is unavailable in a private browser.
+3. Upload a 24-bit/48 kHz PCM WAV for only one track. Wait for processing and enable playback/downloads. Confirm the remaining tracks remain listed without audio. Try a different WAV resolution and verify the displayed format reflects the source.
+4. Publish and open the public page signed out. Check the artist's public listing, artwork background, metadata, desktop and mobile layout, full playback and automatic progression between available tracks.
+5. Try an invalid email, then a valid-looking unverified address. Download all available tracks and an individual track. Verify original WAV bytes, artwork and `release-info.txt`, including the partial track list. No verification email or account should be required.
+6. Check owner statistics for visits, plays, external clicks and requested packages with the submitted addresses. Another account, including an installation administrator, must not access this view.
+7. Replace a ready master with an invalid file. Confirm the error is shown and the existing audio remains usable. Remove audio and verify both playback and download stop for that track. Disable the release audio setting and verify direct audio/download requests fail while the public page remains available.
+8. Unpublish: the public release URL and its media become inaccessible to visitors, and the artist listing excludes it. Republish to the same address.
+
+Physical iPhone playback, actual sound quality and the owner's real artwork/masters still require device acceptance testing. Browser automation with a narrow viewport does not replace it.
+
+## Demo artist profile links
+
+`tests/track-artist.test.ts` covers own-account suggestions/matching, explicit selection, rejection of another account's profile ID, ambiguous names, case/whitespace normalization, rename stability, clearing/free text, private and inactive share links, actual rendered artist links, and the migration backfill without reassigning existing links. Public artist listings still contain only releases.
+
+For a manual check, create a demo with a name matching an owned artist, open its share page, and follow the artist link. Rename that artist and reload the demo: the displayed name should update while the link stays stable. Choose **Match by name / free text** to replace or clear the association. Duplicate profile names can be distinguished by their displayed addresses in the profile selector.

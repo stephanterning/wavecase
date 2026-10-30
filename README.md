@@ -76,3 +76,59 @@ Database integration tests only execute when `DATABASE_URL` ends in `/wavecase_t
 The [interface concept](docs/design/wavecase-design.html) is an earlier interactive mockup with example data. Its [editable fragment](docs/design/wavecase-design.fragment.html) is preserved for reference.
 
 Copyright © 2026 Wavecase contributors. Licensed under [GNU AGPL version 3](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.md). All committed content is written in English.
+
+## Published Docker images
+
+GitHub Actions tests pull requests and pushes to every branch with PostgreSQL 17
+and FFmpeg, including the database integration suite. Successful branch builds publish
+`ghcr.io/stephanterning/wavecase:sha-<full-40-character-commit>` for both
+`linux/arm64` (Apple Silicon) and `linux/amd64`. The workflow can also be run
+manually for any branch selected in **Actions → Test and publish image → Run
+workflow**. Re-running it preserves an already published commit image. Pull
+requests test only; they never publish images.
+
+Publishing a GitHub Release or pre-release adds its version tag to the existing
+commit image, without rebuilding it. Use names such as `v0.1.0-rc.1` and
+`v0.1.0`. Wait for the commit's image build to succeed before publishing a
+release; if it is still building, re-run the failed release job afterwards.
+Release commits must have a published branch build; they do not need to be on
+`main`. Moving an existing version to a different image is rejected. There are no floating `latest` or `main` tags.
+
+To promote a tested candidate, create a stable release tag on **the same commit**
+as the pre-release. Both versions then resolve to the same image digest. The
+Actions job summary records the tag, commit (for releases), and exact
+`ghcr.io/stephanterning/wavecase@sha256:...` reference. Deployments should pin that
+digest. Keep commit and release images in GHCR for as long as deployments or
+rollback plans reference them.
+
+Publishing uses the repository's `GITHUB_TOKEN` with `packages: write`; no
+personal token or deployment credentials are required. After the first publish,
+check the package's visibility and Actions access in GitHub Packages. Public
+source does not automatically make the container package public. Private package
+consumers need registry read access; public images can be pulled anonymously.
+
+Wavecase only builds and publishes software. It does not trigger deployments or
+know about deployment repositories, servers, domains, or environments.
+
+### Image runtime contract
+
+The same image runs both roles:
+
+- **Web:** the default command runs database migrations, then starts the server
+  on port `3000`. `GET /health` checks database connectivity.
+- **Worker:** override the command with `["npm", "run", "worker"]`. Start it after
+  web is healthy. FFmpeg and ffprobe are included in the image.
+- **Explicit migrations:** an orchestrator can run `["npm", "run", "db:migrate"]`
+  once before starting the services, and override web's command with
+  `["npm", "start"]` to avoid migrating again at web startup.
+
+Provide `DATABASE_URL`, `APP_URL` (the exact HTTPS origin), and `DATA_DIR` to both
+roles. Mount the same persistent audio directory at `DATA_DIR` for web and worker
+within one installation. PostgreSQL 17 runs separately using its official image.
+See the configuration table above for upload limits and optional settings.
+
+Each environment needs its own database, credentials, and audio storage. Keep
+setup access restricted until its administrator has registered a passkey at the
+final hostname. Database and audio backups, migration sequencing, health checks,
+and deployment/rollback decisions belong to the operator. Rolling back an image
+does not undo database migrations.

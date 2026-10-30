@@ -24,7 +24,7 @@ app.use(
   }),
 );
 app.use(
-  ["/feedback", "/events", "/visits"],
+  ["/feedback", "/events", "/visits", "/release-assets"],
   rateLimit({
     windowMs: 60000,
     limit: 300,

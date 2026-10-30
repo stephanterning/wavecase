@@ -4,3 +4,5 @@ build
 .react-router
 data
 .env
+.env.*
+!.env.example
