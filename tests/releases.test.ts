@@ -1,3 +1,4 @@
+import { downloadName, zipDisposition } from "../app/server/release-filenames";
 import { RouterContextProvider } from "react-router";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
@@ -168,11 +169,15 @@ test(
         {
           id: track,
           releaseId: release,
-          title: "Pressure",
-          position: 1,
+          title: "Blå timmen",
+          position: 3,
           original: "master.wav",
           ...result,
-          metadata: { isrc: "SEAAA2600001", credits: "Track credits" },
+          metadata: {
+            artist: "Åsa Öberg",
+            isrc: "SEAAA2600001",
+            credits: "Track credits",
+          },
         },
         { id: unavailable, releaseId: release, title: "Bonus", position: 2 },
       ]);
@@ -263,6 +268,14 @@ test(
           ),
         );
         assert.equal(response.headers.get("content-type"), "application/zip");
+        const folder = selection
+          ? "Åsa Öberg - Blå timmen"
+          : "Martin Dice - Pressure";
+        const disposition = response.headers.get("content-disposition")!;
+        assert.equal(
+          decodeURIComponent(disposition.split("filename*=UTF-8''")[1]),
+          folder + ".zip",
+        );
         // Read ZIP central directory to verify exact stored WAV and text entries, without another runtime dependency.
         const zip = Buffer.from(await response.arrayBuffer());
         const end = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
@@ -290,9 +303,16 @@ test(
           entries.set(name, bytes);
           cursor += 46 + nameLength + extra + comment;
         }
-        assert.equal(entries.size, 3);
         assert.deepEqual(
-          entries.get("artwork.png"),
+          [...entries.keys()].sort(),
+          [
+            `${folder}/03 - Åsa Öberg - Blå timmen.wav`,
+            `${folder}/artwork.png`,
+            `${folder}/release-info.txt`,
+          ].sort(),
+        );
+        assert.deepEqual(
+          entries.get(`${folder}/artwork.png`),
           await readFile(join(dir, "artwork.png")),
         );
         assert.deepEqual(
@@ -300,18 +320,34 @@ test(
           await readFile(join(dir, "master.wav")),
         );
         assert.match(
-          entries.get("release-info.txt")!.toString(),
+          entries.get(`${folder}/release-info.txt`)!.toString(),
           /Included tracks: 1 of 2/,
         );
         assert.match(
-          entries.get("release-info.txt")!.toString(),
+          entries.get(`${folder}/release-info.txt`)!.toString(),
           /SEAAA2600001/,
         );
         assert.match(
-          entries.get("release-info.txt")!.toString(),
+          entries.get(`${folder}/release-info.txt`)!.toString(),
           /16 bit, 44100 Hz/,
         );
       }
+      await db
+        .update(releaseTracks)
+        .set({ metadata: {} })
+        .where(eq(releaseTracks.id, track));
+      const fallback = await assetAction(
+        args(post({ email: "fallback@example.test", track }), "download"),
+      );
+      assert.match(
+        fallback.headers.get("content-disposition")!,
+        /Martin%20Dice%20-%20Bl%C3%A5%20timmen/,
+      );
+      assert.ok(
+        Buffer.from(await fallback.arrayBuffer()).includes(
+          Buffer.from("03 - Martin Dice - Blå timmen.wav"),
+        ),
+      );
       const eventId = randomUUID();
       for (let i = 0; i < 2; i++)
         await assetAction(
@@ -349,9 +385,9 @@ test(
             eq(releaseEvents.kind, "download-started"),
           ),
         );
-      assert.equal(downloads.length, 2);
+      assert.equal(downloads.length, 3);
       assert.equal(downloads[0].email, "not-verified@example.test");
-      assert.equal(downloads[0].detail, "1. Pressure");
+      assert.equal(downloads[0].detail, "3. Blå timmen");
       assert.equal(
         (
           await artistLoader({
@@ -383,3 +419,23 @@ test(
     }
   },
 );
+
+test("download filenames preserve readable Unicode and neutralize unsafe path and header characters", () => {
+  assert.equal(
+    downloadName("Åsa Öberg - Blå timmen"),
+    "Åsa Öberg - Blå timmen",
+  );
+  assert.equal(downloadName("CON.txt"), "_CON.txt");
+  assert.equal(downloadName(".."), "Download");
+  assert.equal(downloadName("Music. "), "Music");
+  const long = downloadName("Å".repeat(300));
+  assert.ok(Buffer.byteLength(long) <= 200);
+  assert.equal(long, "Å".repeat(100));
+  const unsafe = downloadName('../A\\B: "Song"\r\n');
+  assert.ok(!/[\/\\<>:"|?*\r\n]/.test(unsafe));
+  assert.ok(!/[\r\n]/.test(zipDisposition(unsafe)));
+  assert.match(
+    zipDisposition(downloadName("Åsa - Blå")),
+    /filename\*=UTF-8''%C3%85sa%20-%20Bl%C3%A5.zip/,
+  );
+});

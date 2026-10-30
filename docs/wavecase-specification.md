@@ -260,6 +260,8 @@ Offer both a complete-release ZIP and individual-track ZIPs. Every ZIP includes:
 - Release artwork in PNG or JPG format.
 - A readable `release-info.txt` containing relevant metadata and credits. An individual-track package includes release-level information and that track's information.
 
+Download names remain readable outside Wavecase. A release ZIP and its enclosing directory are named `Artist - Release title`; an individual-track ZIP and directory are named `Artist - Track title`. WAV filenames use `NN - Artist - Track title.wav`, preserving the track's release number even in partial or individual downloads. Use a track-specific artist when supplied, otherwise the primary release artist. All files, including `artwork.png` and `release-info.txt`, go inside the named directory. Preserve spaces and Unicode letters, including Swedish characters; replace unsafe filesystem characters and bound filename length. Renaming package entries must not change WAV contents.
+
 For a release with only some masters uploaded, the release ZIP contains only the available tracks. Before download, clearly identify the included tracks and the partial coverage, for example, `3 of 5 tracks included`. Include the package's track list in `release-info.txt` as well. Do not imply that unavailable audio is included.
 
 A visitor must enter an email address with valid syntax before downloading. Do not require an account, mailbox verification, a confirmation email, or proof that the address exists. After accepting the address, start the requested download immediately and save the supplied address with the download event in the database. The gate must also apply to direct package requests; an entered address must not grant access to disabled or otherwise unavailable downloads.

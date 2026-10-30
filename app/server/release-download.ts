@@ -1,9 +1,10 @@
+import { downloadName, zipDisposition } from "./release-filenames";
 import { ZipFile } from "yazl";
 import { Readable } from "node:stream";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { directory, releaseAccess } from "./releases";
-import { emailSchema, releaseInfo, slugify } from "../domain/releases";
+import { emailSchema, releaseInfo } from "../domain/releases";
 import { db } from "./db";
 import { releaseEvents } from "./schema";
 export async function downloadRelease(
@@ -29,13 +30,20 @@ export async function downloadRelease(
   );
   if (!tracks.length)
     throw new Response("No audio available for this download", { status: 404 });
-  const files = tracks.map((t, index) => ({
+  const trackArtist = (track: (typeof tracks)[number]) =>
+    track.metadata.artist?.trim() || data.artist.name;
+  const folder = downloadName(
+    selection
+      ? `${trackArtist(tracks[0])} - ${tracks[0].title}`
+      : `${data.artist.name} - ${data.release.title}`,
+  );
+  const files = tracks.map((t) => ({
     path: join(directory(), t.original!),
-    name: `${String(index + 1).padStart(2, "0")}-${slugify(t.title) || "track"}.wav`,
+    name: `${folder}/${downloadName(`${String(t.position).padStart(2, "0")} - ${trackArtist(t)} - ${t.title}`)}.wav`,
   }));
   files.push({
     path: join(directory(), data.release.cover),
-    name: "artwork.png",
+    name: `${folder}/artwork.png`,
   });
   await Promise.all(files.map((f) => stat(f.path)));
   const zip = new ZipFile();
@@ -49,7 +57,7 @@ export async function downloadRelease(
   // Stream stored entries; never buffer full masters or a complete album in memory.
   for (const file of files)
     zip.addFile(file.path, file.name, { compress: false });
-  zip.addBuffer(Buffer.from(info), "release-info.txt");
+  zip.addBuffer(Buffer.from(info), `${folder}/release-info.txt`);
   zip.on("error", (error) => output.destroy(error));
   await db.insert(releaseEvents).values({
     releaseId: id,
@@ -62,7 +70,7 @@ export async function downloadRelease(
   return new Response(Readable.toWeb(output) as ReadableStream, {
     headers: {
       "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="${slugify(selection ? tracks[0].title : data.release.title) || "release"}.zip"`,
+      "Content-Disposition": zipDisposition(folder),
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },
