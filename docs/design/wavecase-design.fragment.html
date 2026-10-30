@@ -1,0 +1,216 @@
+<style>
+#wavecase-concept { --wc-bg:#101213; --wc-surface:#181b1c; --wc-raised:#202526; --wc-line:#303637; --wc-ink:#f1f0ea; --wc-muted:#a5aeac; --wc-accent:#b2e0cd; color:var(--wc-ink); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color-scheme:dark; }
+#wavecase-concept * { box-sizing:border-box; }
+#wavecase-concept [hidden] { display:none!important; }
+#wavecase-concept button,#wavecase-concept select,#wavecase-concept input { font:inherit; }
+#wavecase-concept button { min-height:40px; border:1px solid var(--wc-line); border-radius:8px; background:var(--wc-raised); color:var(--wc-ink); padding:8px 14px; }
+#wavecase-concept button:disabled { opacity:.48; }
+#wavecase-concept button[aria-pressed="true"] { background:var(--wc-accent); color:#15231d; border-color:var(--wc-accent); }
+#wavecase-concept button:focus-visible,#wavecase-concept select:focus-visible { outline:2px solid var(--wc-accent); outline-offset:3px; }
+#wavecase-concept .wc-preview { padding:12px 104px 14px 16px; background:#242a2c; display:flex; gap:12px; flex-wrap:wrap; justify-content:space-between; align-items:center; border-radius:12px 12px 0 0; }
+#wavecase-concept .wc-preview-label { font-size:12px; color:#c0c8c5; }
+#wavecase-concept .wc-switch { display:flex; gap:5px; }
+#wavecase-concept .wc-switch button { padding:6px 12px; }
+#wavecase-concept .wc-app { background:var(--wc-bg); padding:0 32px 28px; border-radius:0 0 12px 12px; }
+#wavecase-concept .wc-top { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:74px; border-bottom:1px solid var(--wc-line); }
+#wavecase-concept .wc-brand { display:flex; gap:10px; align-items:center; font-size:20px; font-weight:500; letter-spacing:-.7px; }
+#wavecase-concept .wc-brand-mark { display:flex; align-items:center; gap:3px; height:24px; color:var(--wc-accent); }
+#wavecase-concept .wc-brand-mark b { display:block; width:3px; background:currentColor; height:10px; border-radius:2px; }
+#wavecase-concept .wc-brand-mark b:nth-child(2) { height:21px; } #wavecase-concept .wc-brand-mark b:nth-child(3) { height:15px; }
+#wavecase-concept .wc-muted { color:var(--wc-muted); }
+#wavecase-concept .wc-small { font-size:12px; }
+#wavecase-concept .wc-heading { display:flex; gap:20px; align-items:center; padding:28px 0 22px; }
+#wavecase-concept .wc-cover { width:96px; height:96px; flex-shrink:0; overflow:hidden; position:relative; border-radius:10px; background:radial-gradient(ellipse at 70% 25%,#d0cdaa 0%,#6a9990 22%,#344b50 50%,#192b31 80%); }
+#wavecase-concept .wc-cover:after { content:""; position:absolute; left:-15%; top:45%; width:130%; height:70%; border-top:1px solid #abb8a650; border-radius:50%; background:linear-gradient(170deg,#16292b,#0c1418); transform:rotate(-16deg); box-shadow:0 -9px 0 #9eb9a215,0 -22px 0 #d0dbbf10; }
+#wavecase-concept .wc-track-meta { flex:1; min-width:0; }
+#wavecase-concept h1 { font-size:32px; font-weight:500; letter-spacing:-1px; line-height:1.15; margin:3px 0 8px; }
+#wavecase-concept h2 { font-size:16px; font-weight:500; margin:0; }
+#wavecase-concept p { margin:0; }
+#wavecase-concept .wc-version-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+#wavecase-concept select { border:1px solid var(--wc-line); border-radius:6px; padding:7px 9px; background:var(--wc-surface); color:var(--wc-ink); }
+#wavecase-concept .wc-status { color:#c3d0be; background:#2b3327; padding:4px 9px; font-size:11px; border-radius:5px; }
+#wavecase-concept .wc-player { padding:20px; background:var(--wc-surface); border:1px solid #252b2c; border-radius:12px; }
+#wavecase-concept .wc-player-top { display:flex; justify-content:space-between; gap:16px; align-items:center; margin-bottom:4px; }
+#wavecase-concept .wc-note { font-size:13px; color:var(--wc-muted); }
+#wavecase-concept .wc-wave { display:block; width:100%; height:100px; }
+#wavecase-concept .wc-ticks { display:flex; justify-content:space-between; color:var(--wc-muted); font-size:11px; font-variant-numeric:tabular-nums; }
+#wavecase-concept .wc-transport { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding-top:18px; }
+#wavecase-concept .wc-play { background:var(--wc-accent); color:#15231d; display:flex; width:46px; height:46px; justify-content:center; align-items:center; border-radius:50%; flex-shrink:0; }
+#wavecase-concept .wc-transport button { border:0; background:transparent; padding:6px; }
+#wavecase-concept .wc-clock { font-variant-numeric:tabular-nums; }
+#wavecase-concept .wc-volume { display:flex; align-items:center; gap:7px; margin-left:auto; }
+#wavecase-concept .wc-volume input { width:72px; accent-color:var(--wc-accent); }
+#wavecase-concept .wc-download { display:flex; align-items:center; gap:6px; }
+#wavecase-concept .wc-metrics { display:flex; flex-wrap:wrap; gap:12px 22px; border-top:1px solid var(--wc-line); margin-top:18px; padding-top:14px; font-size:12px; color:var(--wc-muted); }
+#wavecase-concept .wc-metrics strong { font-weight:400; color:#d8dfda; }
+#wavecase-concept .wc-listener { display:grid; grid-template-columns:1fr 2fr; gap:32px; margin-top:28px; }
+#wavecase-concept .wc-about p { margin-top:10px; color:var(--wc-muted); font-size:13px; max-width:270px; }
+#wavecase-concept .wc-section-title { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
+#wavecase-concept .wc-comment { padding:16px; border:1px solid var(--wc-line); border-radius:9px; background:#15191a; }
+#wavecase-concept .wc-author { display:flex; align-items:center; gap:8px; font-size:12px; margin-bottom:9px; flex-wrap:wrap; }
+#wavecase-concept .wc-avatar { width:24px; height:24px; background:#353e3e; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; }
+#wavecase-concept .wc-time { color:var(--wc-accent); background:#24352e; padding:2px 6px; border-radius:4px; font-variant-numeric:tabular-nums; }
+#wavecase-concept .wc-comment p { font-size:13px; }
+#wavecase-concept .wc-reply { border-left:2px solid var(--wc-line); margin:14px 0 0 12px; padding-left:14px; }
+#wavecase-concept .wc-compose { border:1px solid var(--wc-line); border-radius:9px; padding:14px; margin-top:12px; color:var(--wc-muted); font-size:13px; }
+#wavecase-concept .wc-owner { margin-top:26px; }
+#wavecase-concept .wc-owner-feedback { margin-bottom:26px; }
+#wavecase-concept .wc-filters { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
+#wavecase-concept .wc-filters label { display:grid; gap:5px; color:var(--wc-muted); font-size:12px; min-width:0; max-width:100%; }
+#wavecase-concept .wc-filters select { max-width:100%; }
+#wavecase-concept [data-owner-thread] { margin-top:12px; }
+#wavecase-concept .wc-thread-context { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; color:var(--wc-muted); font-size:12px; }
+#wavecase-concept .wc-thread-actions { margin-top:14px; }
+#wavecase-concept .wc-thread-actions summary { color:var(--wc-accent); padding:10px 0; }
+#wavecase-concept .wc-thread-actions textarea { display:block; width:100%; min-height:76px; resize:vertical; border:1px solid var(--wc-line); border-radius:6px; background:var(--wc-surface); color:var(--wc-ink); padding:10px; font:inherit; margin:8px 0; }
+#wavecase-concept .wc-summary { display:flex; gap:26px; padding-bottom:22px; border-bottom:1px solid var(--wc-line); }
+#wavecase-concept .wc-summary strong { font-size:22px; font-weight:500; margin-right:7px; }
+#wavecase-concept .wc-owner-grid { display:grid; grid-template-columns:1fr 1.25fr; gap:28px; margin-top:24px; }
+#wavecase-concept .wc-row { display:flex; gap:12px; align-items:center; justify-content:space-between; padding:13px 0; border-top:1px solid var(--wc-line); }
+#wavecase-concept .wc-row-title { font-size:13px; font-weight:500; }
+#wavecase-concept .wc-row-meta { color:var(--wc-muted); font-size:12px; margin-top:3px; }
+#wavecase-concept .wc-current { font-size:11px; color:var(--wc-accent); }
+#wavecase-concept .wc-primary { background:var(--wc-accent); color:#15231d; padding:7px 11px; border-radius:7px; font-size:12px; white-space:nowrap; }
+#wavecase-concept .wc-footer { border-top:1px solid var(--wc-line); padding-top:16px; margin-top:26px; color:var(--wc-muted); font-size:11px; display:flex; justify-content:space-between; gap:12px; }
+@media(max-width:620px) { #wavecase-concept .wc-app { padding:0 18px 20px; } #wavecase-concept .wc-heading { gap:14px; } #wavecase-concept .wc-cover { width:70px; height:80px; } #wavecase-concept h1 { font-size:25px; } #wavecase-concept .wc-listener,#wavecase-concept .wc-owner-grid { grid-template-columns:1fr; gap:22px; } #wavecase-concept .wc-about p { max-width:none; } #wavecase-concept .wc-player { padding:14px; } #wavecase-concept .wc-summary { gap:12px; flex-wrap:wrap; } #wavecase-concept .wc-summary strong { font-size:19px; } #wavecase-concept .wc-volume { display:none; } #wavecase-concept .wc-transport { gap:10px; } #wavecase-concept .wc-download { margin-left:auto; } #wavecase-concept .wc-preview { padding-left:12px; padding-right:100px; } #wavecase-concept .wc-preview-label { width:100%; } #wavecase-concept .wc-status { font-size:11px; } }
+@media(pointer:coarse) { #wavecase-concept button,#wavecase-concept select { min-height:44px; } }
+</style>
+<div id="wavecase-concept">
+  <div class="wc-preview">
+    <span class="wc-preview-label">Design preview · Example content</span>
+    <div class="wc-switch" role="group" aria-label="Preview screen">
+      <button type="button" class="cursor-interaction" data-screen="listener" aria-pressed="true">Listener</button>
+      <button type="button" class="cursor-interaction" data-screen="uploader" aria-pressed="false">Uploader</button>
+    </div>
+  </div>
+  <div class="wc-app" aria-label="Wavecase dark interface concept">
+    <header class="wc-top">
+      <div class="wc-brand"><span class="wc-brand-mark" aria-hidden="true"><b></b><b></b><b></b><b></b></span>wavecase</div>
+      <span class="wc-muted wc-small" data-context>Shared with you</span>
+    </header>
+    <div class="wc-heading">
+      <div class="wc-cover" role="img" aria-label="Abstract green and charcoal cover artwork"></div>
+      <div class="wc-track-meta">
+        <span class="wc-muted wc-small">S. Lind</span>
+        <h1>After the rain</h1>
+        <div class="wc-version-row">
+          <select aria-label="Track version" class="cursor-interaction" data-version><option value="v3.2">v3.2 · Latest</option><option value="v2.0">v2.0</option></select>
+          <span class="wc-status">work in progress</span>
+        </div>
+      </div>
+    </div>
+    <section class="wc-player" aria-label="Audio player appearance">
+      <div class="wc-player-top"><p class="wc-note" data-version-note>Softer vocals. A little more room for the bass.</p><span class="wc-muted" aria-label="Waveform zoom"><i data-lucide="zoom-in" aria-hidden="true"></i></span></div>
+      <svg class="wc-wave" viewBox="0 0 900 100" preserveAspectRatio="none" role="img" aria-label="Example waveform with playback at 1 minute 23 seconds and comment markers"><g data-wave></g></svg>
+      <div class="wc-ticks"><span>0:00</span><span>1:00</span><span>2:00</span><span>3:00</span><span>3:42</span></div>
+      <div class="wc-transport">
+        <span class="wc-play" role="img" aria-label="Play button appearance, no audio in preview"><i data-lucide="play" aria-hidden="true"></i></span>
+        <span class="wc-clock">1:23 <span class="wc-muted">/ 3:42</span></span>
+        <button type="button" class="cursor-interaction" data-repeat aria-label="Repeat entire track" aria-pressed="false"><i data-lucide="repeat" aria-hidden="true"></i></button>
+        <label class="wc-volume wc-muted"><i data-lucide="volume-2" aria-hidden="true"></i><input type="range" min="0" max="100" value="80" aria-label="Volume appearance"></label>
+        <span class="wc-download wc-small" data-download><i data-lucide="download" aria-hidden="true"></i><span data-download-label>Original</span></span>
+      </div>
+      <div class="wc-metrics"><span>LUFS <strong>−12.4</strong></span><span>Peak <strong>−1.2 dBFS</strong></span><span>True peak <strong>−1.0 dBTP</strong></span><span>LRA <strong>6.3 LU</strong></span></div>
+    </section>
+    <div class="wc-listener" data-listener>
+      <section class="wc-about"><h2>A little closer.</h2><p>An early evening idea, slowly finding its shape. I’d love your thoughts on the chorus and the vocal balance.</p></section>
+      <section aria-label="Feedback on the selected version">
+        <div class="wc-section-title"><h2>Feedback <span class="wc-muted wc-small">2</span></h2><span class="wc-muted wc-small">This version</span></div>
+        <div data-thread>
+          <article class="wc-comment"><div class="wc-author"><span class="wc-avatar">A</span><span>Anna</span><span class="wc-time">1:23–1:38</span><span class="wc-muted">2 hours ago</span></div><p>The chorus opens up beautifully here. Could the vocal come forward just a little?</p><div class="wc-reply"><div class="wc-author"><span>S. Lind</span><span class="wc-muted">Uploader</span></div><p>Yes, I hear it too. I’ll try that in the next mix.</p></div></article>
+        </div>
+        <article data-older-thread hidden class="wc-comment"><div class="wc-author"><span class="wc-avatar">A</span><span>Anna</span><span class="wc-time">0:42</span><span class="wc-muted">3 days ago</span></div><p>Love the bass coming in here. Could it have a little more space?</p></article>
+        <div class="wc-compose">Leave feedback on this version…</div>
+      </section>
+    </div>
+    <div class="wc-owner" data-uploader hidden>
+      <section class="wc-owner-feedback" aria-label="Uploader feedback">
+        <div class="wc-section-title"><h2>Feedback</h2><span class="wc-muted wc-small" data-feedback-count aria-live="polite">2 threads</span></div>
+        <div class="wc-filters">
+          <label>Versions<select class="cursor-interaction" data-feedback-versions><option value="selected" data-selected-option>Selected version · v3.2</option><option value="all">All versions</option></select></label>
+          <label>Share link<select class="cursor-interaction" data-feedback-link><option value="all">All links</option><option value="anna">Anna · Mix feedback</option><option value="mastering">Mastering · October</option></select></label>
+        </div>
+        <article class="wc-comment" data-owner-thread data-thread-version="v3.2" data-thread-link="anna">
+          <div class="wc-thread-context"><span>v3.2</span><span>·</span><span>Anna · Mix feedback</span></div>
+          <div class="wc-author"><span class="wc-avatar">A</span><span>Anna</span><span class="wc-time">1:23–1:38</span><span class="wc-muted">2 hours ago</span></div>
+          <p>The chorus opens up beautifully here. Could the vocal come forward just a little?</p>
+          <div class="wc-reply"><div class="wc-author"><span>S. Lind</span><span class="wc-muted">Uploader</span></div><p>Yes, I hear it too. I’ll try that in the next mix.</p></div>
+          <details class="wc-thread-actions"><summary class="cursor-interaction">Reply in this thread</summary><label class="wc-small">Reply via Anna · Mix feedback · v3.2<textarea placeholder="Write a reply…"></textarea></label><button type="button" disabled>Send reply · Preview only</button></details>
+        </article>
+        <article class="wc-comment" data-owner-thread data-thread-version="v3.2" data-thread-link="mastering">
+          <div class="wc-thread-context"><span>v3.2</span><span>·</span><span>Mastering · October</span></div>
+          <div class="wc-author"><span class="wc-avatar">J</span><span>Jonas</span><span class="wc-time">Whole version</span><span class="wc-muted">1 hour ago</span></div>
+          <p>Downloaded the original. There’s enough headroom to work with here.</p>
+          <details class="wc-thread-actions"><summary class="cursor-interaction">Reply in this thread</summary><label class="wc-small">Reply via Mastering · October · v3.2<textarea placeholder="Write a reply…"></textarea></label><button type="button" disabled>Send reply · Preview only</button></details>
+        </article>
+        <article class="wc-comment" data-owner-thread data-thread-version="v2.0" data-thread-link="anna" hidden>
+          <div class="wc-thread-context"><span>v2.0</span><span>·</span><span>Anna · Mix feedback</span></div>
+          <div class="wc-author"><span class="wc-avatar">A</span><span>Anna</span><span class="wc-time">0:42</span><span class="wc-muted">3 days ago</span></div>
+          <p>Love the bass coming in here. Could it have a little more space?</p>
+          <details class="wc-thread-actions"><summary class="cursor-interaction">Reply in this thread</summary><label class="wc-small">Reply via Anna · Mix feedback · v2.0<textarea placeholder="Write a reply…"></textarea></label><button type="button" disabled>Send reply · Preview only</button></details>
+        </article>
+        <p class="wc-muted wc-small" data-feedback-empty hidden>No feedback matches these filters.</p>
+      </section>
+      <div class="wc-summary"><span><strong>12</strong><span class="wc-muted wc-small">plays</span></span><span><strong>3</strong><span class="wc-muted wc-small">browsers</span></span><span><strong>4</strong><span class="wc-muted wc-small">comments</span></span></div>
+      <div class="wc-owner-grid">
+        <section><div class="wc-section-title"><h2>Versions</h2><span class="wc-primary">Upload version</span></div><div class="wc-row"><div><div class="wc-row-title">v3.2 <span class="wc-current">Latest</span></div><div class="wc-row-meta">Oct 30 · work in progress</div></div><span class="wc-muted wc-small">3:42</span></div><div class="wc-row"><div><div class="wc-row-title">v2.0</div><div class="wc-row-meta">Oct 27 · work in progress</div></div><span class="wc-muted wc-small">3:42</span></div></section>
+        <section><div class="wc-section-title"><h2>Share links</h2><span class="wc-primary">Create link</span></div><div class="wc-row"><div><div class="wc-row-title">Anna · Mix feedback</div><div class="wc-row-meta">All versions · Downloads off</div></div><div class="wc-small">8 plays<div class="wc-muted wc-small">2 browsers</div></div></div><div class="wc-row"><div><div class="wc-row-title">Mastering · October</div><div class="wc-row-meta">From v3.2 · Downloads on</div></div><div class="wc-small">4 plays<div class="wc-muted wc-small">1 browser</div></div></div></section>
+      </div>
+    </div>
+    <footer class="wc-footer"><span>Music in the making.</span><span data-footer-context>Private listening link</span></footer>
+  </div>
+</div>
+<script>
+(() => {
+  const root = document.getElementById('wavecase-concept');
+  const initial = window.openai?.widgetState?.modelContent || {};
+  function readState(s) { return {screen:s.screen==='listener'?'listener':'uploader',version:s.version==='v2.0'?'v2.0':'v3.2',repeat:s.repeat===true,feedbackVersions:s.feedbackVersions==='all'?'all':'selected',feedbackLink:['anna','mastering'].includes(s.feedbackLink)?s.feedbackLink:'all'}; }
+  const state = readState(initial);
+  const palette = { accent:'#b2e0cd' };
+  const wave = root.querySelector('[data-wave]');
+  const ns = 'http://www.w3.org/2000/svg';
+  for (let i=0;i<180;i++) {
+    const bar = document.createElementNS(ns,'rect');
+    const envelope = 0.28 + 0.72*Math.abs(Math.sin(i*0.037));
+    const height = 8 + 67*envelope*(0.3+0.7*Math.abs(Math.sin(i*1.83)*Math.cos(i*0.43)));
+    bar.setAttribute('x',String(i*5)); bar.setAttribute('y',String(50-height/2));
+    bar.setAttribute('width','3');bar.setAttribute('height',String(height));bar.setAttribute('rx','1');
+    bar.setAttribute('fill',i<67?'var(--wc-accent)':'#515d5a');wave.appendChild(bar);
+  }
+  const marker = document.createElementNS(ns,'rect');marker.setAttribute('x','335');marker.setAttribute('y','5');marker.setAttribute('width','1.5');marker.setAttribute('height','90');marker.setAttribute('fill','var(--wc-accent)');wave.appendChild(marker);
+  function render() {
+    const owner = state.screen === 'uploader';
+    root.querySelector('[data-listener]').hidden=owner;root.querySelector('[data-uploader]').hidden=!owner;
+    root.querySelector('[data-context]').textContent=owner?'Your library / Track':'Shared with you';
+    root.querySelector('[data-footer-context]').textContent=owner?'Your track overview':'Private listening link';
+    root.querySelectorAll('[data-screen]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.screen===state.screen)));
+    root.querySelector('[data-repeat]').setAttribute('aria-pressed',String(state.repeat));
+    root.querySelector('[data-version]').value=state.version;
+    root.querySelector('[data-version-note]').textContent=state.version==='v3.2'?'Softer vocals. A little more room for the bass.':'First full arrangement. Exploring the chorus.';
+    root.querySelector('[data-thread]').hidden=state.version!=='v3.2';root.querySelector('[data-older-thread]').hidden=state.version==='v3.2';
+    root.querySelector('[data-listener] h2 .wc-small').textContent=state.version==='v3.2'?'2':'1';
+    root.querySelector('[data-download-label]').textContent=state.version==='v3.2'?'Original':'Unavailable';
+    root.querySelector('[data-download]').style.opacity=state.version==='v3.2'?'1':'.45';
+    root.querySelector('[data-feedback-versions]').value=state.feedbackVersions;
+    root.querySelector('[data-selected-option]').textContent='Selected version · '+state.version;
+    root.querySelector('[data-feedback-link]').value=state.feedbackLink;
+    let visibleThreads=0;
+    root.querySelectorAll('[data-owner-thread]').forEach(thread=>{
+      thread.hidden=!(state.feedbackVersions==='all'||thread.dataset.threadVersion===state.version)||!(state.feedbackLink==='all'||thread.dataset.threadLink===state.feedbackLink);
+      if(!thread.hidden)visibleThreads++;
+    });
+    root.querySelector('[data-feedback-count]').textContent=visibleThreads+' '+(visibleThreads===1?'thread':'threads');
+    root.querySelector('[data-feedback-empty]').hidden=visibleThreads!==0;
+    root.style.setProperty('--wc-accent',palette.accent);
+  }
+  function save() { const promise=window.openai?.setWidgetState?.({modelContent:{...state},privateContent:null});if(promise?.catch)promise.catch(()=>{}); }
+  root.querySelectorAll('[data-screen]').forEach(b=>b.addEventListener('click',()=>{state.screen=b.dataset.screen;render();save();}));
+  root.querySelector('[data-repeat]').addEventListener('click',()=>{state.repeat=!state.repeat;render();save();});
+  root.querySelector('[data-version]').addEventListener('change',e=>{state.version=e.target.value;render();save();});
+  root.querySelector('[data-feedback-versions]').addEventListener('change',e=>{state.feedbackVersions=e.target.value;render();save();});
+  root.querySelector('[data-feedback-link]').addEventListener('change',e=>{state.feedbackLink=e.target.value;render();save();});
+  window.addEventListener('openai:set_globals',e=>{const s=e.detail?.globals?.widgetState?.modelContent;if(!s)return;Object.assign(state,readState(s));render();});
+  render();
+  if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:render});tweak.addColorPicker(palette,'accent',{label:'Playback accent',reference:'--wc-accent'});}
+})();
+</script>
