@@ -107,9 +107,22 @@ test("media sessions show the current track and clear private metadata and contr
     title: "First release track",
     artist: "Guest artist",
     album: "Release title",
-    artwork: [{ src: "/release-assets/release/cover" }],
+    artwork: [
+      {
+        src: "/release-assets/release/artwork.jpg?v=cover.png",
+        sizes: "512x512",
+        type: "image/jpeg",
+      },
+    ],
   });
   assert.equal(metadata()?.album, "Release title");
+  assert.deepEqual(metadata()?.artwork, [
+    {
+      src: "/release-assets/release/artwork.jpg?v=cover.png",
+      sizes: "512x512",
+      type: "image/jpeg",
+    },
+  ]);
   assert.equal(session.playbackState, "playing");
   stopRelease();
   const stopNext = attach({ title: "Next track", artist: "", artwork: [] });

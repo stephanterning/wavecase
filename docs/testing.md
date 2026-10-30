@@ -45,6 +45,8 @@ Use HTTPS with the configured `APP_URL` for phone testing. Check upload, playbac
 
 For lock-screen metadata, play a demo through a private share link and a release on a real phone. Confirm the track title, artist and cover match the page; check release track changes (including automatic progression and a track-specific artist), pause/resume from the lock screen, and a demo without artwork. Leaving the player must clear its metadata. Private demo covers must still require an active share link or the owner's session.
 
+Release media sessions use a dedicated 512 × 512 JPEG with explicit dimensions and MIME type, instead of the full-resolution PNG. Non-square artwork is fitted and padded without cropping. Existing releases need no re-upload, and page/download covers remain unchanged. The artwork URL changes when the cover is replaced; draft and unpublished artwork still requires the owner's session. Regression tests decode the generated JPEG, verify its size and headers, preserve the original cover/ZIP bytes, and check access before and after publication.
+
 If a media file fails to load or decode, the media session must clear its metadata and stop reporting playback. After loading a valid source, playback must restore metadata. On releases, successful playback through the lock-screen control must also clear any previous playback error on the page.
 
 ## Review regressions to include in the owner walkthrough
