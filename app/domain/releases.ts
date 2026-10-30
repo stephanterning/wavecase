@@ -42,6 +42,33 @@ export type ReleaseMetadata = Partial<
 export type TrackMetadata = Partial<
   Record<(typeof trackFields)[number], string>
 > & { explicit?: boolean };
+
+// A single-track release can use its track credits in the page heading.
+// Album track guests must not become release-wide artist credits.
+export function releaseArtistSuffix(
+  primaryArtist: string,
+  tracks: { metadata: TrackMetadata }[],
+) {
+  if (tracks.length !== 1) return "";
+  const { artist, guests } = tracks[0].metadata;
+  const primary = primaryArtist.trim().toLowerCase();
+  const seen = new Set([primary]);
+  const additional = (
+    artist?.trim().toLowerCase() === primary ? "" : artist || ""
+  )
+    .split(",")
+    .map((name) => name.trim())
+    .filter((name) => {
+      const key = name.toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  return (
+    (additional.length ? `, ${additional.join(", ")}` : "") +
+    (guests?.trim() ? ` featuring ${guests.trim()}` : "")
+  );
+}
 export const externalLinksSchema = z
   .array(
     z.object({

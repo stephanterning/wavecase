@@ -278,6 +278,8 @@ The address is self-reported, not a verified identity. Associate each download e
 
 Include relevant release and track metadata and credits on the release page and in the download text file. Label and track-level ISRC are explicitly required fields to support; guest artists are metadata rather than additional primary profile ownership. The proposed field inventory below remains subject to refinement, including which fields are mandatory to publish.
 
+For a release containing one track, the artist line below the release title also shows that track's additional artists and guests. Keep the primary profile name first and linked; show additional comma-separated artist names as plain text and guests after `featuring`. Omit repeated primary artist names. Releases with multiple tracks retain the primary profile in the heading, so a guest on one track is not credited across the whole release.
+
 ### Release analytics
 
 The initial release analytics scope is:

@@ -1,4 +1,4 @@
-import { releasePath } from "../domain/releases";
+import { releaseArtistSuffix, releasePath } from "../domain/releases";
 import { getReleaseServiceIcon } from "../domain/release-services";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
@@ -159,12 +159,10 @@ export default function ReleasePage() {
             {d.release.kind.toUpperCase()} · {d.release.metadata.releaseDate}
           </p>
           <h1>{d.release.title}</h1>
-          <a className="release-artist" href={`/artists/${d.artist.slug}`}>
-            {d.artist.name}
-          </a>
-          {d.release.metadata.label && (
-            <p className="muted">{d.release.metadata.label}</p>
-          )}
+          <div className="release-artist">
+            <a href={`/artists/${d.artist.slug}`}>{d.artist.name}</a>
+            {releaseArtistSuffix(d.artist.name, d.tracks)}
+          </div>
           <p className="preserve-lines">{d.release.description}</p>
           <audio
             ref={audio}
