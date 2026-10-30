@@ -1,4 +1,5 @@
 import { releasePath } from "../domain/releases";
+import { getReleaseServiceIcon } from "../domain/release-services";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   useLoaderData,
@@ -243,18 +244,26 @@ export default function ReleasePage() {
             <section>
               <h2>Stream or buy</h2>
               <div className="service-links">
-                {d.release.links.map((l, i) => (
-                  <a
-                    key={i}
-                    href={l.url}
-                    onClick={() => event("click", { link: String(i) })}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {l.label}
-                    <span aria-hidden="true">↗</span>
-                  </a>
-                ))}
+                {d.release.links.map((l, i) => {
+                  const icon = getReleaseServiceIcon(l.url);
+                  return (
+                    <a
+                      key={i}
+                      href={l.url}
+                      onClick={() => event("click", { link: String(i) })}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span className="release-service-label">
+                        {icon && (
+                          <img src={icon} alt="" width={32} height={32} />
+                        )}
+                        <span>{l.label}</span>
+                      </span>
+                      <span aria-hidden="true">↗</span>
+                    </a>
+                  );
+                })}
               </div>
             </section>
           )}

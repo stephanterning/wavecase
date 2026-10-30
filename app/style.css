@@ -531,6 +531,23 @@ button:hover:not(:disabled),
 .service-links a:hover {
   background: #ffffff20;
 }
+.release-public .service-links a {
+  align-items: center;
+}
+.release-service-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.release-service-label img {
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.release-service-label > span {
+  min-width: 0;
+}
 .release-download,
 .release-credits {
   margin-top: 24px;
