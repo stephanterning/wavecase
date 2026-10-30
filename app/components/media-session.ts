@@ -63,18 +63,19 @@ export function useMediaSession(
     title?: string;
     artist?: string;
     album?: string;
-    artwork?: string | null;
+    artwork?: MediaImage | null;
   },
   onError: () => void,
 ) {
   const fail = useEffectEvent(onError);
+  const { src, sizes, type } = artwork ?? {};
   useEffect(() => {
     const media = audioRef.current;
     if (!media || title === undefined) return;
     return attachMediaSession(
       media,
-      { title, artist, album, artwork: artwork ? [{ src: artwork }] : [] },
+      { title, artist, album, artwork: src ? [{ src, sizes, type }] : [] },
       () => fail(),
     );
-  }, [audioRef, title, artist, album, artwork]);
+  }, [audioRef, title, artist, album, src, sizes, type]);
 }

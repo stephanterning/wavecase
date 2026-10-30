@@ -29,6 +29,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     image: d.release.cover
       ? `${origin}/release-assets/${d.release.id}/cover`
       : null,
+    mediaArtwork: d.release.cover
+      ? {
+          src: `${origin}/release-assets/${d.release.id}/artwork.jpg?v=${encodeURIComponent(d.release.cover)}`,
+          sizes: "512x512",
+          type: "image/jpeg",
+        }
+      : null,
   };
 }
 export const meta: MetaFunction<typeof loader> = ({ loaderData: data }) => {
@@ -91,7 +98,7 @@ export default function ReleasePage() {
       title: selectedTrack?.title,
       artist: selectedTrack?.metadata.artist || d.artist.name,
       album: d.release.title,
-      artwork: d.image,
+      artwork: d.mediaArtwork,
     },
     () => setError("Playback could not start. Please try again."),
   );

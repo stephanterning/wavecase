@@ -33,6 +33,7 @@ import {
 } from "../app/routes/release-assets";
 
 import { loader as artistLoader } from "../app/routes/artist";
+import { loader as releaseLoader } from "../app/routes/release-page";
 const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
 process.env.DATABASE_URL ??= "postgres://localhost/wavecase_test";
 const { action: editAction } = await import("../app/routes/release-edit");
@@ -161,10 +162,18 @@ test(
         join(dir, "master.wav"),
       ]);
       const result = await processReleaseAudio(dir, "master.wav");
-      await writeFile(
+      await exec("ffmpeg", [
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc=size=2000x1000",
+        "-frames:v",
+        "1",
         join(dir, "artwork.png"),
-        Buffer.from("89504e470d0a1a0a", "hex"),
-      );
+      ]);
+      const originalArtwork = await readFile(join(dir, "artwork.png"));
       await db.insert(releaseTracks).values([
         {
           id: track,
@@ -203,7 +212,45 @@ test(
         });
       const denied = (status: number) => (e: unknown) =>
         e instanceof Response && e.status === status;
+      const page = (cookie?: string) =>
+        releaseLoader({
+          ...args(request(cookie), ""),
+          params: { artist: `artist-${artist}`, release: "pressure" },
+        });
       await assert.rejects(releaseAccess(request(), release), denied(404));
+      for (const cookie of [undefined, outsiderSession])
+        await assert.rejects(
+          assetLoader(args(request(cookie), "artwork.jpg")),
+          denied(404),
+        );
+      const previewArtwork = await assetLoader(
+        args(request(session), "artwork.jpg"),
+      );
+      assert.equal(previewArtwork.headers.get("content-type"), "image/jpeg");
+      const thumbnail = Buffer.from(await previewArtwork.arrayBuffer());
+      await writeFile(join(dir, "thumbnail.jpg"), thumbnail);
+      const { stdout: thumbnailInfo } = await exec("ffprobe", [
+        "-v",
+        "error",
+        "-show_streams",
+        "-of",
+        "json",
+        join(dir, "thumbnail.jpg"),
+      ]);
+      const image = JSON.parse(thumbnailInfo).streams[0];
+      assert.equal(image.codec_name, "mjpeg");
+      assert.equal(image.width, 512);
+      assert.equal(image.height, 512);
+      assert.ok(thumbnail.length < 200_000);
+      assert.deepEqual(
+        await readFile(join(dir, "artwork.png")),
+        originalArtwork,
+      );
+      assert.deepEqual((await page(session)).mediaArtwork, {
+        src: `${origin}/release-assets/${release}/artwork.jpg?v=artwork.png`,
+        sizes: "512x512",
+        type: "image/jpeg",
+      });
       await assert.rejects(
         releaseAccess(request(outsiderSession), release, true),
         denied(404),
@@ -231,6 +278,34 @@ test(
         url: new URL(origin),
         pattern: "/",
       });
+      const publicArtwork = await assetLoader(args(request(), "artwork.jpg"));
+      assert.equal(
+        publicArtwork.headers.get("cache-control"),
+        "private, no-store",
+      );
+      assert.equal(
+        Number(publicArtwork.headers.get("content-length")),
+        thumbnail.length,
+      );
+      assert.deepEqual(
+        Buffer.from(await publicArtwork.arrayBuffer()),
+        thumbnail,
+      );
+      const fullCover = await assetLoader(args(request(), "cover"));
+      assert.equal(fullCover.headers.get("content-type"), "image/png");
+      assert.deepEqual(
+        Buffer.from(await fullCover.arrayBuffer()),
+        originalArtwork,
+      );
+      const head = await assetLoader(
+        args(new Request(origin, { method: "HEAD" }), "artwork.jpg"),
+      );
+      assert.equal(head.headers.get("content-type"), "image/jpeg");
+      assert.equal(
+        Number(head.headers.get("content-length")),
+        thumbnail.length,
+      );
+      assert.equal((await head.arrayBuffer()).byteLength, 0);
       await assert.rejects(assetLoader(args(request(), "audio")), denied(404));
       await assert.rejects(
         assetAction(args(post({ email: "valid@example.test" }), "download")),
@@ -409,9 +484,22 @@ test(
       });
       await assert.rejects(assetLoader(args(ranged, "audio")), denied(404));
       await assert.rejects(
+        assetLoader(args(request(), "artwork.jpg")),
+        denied(404),
+      );
+      await assert.rejects(
         assetAction(args(post({ email: "valid@example.test" }), "download")),
         denied(404),
       );
+      await db
+        .update(releases)
+        .set({ cover: null })
+        .where(eq(releases.id, release));
+      await assert.rejects(
+        assetLoader(args(request(session), "artwork.jpg")),
+        denied(404),
+      );
+      assert.equal((await page(session)).mediaArtwork, null);
     } finally {
       if (previous === undefined) delete process.env.DATA_DIR;
       else process.env.DATA_DIR = previous;

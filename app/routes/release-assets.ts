@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { db } from "../server/db";
 import { releaseEvents } from "../server/schema";
-import { directory, releaseAccess } from "../server/releases";
+import { directory, mediaArtwork, releaseAccess } from "../server/releases";
 import { sameOrigin } from "../server/security";
 import { limitedBody } from "../server/request";
 import { downloadRelease } from "../server/release-download";
@@ -51,11 +51,16 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const data = await releaseAccess(request, params.id!);
-  if (params.kind === "cover") {
+  if (params.kind === "cover" || params.kind === "artwork.jpg") {
     if (!data.release.cover) throw new Response("Not found", { status: 404 });
-    return new Response(await readFile(join(directory(), data.release.cover)), {
+    const thumbnail = params.kind === "artwork.jpg";
+    const body = thumbnail
+      ? await mediaArtwork(data.release.cover)
+      : await readFile(join(directory(), data.release.cover));
+    return new Response(request.method === "HEAD" ? null : body, {
       headers: {
-        "Content-Type": "image/png",
+        "Content-Type": thumbnail ? "image/jpeg" : "image/png",
+        "Content-Length": String(body.length),
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },

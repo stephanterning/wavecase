@@ -91,6 +91,45 @@ export async function storeArtwork(file: File) {
     await unlink(join(directory(), key)).catch(() => {});
   }
 }
+
+// Keep full-resolution covers for pages/downloads, but send small, square
+// artwork to native media controls. Generate from the current authorized cover
+// so existing releases work without re-uploading or retaining another file.
+export async function mediaArtwork(cover: string) {
+  const { stdout } = await promisify(execFile)(
+    "ffmpeg",
+    [
+      "-nostdin",
+      "-v",
+      "error",
+      "-threads",
+      "1",
+      "-protocol_whitelist",
+      "file",
+      "-format_whitelist",
+      "png_pipe",
+      "-i",
+      join(directory(), cover),
+      "-frames:v",
+      "1",
+      "-vf",
+      "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2,setsar=1",
+      "-c:v",
+      "mjpeg",
+      "-pix_fmt",
+      "yuvj420p",
+      "-q:v",
+      "3",
+      "-threads",
+      "1",
+      "-f",
+      "image2pipe",
+      "pipe:1",
+    ],
+    { encoding: "buffer", timeout: 10000, maxBuffer: 1024 * 1024 },
+  );
+  return stdout;
+}
 export function publicRelease(data: Awaited<ReturnType<typeof releaseAccess>>) {
   return {
     artist: { name: data.artist.name, slug: data.artist.slug },

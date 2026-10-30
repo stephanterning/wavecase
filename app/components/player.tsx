@@ -50,8 +50,14 @@ export function Player({
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [error, setError] = useState("");
-  useMediaSession(audioRef, { title, artist, artwork }, () =>
-    setError("Audio could not play. Please try again."),
+  useMediaSession(
+    audioRef,
+    {
+      title,
+      artist,
+      artwork: artwork ? { src: artwork, type: "image/jpeg" } : null,
+    },
+    () => setError("Audio could not play. Please try again."),
   );
   const comment = useEffectEvent((selection: CommentSelection) =>
     onComment?.(selection),
