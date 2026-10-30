@@ -144,6 +144,37 @@ test(
         await readFile(join(directory, rejected.playback!)),
         originalBytes,
       );
+      // Failed conversion must preserve the active master and its cached export.
+      await promisify(execFile)("ffmpeg", [
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "aevalsrc=1.25:s=48000:d=3",
+        "-c:a",
+        "pcm_f32le",
+        join(directory, "over.wav"),
+      ]);
+      await db
+        .update(versions)
+        .set({ pendingOriginal: "over.wav", pendingFilename: "over.wav" })
+        .where(eq(versions.id, version));
+      await boss.send(
+        "process-audio",
+        { versionId: version },
+        { singletonKey: version },
+      );
+      const overRange = await waitFor(version);
+      assert.equal(overRange.state, "ready");
+      assert.match(overRange.error!, /Audio exceeds the PCM range/);
+      assert.equal(overRange.original, initial.original);
+      assert.deepEqual(
+        await readFile(join(directory, overRange.original!)),
+        originalBytes,
+      );
+      assert.ok((await stat(join(directory, cached))).size > 0);
+      await removed("over.wav");
       // Persist a replacement while the worker is down, then recover it after restart.
       const stopped = new Promise((resolve) => child!.once("exit", resolve));
       child!.kill("SIGTERM");

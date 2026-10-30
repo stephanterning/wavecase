@@ -81,7 +81,9 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
               : "failed",
           error:
             error instanceof Error &&
-            /^(Replacement|Upload mono|Audio exceeds)/.test(error.message)
+            /^(Replacement|Upload mono|Audio (exceeds|contains|is empty))/.test(
+              error.message,
+            )
               ? error.message
               : "Audio could not be processed. Check the format and try again.",
           pendingOriginal: null,

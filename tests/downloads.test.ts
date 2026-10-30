@@ -142,6 +142,42 @@ test(
         .where(eq(events.versionId, version));
       assert.equal(recorded.length, 3);
       assert.equal((recorded[1].context as { format: string }).format, "mp3");
+      // Hold the same row lock used during encoding, then revoke the link while
+      // the already-authorized request is waiting. Cached exports must recheck too.
+      const blocker = await pool.connect();
+      let waiting: Promise<Response | unknown> | undefined;
+      try {
+        await blocker.query("BEGIN");
+        await blocker.query(
+          "SELECT id FROM versions WHERE id = $1 FOR UPDATE",
+          [version],
+        );
+        const {
+          rows: [{ pid }],
+        } = await blocker.query("SELECT pg_backend_pid() AS pid");
+        waiting = get("mp3").catch((error: unknown) => error);
+        let blocked = false;
+        for (let i = 0; i < 100 && !blocked; i++) {
+          const { rows } = await pool.query(
+            "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))) AS blocked",
+            [pid],
+          );
+          blocked = rows[0].blocked;
+          if (!blocked) await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        assert.equal(
+          blocked,
+          true,
+          "Download should be waiting for the encoding lock",
+        );
+        await db.update(links).set({ active: false }).where(eq(links.id, link));
+      } finally {
+        await blocker.query("ROLLBACK");
+        blocker.release();
+      }
+      const revoked = await waiting;
+      assert.ok(revoked instanceof Response && revoked.status === 404);
+      await db.update(links).set({ active: true }).where(eq(links.id, link));
       await db
         .update(versions)
         .set({ metadata: { ...result.metadata, wavDownload: false } })

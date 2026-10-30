@@ -70,7 +70,7 @@ The follow-up browser checks used an isolated local test service with synthetic 
 - The first MP3 request may wait for encoding; subsequent requests reuse the same 320 kbps file. Concurrent requests share one encoding. Range and HEAD requests work, and do not add duplicate start events for continuation/HEAD requests.
 - Disable downloads or deactivate the link and check direct WAV/MP3 URLs, including cached MP3. Failed MP3 conversion must leave no partial download and allow retry.
 - Replace or remove audio and verify removal of its cached MP3. A rejected replacement keeps the active master and cached export. Existing published audio keeps its previous playback and original download behavior.
-- On desktop and phone, check dialog focus, Escape/close, mutually exclusive radios, and actual downloaded files. Real Safari/iPhone audio output remains a device acceptance check.
+- On desktop and phone, check dialog focus, Escape/close, Space activation of dialog buttons without triggering playback, mutually exclusive radios, and actual downloaded files. Real Safari/iPhone audio output remains a device acceptance check.
 
 Validation for the audio ceiling change: all 34 tests passed in the Docker image against `wavecase_test`, including real FFmpeg conversion and worker tests. Lint, TypeScript and production builds passed. Browser checks confirmed the default WAV choice, mutually exclusive format radios, MP3-only choices for lossy sources, Escape/focus restoration, and an actual downloaded MP3 verified as 320 kbps at 48 kHz. The dialog was visually checked in a narrow browser viewport; this does not replace real iPhone playback testing.
 
@@ -94,3 +94,10 @@ Physical iPhone playback, actual sound quality and the owner's real artwork/mast
 `tests/track-artist.test.ts` covers own-account suggestions/matching, explicit selection, rejection of another account's profile ID, ambiguous names, case/whitespace normalization, rename stability, clearing/free text, private and inactive share links, actual rendered artist links, and the migration backfill without reassigning existing links. Public artist listings still contain only releases.
 
 For a manual check, create a demo with a name matching an owned artist, open its share page, and follow the artist link. Rename that artist and reload the demo: the displayed name should update while the link stays stable. Choose **Match by name / free text** to replace or clear the association. Duplicate profile names can be distinguished by their displayed addresses in the profile selector.
+
+
+## PR 3 review after merging main
+
+The review reproduced and fixed silently shortened conversions from damaged input, destructive clipping of out-of-range floating-point uploads, and the player intercepting Space on dialog buttons. Audio and MP3 encoding now stop on decoder errors; floating-point non-finite or out-of-range samples produce an upload error before publication. Failed replacements retain the current master and MP3 cache. Tests also revoke a link while an authorized MP3 request waits on the encoding lock, verifying that the later permission check denies the transfer.
+
+All 46 tests passed in Docker against `wavecase_test`, with no skipped database scenarios. Lint, type checking and the production image build passed. The merge preserves the separate public release audio/ZIP workflow and both sets of styles and documentation. In the built app, pressing Space on the focused download-dialog close button closes the modal, restores focus to the download trigger, and leaves playback paused at zero.

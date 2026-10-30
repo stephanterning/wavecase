@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, readFile, stat, readdir } from "node:fs/promises";
+import {
+  mkdtemp,
+  rm,
+  readFile,
+  stat,
+  readdir,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFile } from "node:child_process";
@@ -252,6 +259,64 @@ test("lossy uploads are playable but do not offer WAV export", async () => {
     assert.equal(result.original, "source.mp3");
     assert.equal(result.metadata.wavDownload, false);
     assert.deepEqual(await readFile(join(directory, result.original)), before);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+for (const [name, signal, expected] of [
+  ["over-range", "1.25", /Audio exceeds the PCM range/],
+  ["non-finite", "nan", /Audio contains non-finite samples/],
+] as const)
+  test(`floating-point ${name} input is rejected before destructive conversion`, async () => {
+    const directory = await mkdtemp(join(tmpdir(), "wavecase-float-"));
+    try {
+      const source = join(directory, "float.wav");
+      await exec("ffmpeg", [
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        `aevalsrc=${signal}:s=48000:d=1`,
+        "-c:a",
+        "pcm_f32le",
+        source,
+      ]);
+      const bytes = await readFile(source);
+      await assert.rejects(processAudio(directory, "float.wav"), expected);
+      assert.deepEqual(await readFile(source), bytes);
+      assert.deepEqual(await readdir(directory), ["float.wav"]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+test("decode errors cannot publish shortened masters or cached partial MP3s; encoding can retry", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "wavecase-corrupt-"));
+  try {
+    const source = join(directory, "source.wav");
+    await exec("ffmpeg", [
+      "-v",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "sine=sample_rate=96000:duration=1",
+      "-c:a",
+      "pcm_s32le",
+      source,
+    ]);
+    const bytes = await readFile(source);
+    const corrupt = bytes.subarray(0, bytes.length - 48001);
+    await writeFile(source, corrupt);
+    await assert.rejects(processAudio(directory, "source.wav"));
+    await assert.rejects(encodeMp3(directory, "source.wav"));
+    assert.deepEqual(await readdir(directory), ["source.wav"]);
+    assert.deepEqual(await readFile(source), corrupt);
+    await writeFile(source, bytes);
+    const key = await encodeMp3(directory, "source.wav");
+    assert.equal(Number((await probe(join(directory, key))).bit_rate), 320000);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

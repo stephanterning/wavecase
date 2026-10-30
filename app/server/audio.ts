@@ -54,7 +54,7 @@ export async function processAudio(directory: string, key: string) {
   const originalRaw = join(directory, key + ".source.pcm");
   const raw = join(directory, key + ".pcm");
   const run = (args: string[]) =>
-    exec("ffmpeg", ["-nostdin", "-y", "-v", "error", ...args], {
+    exec("ffmpeg", ["-nostdin", "-y", "-v", "error", "-xerror", ...args], {
       timeout: 600000,
       maxBuffer: 4 * 1024 * 1024,
     });
@@ -70,6 +70,25 @@ export async function processAudio(directory: string, key: string) {
       originalRaw,
     ]);
     const samples = (await stat(originalRaw)).size / (4 * audio.channels);
+    if (!samples) throw new Error("Audio is empty.");
+    // Floating-point masters can exceed full scale; integer PCM cannot. Reject
+    // them before publishing and deleting their source rather than silently clip.
+    if (/^pcm_f/.test(audio.codec_name)) {
+      for await (const chunk of createReadStream(originalRaw)) {
+        const bytes = chunk as Buffer;
+        for (let i = 0; i < bytes.length; i += 4) {
+          const value = bytes.readFloatLE(i);
+          if (!Number.isFinite(value))
+            throw new Error(
+              "Audio contains non-finite samples. Export a valid audio file and try again.",
+            );
+          if (Math.abs(value) > 1)
+            throw new Error(
+              "Audio exceeds the PCM range. Lower peaks to 0 dBFS or below and upload again.",
+            );
+        }
+      }
+    }
     const playback = plan.keepOriginal ? key : key + ".wav";
     const output = join(directory, playback);
     // Force a real sample-format conversion for dither: 32-bit and 24-bit PCM

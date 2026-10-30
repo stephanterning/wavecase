@@ -126,7 +126,7 @@ export function Player({
       if (
         target instanceof HTMLElement &&
         (target.isContentEditable ||
-          target.closest("input, textarea, select, [role='textbox']"))
+          target.closest("input, textarea, select, dialog, [role='textbox']"))
       )
         return;
       event.preventDefault();

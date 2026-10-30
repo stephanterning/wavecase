@@ -42,6 +42,7 @@ export async function encodeMp3(directory: string, key: string) {
         "-y",
         "-v",
         "error",
+        "-xerror",
         ...audioInput,
         "-i",
         join(directory, key),

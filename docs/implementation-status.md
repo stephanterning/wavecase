@@ -65,3 +65,5 @@ Verification: all 28 tests passed against the isolated database, including the n
 ## Readable download package names
 
 Release ZIPs now contain a directory named `Artist - Release title`; individual-track ZIPs and directories use `Artist - Track title`. WAV entries use `NN - Artist - Track title.wav`, preserving release track numbers and using a track-specific artist when supplied. Artwork and credits are inside the same directory. Unicode filenames are preserved through ZIP entries and the HTTP download header; unsafe filesystem characters are replaced and component lengths are bounded. All 29 tests, type checking, lint and the production build pass, including extracted package paths, Swedish names, artist fallback, partial-release numbering and unchanged original WAV bytes.
+
+PR 3 review: merged the public-release and share-preview changes from main, rejected damaged/unsafe floating-point conversions before publication, and kept native Space behavior inside modal dialogs. All 46 tests pass with the isolated database, including release preservation and permission revocation during an in-flight download.
