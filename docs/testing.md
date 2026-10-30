@@ -50,7 +50,7 @@ Use HTTPS with the configured `APP_URL` for phone testing. Check upload, playbac
 - Listen before entering a name, then comment. Earlier activity through that link must acquire the name. Changing versions must not add another visit; revisiting the page should.
 - Inspect link/browser summaries, session timelines, visitor context and download details. An unused link should show zero activity. Unknown location or referrer must remain unknown.
 - Request reupload after commenting under a name. Check the listener confirmation and the name in the owner's request item.
-- Upload a CAF source and choose a musical status. Check the inferred version label, automatic publication, correct status and playable WAV derivative. The original download must remain the CAF file when allowed.
+- Upload a CAF source and choose a musical status. Check the inferred version label, automatic publication, correct status and playable WAV derivative. The same WAV master must serve playback and WAV download, and the CAF upload must be removed only after publication succeeds.
 
 The follow-up browser checks used an isolated local test service with synthetic audio and temporary authenticated test sessions. They did not exercise native passkey enrollment or simulate an iPhone operating system. Do not substitute the narrow desktop viewport check for real phone testing.
 
@@ -61,3 +61,15 @@ The follow-up browser checks used an isolated local test service with synthetic 
 - On a phone, pinch to zoom. A touch hold selects a point; hold then drag to select a range. Pinch or a cancelled pointer must not accidentally open a comment. Check these gestures on a real device, not just a narrow desktop viewport.
 - Escape/cancel dismisses the modal and restores focus. Successful submission closes it and displays the new thread. Replies also use a modal and keep their original link/version context.
 - Confirm the player has custom play/pause and elapsed/total time, a repeat icon toggle and tooltip, and a separate download icon. No native audio controls, restart button, or zoom slider should remain.
+
+
+## Audio ceiling and download formats
+
+- Upload 32-bit/96 kHz PCM: playback and WAV download must use one 24-bit/48 kHz master. Verify triangular dither at the 24-bit quantizer. Upload 32-bit/44.1 kHz and 16-bit/96 kHz to verify that the two ceiling limits work independently.
+- Upload WAV, AIFF, FLAC and ALAC. Open Download audio: WAV is selected, selecting MP3 deselects WAV, and both outputs have the expected extension and content type. Lossy MP3/AAC sources offer MP3 only, including when a compatible playback WAV was necessary.
+- The first MP3 request may wait for encoding; subsequent requests reuse the same 320 kbps file. Concurrent requests share one encoding. Range and HEAD requests work, and do not add duplicate start events for continuation/HEAD requests.
+- Disable downloads or deactivate the link and check direct WAV/MP3 URLs, including cached MP3. Failed MP3 conversion must leave no partial download and allow retry.
+- Replace or remove audio and verify removal of its cached MP3. A rejected replacement keeps the active master and cached export. Existing published audio keeps its previous playback and original download behavior.
+- On desktop and phone, check dialog focus, Escape/close, mutually exclusive radios, and actual downloaded files. Real Safari/iPhone audio output remains a device acceptance check.
+
+Validation for the audio ceiling change: all 34 tests passed in the Docker image against `wavecase_test`, including real FFmpeg conversion and worker tests. Lint, TypeScript and production builds passed. Browser checks confirmed the default WAV choice, mutually exclusive format radios, MP3-only choices for lossy sources, Escape/focus restoration, and an actual downloaded MP3 verified as 320 kbps at 48 kHz. The dialog was visually checked in a narrow browser viewport; this does not replace real iPhone playback testing.

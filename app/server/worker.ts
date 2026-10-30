@@ -1,6 +1,5 @@
 import { eq, and, sql, isNotNull } from "drizzle-orm";
-import { unlink } from "node:fs/promises";
-import { join } from "node:path";
+import { removeAudioFiles } from "./audio-files";
 import { db } from "./db";
 import { versions, comments } from "./schema";
 import { boss, queue } from "./queue";
@@ -42,8 +41,10 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
           .update(versions)
           .set({
             ...result,
-            original: key,
-            filename: current.pendingFilename!,
+            filename:
+              result.metadata.mime === "audio/wav"
+                ? current.pendingFilename!.replace(/\.[^.]+$/, "") + ".wav"
+                : current.pendingFilename!,
             pendingOriginal: null,
             pendingFilename: null,
             state: "ready",
@@ -52,14 +53,13 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
           .where(eq(versions.id, version.id));
         return true;
       });
+      // The upload remains intact until validation and the database commit succeed.
       const cleanup = changed
-        ? [version.original, version.playback]
-        : [key, result.playback];
-      await Promise.all(
-        [...new Set(cleanup)]
-          .filter((p): p is string => !!p && p !== (changed ? key : ""))
-          .map((p) => unlink(join(directory, p)).catch(() => {})),
-      );
+        ? [version.original, version.playback, key].filter(
+            (p) => p !== result.original,
+          )
+        : [key, result.original];
+      await removeAudioFiles(directory, cleanup);
     } catch (error) {
       if (
         error instanceof Error &&
@@ -88,11 +88,7 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
         .where(
           and(eq(versions.id, version.id), eq(versions.pendingOriginal, key)),
         );
-      await Promise.all(
-        [key, key + ".wav"].map((p) =>
-          unlink(join(directory, p)).catch(() => {}),
-        ),
-      );
+      await removeAudioFiles(directory, [key, key + ".wav"]);
     }
   }
 });

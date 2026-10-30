@@ -8,7 +8,7 @@ The October 30 review findings have been addressed. See [the review, resolutions
 
 - React Router framework application, React Compiler, strict TypeScript, PostgreSQL/Drizzle migrations, and Docker web/worker/database services with host-mounted persistence.
 - Passkey-only first setup and sign-in, open/invited registration, single-use invitations, multiple passkeys, account disabling, administrator-assisted recovery, and server administrator recovery.
-- Private libraries, search/sorting, track metadata/covers, filename suggestions, version descriptions/status, upload, original downloads, and protected range delivery.
+- Private libraries, search/sorting, track metadata/covers, filename suggestions, version descriptions/status, upload, WAV/320 kbps MP3 downloads for newly processed audio, legacy original downloads, and protected range delivery.
 - Version-aware share links with independent download permissions, visibility anchors, editing, deactivation, and missing-audio fallback.
 - Link/version-scoped threads and replies, deletion ownership, modal timestamp/range/general feedback and replies, owner version/link filters, timestamp navigation, and browser-local unread indications.
 - Waveform, zoom, range selection, preserved playback position/state, custom play/pause/time/repeat controls, Space shortcut, wheel/pinch zoom, bidirectional comment selection, and Media Session handlers.
@@ -38,3 +38,6 @@ An isolated browser walkthrough verified version settings, feedback filters/repl
 The player now uses custom play/pause, elapsed/total time, and a repeat icon with tooltips. Download is a separate icon. The 220-pixel waveform supports wheel zoom, touch pinch, panning, right-button point/range comments and touch hold/drag selection. Space toggles playback except in editable controls. Comment creation and replies use a native modal dialog with focus restoration; general comments have no timing fields and waveform comments retain their selected timing and version. The restart button, native media controls, inline composers and zoom slider have been removed.
 
 The page uses a black background, darker panels/buttons, brighter text/borders, a compact version selector and responsive full-width spacing. Desktop browser checks verified Space from the page and another focused button, preserved typing spaces, general-comment submission, point-comment timing, reply submission, Escape/focus restoration, repeat state and wheel zoom. The final modal focus and 390-pixel layout were also checked. Gesture tests cover left/right ranges, zoomed coordinates, touch hold, pinch cancellation and pointer cancellation. Physical iPhone pinch/long-press behavior remains a device acceptance check.
+
+
+New audio uses a single playback/download master capped independently at 24 bit and 48 kHz, with triangular dithering for bit-depth reduction above 24. Lossless sources offer WAV (default) and lazily cached LAME 320 kbps MP3; lossy sources offer MP3 only. Existing published files are unchanged. Source-duration metadata is retained for replacement checks. File replacement/removal also cleans cached exports.

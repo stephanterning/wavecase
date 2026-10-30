@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { playbackPlan } from "./audio-policy";
 const exec = promisify(execFile);
 const formats = "wav,aiff,flac,mp3,mov,matroska,ogg,aac,asf,ape,wv,au,caf";
-const input = [
+export const audioInput = [
   "-protocol_whitelist",
   "file,pipe",
   "-format_whitelist",
@@ -19,7 +19,7 @@ export async function processAudio(directory: string, key: string) {
     [
       "-v",
       "error",
-      ...input,
+      ...audioInput,
       "-show_streams",
       "-show_format",
       "-of",
@@ -42,7 +42,13 @@ export async function processAudio(directory: string, key: string) {
   const plan = playbackPlan(
     audio.codec_name,
     Number(audio.sample_rate),
-    Number(audio.bits_per_raw_sample || audio.bits_per_sample || 0),
+    Number(audio.bits_per_raw_sample) ||
+      Number(audio.bits_per_sample) ||
+      (audio.codec_name === "pcm_f64le" || audio.codec_name === "pcm_f64be"
+        ? 64
+        : audio.codec_name === "pcm_f32le" || audio.codec_name === "pcm_f32be"
+          ? 32
+          : 0),
     probe.format.format_name,
   );
   const originalRaw = join(directory, key + ".source.pcm");
@@ -54,7 +60,7 @@ export async function processAudio(directory: string, key: string) {
     });
   try {
     await run([
-      ...input,
+      ...audioInput,
       "-i",
       source,
       "-map",
@@ -66,20 +72,31 @@ export async function processAudio(directory: string, key: string) {
     const samples = (await stat(originalRaw)).size / (4 * audio.channels);
     const playback = plan.keepOriginal ? key : key + ".wav";
     const output = join(directory, playback);
+    // Force a real sample-format conversion for dither: 32-bit and 24-bit PCM
+    // otherwise both use s32 internally and swresample may bypass quantization.
     if (!plan.keepOriginal)
       await run([
-        ...input,
+        ...audioInput,
         "-i",
         source,
         "-map",
         "0:a:0",
-        "-ar",
-        String(plan.sampleRate),
+        "-af",
+        `${plan.dither ? "aformat=sample_fmts=dbl," : ""}aresample=${plan.sampleRate}:filter_size=64:output_sample_bits=${plan.codec === "pcm_s24le" ? 24 : plan.codec === "pcm_s16le" ? 16 : 8}:dither_method=${plan.dither ? "triangular" : "none"}`,
         "-c:a",
         plan.codec,
         output,
       ]);
-    await run([...input, "-i", output, "-map", "0:a:0", "-f", "f32le", raw]);
+    await run([
+      ...audioInput,
+      "-i",
+      output,
+      "-map",
+      "0:a:0",
+      "-f",
+      "f32le",
+      raw,
+    ]);
     const peaks: number[] = [];
     let peak = 0,
       allPeak = 0,
@@ -105,7 +122,7 @@ export async function processAudio(directory: string, key: string) {
       "ffmpeg",
       [
         "-nostdin",
-        ...input,
+        ...audioInput,
         "-i",
         output,
         "-af",
@@ -122,10 +139,13 @@ export async function processAudio(directory: string, key: string) {
     const finite = (v: string) =>
       Number.isFinite(Number(v)) ? Number(v) : null;
     return {
+      original: playback,
       playback,
       duration: total / (audio.channels * plan.sampleRate),
       peaks,
       metadata: {
+        audioPolicy: 2,
+        wavDownload: plan.wavDownload,
         samples,
         sampleRate: Number(audio.sample_rate),
         channels: audio.channels,

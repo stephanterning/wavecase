@@ -2,6 +2,7 @@ import { uploadVersion } from "../server/upload";
 import { limitedBody } from "../server/request";
 import { Player, type Playback } from "../components/player";
 import { Feedback } from "../components/feedback";
+import { Download } from "../components/download";
 import { Icon } from "../components/icons";
 import type { CommentDraft } from "../components/comment-dialog";
 import {
@@ -279,12 +280,18 @@ export default function Track() {
             <span
               className="tooltip"
               data-tooltip={
-                current.canDownload
-                  ? "Download original"
-                  : "Download unavailable"
+                current.canDownload ? "Download audio" : "Download unavailable"
               }
             >
-              {current.canDownload ? (
+              {current.canDownload && current.metadata?.audioPolicy === 2 ? (
+                <Download
+                  key={current.id + current.revision}
+                  versionId={current.id}
+                  versionName={current.name}
+                  share={data.share}
+                  wav={current.metadata?.wavDownload === true}
+                />
+              ) : current.canDownload ? (
                 <a
                   className="icon-action"
                   aria-label="Download original"
@@ -510,7 +517,7 @@ export default function Track() {
             </label>
             <label className="check">
               <input type="checkbox" name="download" />
-              Allow original downloads
+              Allow downloads
             </label>
             <button>Upload version</button>
           </Form>

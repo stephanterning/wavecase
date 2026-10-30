@@ -5,15 +5,17 @@ test("higher resolution is reduced without upsampling a low sample rate", () => 
   assert.deepEqual(playbackPlan("pcm_s24le", 96000, 24, "wav"), {
     keepOriginal: false,
     mime: "audio/wav",
-    sampleRate: 44100,
-    codec: "pcm_s16le",
+    sampleRate: 48000,
+    codec: "pcm_s24le",
+    wavDownload: true,
+    dither: false,
   });
   assert.equal(playbackPlan("pcm_s24le", 22050, 24, "wav").sampleRate, 22050);
 });
 test("lower quality compatible originals are preserved", () => {
   assert.equal(playbackPlan("mp3", 32000, 0, "mp3").keepOriginal, true);
   assert.equal(playbackPlan("pcm_u8", 22050, 8, "wav").keepOriginal, true);
-  assert.equal(playbackPlan("flac", 32000, 16, "flac").keepOriginal, true);
+  assert.equal(playbackPlan("flac", 32000, 16, "flac").keepOriginal, false);
 });
 test("invalid rates fail clearly", () =>
   assert.throws(() => playbackPlan("aac", NaN, 0, "aac")));
@@ -49,4 +51,25 @@ test("direct playback requires a compatible container as well as codec", () => {
     "audio/mp4",
   );
   assert.equal(playbackPlan("vorbis", 32000, 0, "ogg").mime, "audio/ogg");
+});
+
+test("the ceiling limits each property independently and dithers only reductions above 24 bits", () => {
+  for (const [codec, rate, depth, outputRate, outputCodec, dither] of [
+    ["pcm_s32le", 96000, 32, 48000, "pcm_s24le", true],
+    ["pcm_f32le", 44100, 32, 44100, "pcm_s24le", true],
+    ["pcm_s16le", 96000, 16, 48000, "pcm_s16le", false],
+    ["pcm_s16le", 44100, 16, 44100, "pcm_s16le", false],
+  ] as const) {
+    const plan = playbackPlan(codec, rate, depth, "wav");
+    assert.equal(plan.sampleRate, outputRate);
+    assert.equal(plan.codec, outputCodec);
+    assert.equal(plan.dither, dither);
+  }
+});
+
+test("WAV downloads depend on lossless codec, not container or decoded sample format", () => {
+  for (const codec of ["pcm_s24be", "pcm_f32le", "flac", "alac", "ape"])
+    assert.equal(playbackPlan(codec, 48000, 24, "aiff").wavDownload, true);
+  for (const codec of ["aac", "mp3", "opus", "pcm_mulaw", "adpcm_ima_wav"])
+    assert.equal(playbackPlan(codec, 48000, 0, "wav").wavDownload, false);
 });

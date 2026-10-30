@@ -28,7 +28,7 @@ Account invitation links are single-use, expire seven days after creation, and c
 | --- | --- |
 | Installation administrator | Manage accounts, registration policy, invitations, and installation settings. The role does not grant access to other uploaders' tracks, comments, or analytics. |
 | Uploader | Manage a private library of owned tracks, versions, share links, comments, and analytics. Each track has one owner. |
-| Listener | Access the content allowed by a share link, listen, comment under a chosen name, and download permitted originals. No account is required. |
+| Listener | Access the content allowed by a share link, listen, comment under a chosen name, and download permitted audio. No account is required. |
 
 An administrator can also own tracks as an uploader. Other account holders can participate through share links but cannot jointly administer a track in the first release.
 
@@ -64,9 +64,13 @@ The version status is one of:
 
 Accept a broad range of audio formats through server-side decoding. The concrete supported set is determined by the shipped FFmpeg build and verified fixtures; an unsupported or invalid file must produce a clear error.
 
-Keep the original upload unchanged for permitted downloads. The normal playback target for higher-quality sources is uncompressed PCM WAV at 16 bit and 44.1 kHz. Preserve lower-quality sources without upconversion when they can be played directly. If an otherwise supported source cannot be played directly in the supported browsers, a compatible WAV playback file may be generated without raising its sample rate or attempting to restore lost quality.
+For new uploads and file replacements, cap the stored audio at 24 bit and 48 kHz, limiting each property independently without increasing a lower source bit depth or sample rate. Reduce bit depths above 24 with triangular dithering. Convert uncompressed PCM and recognized lossless sources (including WAV, AIFF, CAF PCM, FLAC, ALAC and APE) to a PCM WAV master when necessary. The same stored master serves playback and WAV downloads; do not retain a separate lower-quality playback copy. Keep an already suitable WAV unchanged. Delete a superseded source upload only after processing, validation and publication succeed.
 
-The first release supports mono and stereo. Keep original files and represent channel information without a schema restriction to two channels. Dolby Atmos is a possible future feature requiring separate format, metadata, and playback design; it is not part of the first release.
+Preserve compatible lossy uploads for playback without re-encoding. Other supported sources receive a compatible WAV master within the same ceiling, but decoding a lossy source does not make it eligible for WAV download. Existing published uploads keep their stored files, playback and original-download behavior until their audio is replaced.
+
+For newly processed audio, the download form offers mutually exclusive WAV and MP3 options, with WAV selected by default when available. WAV is available only for recognized uncompressed or lossless sources; lossy sources offer MP3 only. MP3 uses LAME at constant 320 kbps with algorithm quality 2, encoded from the master on the first request and cached for subsequent downloads. Keep 44.1/48 kHz sources at their sample rate; use 32 kHz for lower-rate MP3 exports because 320 kbps requires MPEG-1. This export-only resampling does not restore lost quality or alter the stored master. Remove cached exports when their audio is replaced or removed.
+
+The first release supports mono and stereo. Represent channel information without a schema restriction to two channels. Dolby Atmos is a possible future feature requiring separate format, metadata, and playback design; it is not part of the first release.
 
 ### Processing and visibility
 
@@ -105,12 +109,12 @@ An active link opens its newest visible version with an available, ready audio f
 
 ### Download permissions
 
-Original-file download requires all of the following:
+Audio download requires all of the following:
 
 - The share link is active and allows access to the selected version.
 - The link allows downloads.
 - The selected version allows downloads.
-- Its original audio file is available.
+- Its stored master (or legacy original) is available, and the requested format is permitted for that source.
 
 The listener sees an inactive download button for a version that cannot be downloaded. These restrictions must also be enforced by the server on direct file requests.
 
@@ -150,7 +154,7 @@ The initial approach is to revisit the share page and see new replies, with unre
 
 ## Playback experience
 
-Both uploader and listener views must work on desktop and mobile, including mobile uploads. Use application-styled player controls: play/pause, elapsed/total time, and a repeat icon toggle with a tooltip. Do not expose native browser audio controls, a restart button, a volume control, or a zoom slider. Original download is an icon with a tooltip outside the playback controls. Space toggles playback throughout the track page, except in text-entry fields, selects, or modified keyboard shortcuts so typing and native input behavior remain usable.
+Both uploader and listener views must work on desktop and mobile, including mobile uploads. Use application-styled player controls: play/pause, elapsed/total time, and a repeat icon toggle with a tooltip. Do not expose native browser audio controls, a restart button, a volume control, or a zoom slider. Audio download is an icon with a tooltip outside the playback controls. For newly processed audio it opens the format-selection dialog. Space toggles playback throughout the track page, except in text-entry fields, selects, or modified keyboard shortcuts so typing and native input behavior remain usable.
 
 Render the waveform at 220 pixels high. Its visual amplitude may be normalized for legibility without changing the audio. A regular click/tap seeks. Wheel scrolling over the waveform zooms around the pointer; two-finger pinch zooms around the touch midpoint. Dragging pans a zoomed waveform. Arrow keys seek and plus/minus keys zoom when the waveform has focus. There is no tool for looping a selected interval.
 
@@ -182,7 +186,7 @@ Retain sufficient events and played intervals to show:
 - Pauses, forward and backward seeks, replayed passages, and endings.
 - Individual sessions with a timeline of what was played and skipped.
 - Aggregated heatmaps of listening across the track timeline.
-- Original-file download events with version, time, and visitor context.
+- Download events with format, version, time, and visitor context (legacy events may omit format).
 
 Heatmaps measure observed playback rather than buffer downloads. Distinguish total listening time from unique coverage: playing the same minute twice is two minutes of listening and one minute of unique coverage. A download record should distinguish an initiated transfer from any completion evidence actually available to the application.
 
@@ -202,7 +206,7 @@ The version retains its identity, position, link relationships, comments, and co
 
 ### Removal and restoration
 
-An uploader can remove all audio for a track or remove the audio of one version. Remove the originals and playback audio files while retaining track and version metadata, comments, analytics, and other non-audio information. The retained version is labeled `Audio file missing` in the English interface.
+An uploader can remove all audio for a track or remove the audio of one version. Remove all stored masters, legacy originals/playback files and cached MP3 exports while retaining track and version metadata, comments, analytics, and other non-audio information. The retained version is labeled `Audio file missing` in the English interface.
 
 An active link to a removed track still shows the track information, existing conversations, and a message that the audio has been removed. Provide a button to request that the uploader upload it again. The proposed delivery is an item in the uploader's administration view, recording the track, link, and listener name if known.
 
@@ -238,7 +242,7 @@ Keep web routes, shared validation, domain rules, database schema, and worker co
 
 Docker Compose contains three services: the web application, an audio processing worker, and PostgreSQL. The web application and worker share the codebase and mounted audio storage. pg-boss stores jobs in PostgreSQL, so the architecture does not require a separate queue service.
 
-Store original uploads and playback derivatives as files in a host-mounted data directory. Store accounts, metadata, generated waveform peaks, ownership, link settings, comments, analytics, and job state in PostgreSQL. Waveform peaks are kept with version metadata to make publication atomic without coordinating a separate waveform file; they remain part of database backups. PostgreSQL also uses explicitly persistent storage outside its container writable layer.
+Store audio masters and cached exports as files in a host-mounted data directory; retain legacy originals and playback derivatives for existing uploads. Store accounts, metadata, generated waveform peaks, ownership, link settings, comments, analytics, and job state in PostgreSQL. Waveform peaks are kept with version metadata to make publication atomic without coordinating a separate waveform file; they remain part of database backups. PostgreSQL also uses explicitly persistent storage outside its container writable layer.
 
 ### Audio processing and delivery
 
@@ -263,7 +267,7 @@ These defaults fill smaller gaps without changing the agreed feature scope. They
 
 - Sessions use a browser-tab session identifier per share link, renewed after 30 minutes without recorded activity. A share-page visit is recorded independently of its player, including when no version has audio. Raw events are retained so grouping can be revised independently of play counts. Temporary telemetry failures retry with stable event IDs while the page remains alive; closing a page can still lose unacknowledged activity. Referring websites are stored as origins only, without paths, query strings or share tokens.
 - Compare replacement duration using decoded source sample frames and sample rate, cross-multiplied as integers. This avoids rounded timestamps and permits exactly equal durations at different sample rates.
-- Preserve compatible lossy originals; for higher-resolution PCM, reduce each property independently without increasing a lower sample rate. Preserve compatible lower-resolution PCM originals. Playback measurements describe the actual playback file.
+- Preserve compatible lossy sources; cap newly processed masters at 24 bit/48 kHz, reducing each property independently. Preserve compatible PCM WAV within the ceiling. Playback measurements describe the actual master used for playback. Retain decoded source sample counts and rates for exact replacement-duration validation even after deleting the source upload.
 - Version visibility uses a monotonic upload order, independent of labels, processing completion, and timestamp precision.
 - Administrator-assisted recovery uses a single-use, 15-minute enrollment link after the administrator verifies identity. Successful recovery replaces prior passkeys and sessions. Administrator recovery requires the server command. Neither path uses email authentication.
 - Optional approximate geolocation uses a local GeoIP City MMDB file supplied by the installation operator. No external lookup is performed. Missing data remains unknown.
@@ -283,7 +287,7 @@ Use focused behavior tests and a small set of end-to-end journeys. These scenari
 3. Two links to the same version show separate comment threads. The owner can view and reply within both contexts without exposing one to the other.
 4. A link created at version three with the onward policy cannot see versions one or two, but can see version four when it becomes ready.
 5. If version four loses its audio, the same link lands on version three. If version three also has no audio, it does not fall back to hidden version two.
-6. Download works only when both link and version permit it and the file exists. Direct requests obey the same rule, and the downloaded file matches the original upload.
+6. Download works only when both link and version permit it and the file exists. Direct requests obey the same rule. New lossless uploads offer WAV from the playback master and cached 320 kbps MP3, with WAV selected by default. Lossy uploads offer MP3 only. Existing uploads retain their original download. Failed encoding must not expose a partial export.
 7. A new version becomes visible after processing succeeds. A failed upload or replacement does not disrupt the last valid playable file.
 8. Replacing an older version does not make it latest. A version with comments rejects unequal duration and keeps its threads and combined analytics after a valid replacement.
 9. A listener can delete a comment only with its ownership credential. A matching display name or analytics identifier is insufficient. The track owner can moderate all of that track's comments.

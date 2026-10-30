@@ -136,7 +136,7 @@ function eventDescription(event: Row["event"]) {
     case "ended":
       return `Finished at ${start}`;
     case "download-started":
-      return "Original download started";
+      return "Download started";
     default:
       return "Share page visited";
   }
@@ -335,7 +335,7 @@ export default function Analytics() {
       {!rows.length && (
         <p className="muted">No activity for this selection yet.</p>
       )}
-      <h2>Original downloads</h2>
+      <h2>Downloads</h2>
       <p className="muted">
         These are initiated transfers, not confirmation that the entire file was
         received.
@@ -346,6 +346,13 @@ export default function Analytics() {
             {r.label} · {r.version} · {r.event.name || "Unnamed listener"} ·{" "}
             {time(r.event.createdAt)}
           </summary>
+          <p>
+            Format:{" "}
+            {String(
+              (r.event.context as { format?: string } | null)?.format ||
+                "original",
+            ).toUpperCase()}
+          </p>
           <p>Browser ID: {r.event.browser}</p>
           <Context value={r.event.context} />
         </details>

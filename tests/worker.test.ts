@@ -3,11 +3,12 @@ import assert from "node:assert/strict";
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { db, pool } from "../app/server/db";
+import { mp3Download } from "../app/server/download";
 import { users, tracks, versions, links, comments } from "../app/server/schema";
 const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
 const queueModule = enabled ? await import("../app/server/queue") : null;
@@ -54,9 +55,9 @@ test(
         "-f",
         "lavfi",
         "-i",
-        "sine=duration=3:sample_rate=48000",
+        "sine=duration=3:sample_rate=96000",
         "-c:a",
-        "pcm_s24le",
+        "pcm_s32le",
         join(directory, "original.wav"),
       ]);
       await db.insert(versions).values({
@@ -91,6 +92,23 @@ test(
       const initial = await waitFor(version);
       assert.equal(initial.state, "ready");
       assert.equal(initial.duration, 3);
+      assert.equal(initial.original, initial.playback);
+      assert.equal(initial.filename, "original.wav");
+      assert.equal(initial.metadata?.sampleRate, 96000);
+      async function removed(key: string) {
+        for (let i = 0; i < 50; i++) {
+          try {
+            await stat(join(directory, key));
+          } catch (e) {
+            if ((e as NodeJS.ErrnoException).code === "ENOENT") return;
+            throw e;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        assert.fail("File was not removed: " + key);
+      }
+      await removed("original.wav");
+      const cached = await mp3Download(version, initial.original!, directory);
       const originalBytes = await readFile(join(directory, initial.playback!));
       await db.insert(comments).values({
         versionId: version,
@@ -130,10 +148,7 @@ test(
       const stopped = new Promise((resolve) => child!.once("exit", resolve));
       child!.kill("SIGTERM");
       await stopped;
-      await writeFile(
-        join(directory, "replacement.wav"),
-        await readFile(join(directory, "original.wav")),
-      );
+      await writeFile(join(directory, "replacement.wav"), originalBytes);
       await db
         .update(versions)
         .set({
@@ -151,6 +166,10 @@ test(
       assert.equal(replaced.error, null);
       assert.equal(replaced.original, "replacement.wav");
       assert.equal(replaced.position, initial.position);
+      assert.equal(replaced.original, replaced.playback);
+      await removed(initial.original!);
+      await removed(cached);
+      await removed("short.wav");
       assert.equal(
         (
           await db.query.versions.findMany({
