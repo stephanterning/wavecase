@@ -143,6 +143,7 @@ export function publicRelease(data: Awaited<ReturnType<typeof releaseAccess>>) {
       duration: t.duration,
       sampleRate: t.sampleRate,
       bitDepth: t.bitDepth,
+      audioMeasurements: t.audioMeasurements,
       available: data.release.audioEnabled && !!t.original && !!t.playback,
     })),
   };

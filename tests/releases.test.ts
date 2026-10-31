@@ -15,7 +15,10 @@ import {
   parseLinks,
   releaseInfo,
 } from "../app/domain/releases";
-import { processReleaseAudio } from "../app/server/release-audio";
+import {
+  processReleaseAudio,
+  measureReleasePlayback,
+} from "../app/server/release-audio";
 import { db, pool } from "../app/server/db";
 import {
   artists,
@@ -81,6 +84,15 @@ test("release processing preserves original PCM WAV and produces AAC playback", 
     const result = await processReleaseAudio(dir, "master.wav");
     assert.equal(result.sampleRate, 48000);
     assert.equal(result.bitDepth, 24);
+    assert.equal(typeof result.audioMeasurements.lufs, "number");
+    assert.equal(typeof result.audioMeasurements.peak, "number");
+    assert.equal(typeof result.audioMeasurements.truePeak, "number");
+    const playbackBytes = await readFile(join(dir, result.playback));
+    assert.deepEqual(
+      await measureReleasePlayback(dir, result.playback),
+      result.audioMeasurements,
+    );
+    assert.deepEqual(await readFile(join(dir, result.playback)), playbackBytes);
     assert.deepEqual(await readFile(join(dir, "master.wav")), original);
     const { stdout } = await exec("ffprobe", [
       "-v",
@@ -91,6 +103,23 @@ test("release processing preserves original PCM WAV and produces AAC playback", 
       join(dir, result.playback),
     ]);
     assert.equal(JSON.parse(stdout).streams[0].codec_name, "aac");
+    await exec("ffmpeg", [
+      "-v",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "anullsrc=r=44100:cl=stereo",
+      "-t",
+      "1",
+      join(dir, "silence.wav"),
+    ]);
+    const silence = await processReleaseAudio(dir, "silence.wav");
+    assert.deepEqual(silence.audioMeasurements, {
+      lufs: null,
+      peak: null,
+      truePeak: null,
+    });
     await writeFile(join(dir, "bad.wav"), "not wav");
     await assert.rejects(processReleaseAudio(dir, "bad.wav"));
   } finally {

@@ -9,7 +9,17 @@ import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { db, pool } from "../app/server/db";
 import { mp3Download } from "../app/server/download";
-import { users, tracks, versions, links, comments } from "../app/server/schema";
+import {
+  users,
+  tracks,
+  versions,
+  links,
+  comments,
+  artists,
+  releases,
+  releaseTracks,
+} from "../app/server/schema";
+import { processReleaseAudio } from "../app/server/release-audio";
 const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
 const queueModule = enabled ? await import("../app/server/queue") : null;
 after(async () => {
@@ -68,6 +78,41 @@ test(
         pendingOriginal: "original.wav",
         pendingFilename: "original.wav",
       });
+      const artist = randomUUID(),
+        release = randomUUID(),
+        releaseTrack = randomUUID();
+      await db
+        .insert(artists)
+        .values({
+          id: artist,
+          ownerId: owner,
+          name: "Worker artist",
+          slug: artist,
+        });
+      await db
+        .insert(releases)
+        .values({
+          id: release,
+          artistId: artist,
+          title: "Legacy release",
+          slug: release,
+        });
+      const releaseResult = await processReleaseAudio(
+        directory,
+        "original.wav",
+      );
+      const releaseBytes = await readFile(
+        join(directory, releaseResult.playback),
+      );
+      await db.insert(releaseTracks).values({
+        id: releaseTrack,
+        releaseId: release,
+        title: "Existing audio",
+        position: 1,
+        original: "original.wav",
+        ...releaseResult,
+        audioMeasurements: null,
+      });
       await queue();
       async function startWorker() {
         child = spawn(
@@ -90,6 +135,23 @@ test(
       }
       await startWorker();
       const initial = await waitFor(version);
+      let measured;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        measured = await db.query.releaseTracks.findFirst({
+          where: eq(releaseTracks.id, releaseTrack),
+        });
+        if (measured?.audioMeasurements) break;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      assert.deepEqual(
+        measured?.audioMeasurements,
+        releaseResult.audioMeasurements,
+      );
+      assert.equal(measured?.playback, releaseResult.playback);
+      assert.deepEqual(
+        await readFile(join(directory, releaseResult.playback)),
+        releaseBytes,
+      );
       assert.equal(initial.state, "ready");
       assert.equal(initial.duration, 3);
       assert.equal(initial.original, initial.playback);

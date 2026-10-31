@@ -4,13 +4,14 @@ export function attachMediaSession(
   media: HTMLAudioElement,
   metadata: MediaMetadataInit,
   onError: () => void,
+  onPlay: () => Promise<void> = () => media.play(),
 ) {
   if (!("mediaSession" in navigator)) return () => {};
   const session = navigator.mediaSession;
   const description =
     typeof MediaMetadata !== "undefined" ? new MediaMetadata(metadata) : null;
   const handlers = {
-    play: () => void media.play().catch(onError),
+    play: () => void onPlay().catch(onError),
     pause: () => media.pause(),
     seekto: (details: MediaSessionActionDetails) => {
       if (details.seekTime !== undefined) media.currentTime = details.seekTime;
@@ -66,8 +67,10 @@ export function useMediaSession(
     artwork?: MediaImage | null;
   },
   onError: () => void,
+  onPlay: () => Promise<void>,
 ) {
   const fail = useEffectEvent(onError);
+  const play = useEffectEvent(onPlay);
   const { src, sizes, type } = artwork ?? {};
   useEffect(() => {
     const media = audioRef.current;
@@ -76,6 +79,7 @@ export function useMediaSession(
       media,
       { title, artist, album, artwork: src ? [{ src, sizes, type }] : [] },
       () => fail(),
+      () => play(),
     );
   }, [audioRef, title, artist, album, src, sizes, type]);
 }

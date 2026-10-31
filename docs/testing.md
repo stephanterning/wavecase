@@ -67,6 +67,9 @@ The follow-up browser checks used an isolated local test service with synthetic 
 - On a phone, pinch to zoom, lift both fingers, then pinch again to zoom further in and back out to the full track. Repeat after panning the zoomed waveform; only the waveform should zoom. Pinching outside the waveform should still zoom the page. A touch hold selects a point; hold then drag to select a range. Pinch or a cancelled pointer must not accidentally open a comment. Check these gestures in iPhone Safari on a real device, not just a narrow desktop viewport.
 - Escape/cancel dismisses the modal and restores focus. Successful submission closes it and displays the new thread. Replies also use a modal and keep their original link/version context.
 - Confirm the player has custom play/pause and elapsed/total time, a repeat icon toggle and tooltip, and a separate download icon. No native audio controls, restart button, or zoom slider should remain.
+- Compare a loud file, a quiet file with ample headroom, and a quiet file with high transients: playback should target -16 LUFS, stopping short when sample peak or true peak would exceed zero. Test both owner and share views, including already uploaded versions. Displayed file measurements and downloaded bytes must remain unchanged.
+- Check normalization on first Play, Space, repeat, switching versions while playing/paused, and lock-screen resume. On a real iPhone, check background audio, interruptions, and returning to the page; these require device testing of the Web Audio path.
+- Public releases use the same playback normalization, including automatic progression and lock-screen resume. On upgrade, the worker measures existing AAC playback without changing any audio bytes; a track shows Preparing playback until its measurements are ready. Downloads remain available during this analysis.
 
 
 ## Audio ceiling and download formats

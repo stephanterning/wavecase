@@ -1,10 +1,10 @@
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { db } from "./db";
 import { releaseTracks } from "./schema";
 import { boss } from "./queue";
-import { processReleaseAudio } from "./release-audio";
+import { processReleaseAudio, measureReleasePlayback } from "./release-audio";
 const directory = process.env.DATA_DIR || "data/audio";
 export async function startReleaseWorker() {
   await boss.work<{ trackId: string }>("process-release", async (jobs) => {
@@ -13,7 +13,27 @@ export async function startReleaseWorker() {
         where: eq(releaseTracks.id, job.data.trackId),
       });
       const key = track?.pendingOriginal;
-      if (!track || !key) continue;
+      if (!track) continue;
+      if (!key) {
+        // Backfill measurements without re-encoding or replacing existing files.
+        if (track.playback && !track.audioMeasurements) {
+          const audioMeasurements = await measureReleasePlayback(
+            directory,
+            track.playback,
+          );
+          await db
+            .update(releaseTracks)
+            .set({ audioMeasurements })
+            .where(
+              and(
+                eq(releaseTracks.id, track.id),
+                eq(releaseTracks.playback, track.playback),
+                isNull(releaseTracks.audioMeasurements),
+              ),
+            );
+        }
+        continue;
+      }
       try {
         const result = await processReleaseAudio(directory, key);
         const changed = await db
@@ -71,7 +91,15 @@ export async function reconcileReleases() {
   const pending = await db
     .select({ id: releaseTracks.id })
     .from(releaseTracks)
-    .where(isNotNull(releaseTracks.pendingOriginal));
+    .where(
+      or(
+        isNotNull(releaseTracks.pendingOriginal),
+        and(
+          isNotNull(releaseTracks.playback),
+          isNull(releaseTracks.audioMeasurements),
+        ),
+      ),
+    );
   for (const track of pending)
     await boss.send(
       "process-release",

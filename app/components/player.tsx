@@ -10,6 +10,11 @@ import { observeListening } from "./listening";
 import { Icon } from "./icons";
 import { useMediaSession } from "./media-session";
 import {
+  disconnectPlaybackAudio,
+  playbackGainDb,
+  playNormalized,
+} from "./playback-audio";
+import {
   attachWaveformGestures,
   type CommentSelection,
 } from "./waveform-gestures";
@@ -23,6 +28,7 @@ export function Player({
   title,
   artist,
   artwork,
+  metadata,
   share,
   versionId,
   playbackRef,
@@ -37,6 +43,7 @@ export function Player({
   title: string;
   artist: string;
   artwork?: string;
+  metadata: Record<string, unknown> | null;
   share?: string;
   versionId: string;
   playbackRef: RefObject<Playback>;
@@ -50,6 +57,7 @@ export function Player({
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const [error, setError] = useState("");
+  const gainDb = playbackGainDb(metadata);
   useMediaSession(
     audioRef,
     {
@@ -58,6 +66,10 @@ export function Player({
       artwork: artwork ? { src: artwork, type: "image/jpeg" } : null,
     },
     () => setError("Audio could not play. Please try again."),
+    () =>
+      audioRef.current
+        ? playNormalized(audioRef.current, gainDb)
+        : Promise.resolve(),
   );
   const comment = useEffectEvent((selection: CommentSelection) =>
     onComment?.(selection),
@@ -66,9 +78,9 @@ export function Player({
     const media = audioRef.current;
     if (repeat && media) {
       media.currentTime = 0;
-      void media
-        .play()
-        .catch(() => setError("Press Play to continue playback."));
+      void playNormalized(media, gainDb).catch(() =>
+        setError("Press Play to continue playback."),
+      );
     }
   });
   const canComment = !!onComment;
@@ -119,15 +131,15 @@ export function Player({
           : 0;
       media.loop = false;
       if (playbackRef.current.playing)
-        void media
-          .play()
-          .catch(() => setError("Press Play to continue playback."));
+        void playNormalized(media, gainDb).catch(() =>
+          setError("Press Play to continue playback."),
+        );
     };
     const toggle = () => {
       if (media.paused)
-        void media
-          .play()
-          .catch(() => setError("Audio could not play. Please try again."));
+        void playNormalized(media, gainDb).catch(() =>
+          setError("Audio could not play. Please try again."),
+        );
       else media.pause();
     };
     const keyboard = (event: KeyboardEvent) => {
@@ -162,6 +174,7 @@ export function Player({
     if (media.readyState >= 1) restore();
     const revoke = () => {
       media.pause();
+      disconnectPlaybackAudio(media);
       media.removeAttribute("src");
       media.load();
     };
@@ -180,10 +193,20 @@ export function Player({
       stop();
       wave.destroy();
       media.pause();
+      disconnectPlaybackAudio(media);
       media.removeAttribute("src");
       media.load();
     };
-  }, [audioRef, playbackRef, duration, canComment, share, url, versionId]);
+  }, [
+    audioRef,
+    playbackRef,
+    duration,
+    canComment,
+    share,
+    url,
+    versionId,
+    gainDb,
+  ]);
   return (
     <>
       <div
@@ -219,11 +242,9 @@ export function Player({
             onClick={() => {
               const media = audioRef.current;
               if (media?.paused)
-                void media
-                  .play()
-                  .catch(() =>
-                    setError("Audio could not play. Please try again."),
-                  );
+                void playNormalized(media, gainDb).catch(() =>
+                  setError("Audio could not play. Please try again."),
+                );
               else media?.pause();
             }}
           >
