@@ -198,7 +198,10 @@ test(
         (e) => e instanceof Response && e.status === 403,
       );
       await db.update(links).set({ download: true }).where(eq(links.id, a));
-      assert.equal(await (await get("&download=1")).text(), "0123456789");
+      await assert.rejects(
+        get("&download=1"),
+        (e) => e instanceof Response && e.status === 405,
+      );
       const partial = await get("", { range: "bytes=2-5" });
       assert.equal(partial.status, 206);
       assert.equal(await partial.text(), "2345");

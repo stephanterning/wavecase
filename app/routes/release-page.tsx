@@ -1,3 +1,4 @@
+import { DownloadDialog, DownloadEmail } from "../components/download-dialog";
 import { releaseArtistSuffix, releasePath } from "../domain/releases";
 import { getReleaseServiceIcon } from "../domain/release-services";
 import { SongwriterCredits } from "../components/songwriter-credits";
@@ -89,6 +90,7 @@ const time = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 export default function ReleasePage() {
   const d = useLoaderData<typeof loader>();
+  const [downloadOpen, setDownloadOpen] = useState(false);
   const available = d.tracks.filter((t) => t.available);
   const playable = available.filter((t) => t.audioMeasurements);
   const waitingForMeasurements = available.some((t) => !t.audioMeasurements);
@@ -325,47 +327,41 @@ export default function ReleasePage() {
             </section>
           )}
           {!!available.length && d.release.published && (
-            <details className="release-download">
-              <summary>Download</summary>
-              <p>
-                {available.length} of {d.tracks.length} tracks included:{" "}
-                {available.map((t) => t.title).join(", ")}.
-              </p>
-              <p className="muted">
-                Every ZIP includes original WAV audio, artwork and
-                release-info.txt with metadata and credits.
-              </p>
-              <form method="post" action={`${endpoint}/download`}>
-                <label>
-                  Package
-                  <select name="track">
-                    <option value="">
-                      All available tracks ({available.length})
-                    </option>
-                    {available.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.position}. {t.title}
+            <section className="release-download">
+              <button type="button" onClick={() => setDownloadOpen(true)}>
+                Download
+              </button>
+              {downloadOpen && (
+                <DownloadDialog
+                  title={d.release.title}
+                  action={`${endpoint}/download`}
+                  onClose={() => setDownloadOpen(false)}
+                >
+                  <p>
+                    {available.length} of {d.tracks.length} tracks included:{" "}
+                    {available.map((t) => t.title).join(", ")}.
+                  </p>
+                  <p className="muted">
+                    Every ZIP includes original WAV audio, artwork and
+                    release-info.txt with metadata and credits.
+                  </p>
+                  <label>
+                    Package
+                    <select name="track">
+                      <option value="">
+                        All available tracks ({available.length})
                       </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Email address
-                  <input
-                    type="email"
-                    name="email"
-                    required
-                    maxLength={254}
-                    autoComplete="email"
-                  />
-                </label>
-                <p className="muted">
-                  Your address is shared with the release owner and saved with
-                  this download request.
-                </p>
-                <button>Download ZIP</button>
-              </form>
-            </details>
+                      {available.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.position}. {t.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <DownloadEmail ownerLabel="release owner" />
+                </DownloadDialog>
+              )}
+            </section>
           )}
           <details className="release-credits">
             <summary>Metadata & credits</summary>

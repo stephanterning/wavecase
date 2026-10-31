@@ -76,7 +76,7 @@ Accept a broad range of audio formats through server-side decoding. The concrete
 
 For new uploads and file replacements, cap the stored audio at 24 bit and 48 kHz, limiting each property independently without increasing a lower source bit depth or sample rate. Reduce bit depths above 24 with triangular dithering. Convert uncompressed PCM and recognized lossless sources (including WAV, AIFF, CAF PCM, FLAC, ALAC and APE) to a PCM WAV master when necessary. The same stored master serves playback and WAV downloads; do not retain a separate lower-quality playback copy. Keep an already suitable WAV unchanged. Delete a superseded source upload only after processing, validation and publication succeed. Reject decoder errors and floating-point sources with non-finite samples or peaks outside the PCM range rather than publishing shortened or silently clipped replacements.
 
-Preserve compatible lossy uploads for playback without re-encoding. Other supported sources receive a compatible WAV master within the same ceiling, but decoding a lossy source does not make it eligible for WAV download. Existing published uploads keep their stored files, playback and original-download behavior until their audio is replaced.
+Preserve compatible lossy uploads for playback without re-encoding. Other supported sources receive a compatible WAV master within the same ceiling, but decoding a lossy source does not make it eligible for WAV download. Existing published uploads keep their stored files and playback until their audio is replaced; downloads include the unchanged legacy original inside the demo ZIP.
 
 For newly processed audio, the download form offers mutually exclusive WAV and MP3 options, with WAV selected by default when available. WAV is available only for recognized uncompressed or lossless sources; lossy sources offer MP3 only. MP3 uses LAME at constant 320 kbps with algorithm quality 2, encoded from the master on the first request and cached for subsequent downloads. Keep 44.1/48 kHz sources at their sample rate; use 32 kHz for lower-rate MP3 exports because 320 kbps requires MPEG-1. This export-only resampling does not restore lost quality or alter the stored master. Remove cached exports when their audio is replaced or removed.
 
@@ -128,6 +128,18 @@ Audio download requires all of the following:
 
 The listener sees an inactive download button for a version that cannot be downloaded. These restrictions must also be enforced by the server on direct file requests.
 
+### Demo download packages and email gate
+
+Every demo download is a streamed ZIP containing the selected version's audio, its track artwork as `artwork.jpg` when available, and `demo-info.txt`. Name the ZIP and its enclosing directory `Artist - Title - Version`, omitting the artist when absent. Use the same readable base name for the audio with the selected format's extension; legacy originals retain their extension and bytes. Preserve Unicode and replace unsafe filesystem characters. A linked artist uses its current profile name.
+
+The modal and info file display the fixed English warning `Pre-release version. Do not share.`, including versions marked `finished`. The info file includes artist when known, track title, version name, status, upload timestamp, audio format, and any track/version descriptions. Do not add the recipient's address, private share link or owner's account details to the package.
+
+Listeners must submit a syntactically valid email address with each download request. Do not verify the mailbox, send confirmation mail, require an account or subscribe the address to a mailing list. Explain in the modal that the address is shared with the demo owner and stored with the download request. Do not persist the address in browser storage. The authenticated demo owner is exempt from email entry and their own downloads do not create listener events.
+
+Enforce the email gate, current share-link policy, version visibility, download permissions and audio availability on the server. Use POST for downloads so email addresses do not enter download URLs; old direct GET download URLs do not serve files. Recheck access after preparing an MP3. Playback range and HEAD requests remain supported independently of ZIP downloads.
+
+Store the supplied address with the existing download event, format, version, share link, time and visitor context. Only the demo owner can inspect it in analytics. Clearing a track's analytics also deletes these addresses; there is no separate address list or automatic retention period.
+
 ### Deactivation
 
 The uploader can deactivate a share link. An inactive link shows neutral information without revealing track details. Its previous comments and statistics remain available to the owner. Re-enabling a link restores access according to its current settings.
@@ -166,7 +178,7 @@ The initial approach is to revisit the share page and see new replies, with unre
 
 Normalize all in-app playback toward -16 LUFS integrated using a constant gain in the player. Attenuate louder audio and boost quieter audio only as far as both sample peak and true peak allow, with ceilings of 0 dBFS and 0 dBTP. Apply no compression or limiting. This changes playback volume only: stored audio, original downloads, waveform data, and displayed file measurements remain unchanged. Use existing measurements for existing uploads as well as new uploads. Leave 0.01 dB of true-peak headroom for measurement rounding; do not boost when either peak measurement is unavailable. Silence or audio below the loudness measurement gate receives no loudness boost. Keep normalization independent of any future manual volume control, which would attenuate the normalized signal from 100% down to silence.
 
-Both uploader and listener views must work on desktop and mobile, including mobile uploads. Use application-styled player controls: play/pause, elapsed/total time, and a repeat icon toggle with a tooltip. Do not expose native browser audio controls, a restart button, a volume control, or a zoom slider. Audio download is an icon with a tooltip outside the playback controls. For newly processed audio it opens the format-selection dialog. Space toggles playback throughout the track page, except in text-entry fields, selects, modal dialogs, or modified keyboard shortcuts so typing and native input behavior remain usable.
+Both uploader and listener views must work on desktop and mobile, including mobile uploads. Use application-styled player controls: play/pause, elapsed/total time, and a repeat icon toggle with a tooltip. Do not expose native browser audio controls, a restart button, a volume control, or a zoom slider. Audio download is an icon with a tooltip outside the playback controls. It opens a modal with the selected version, package contents, and an email field for listeners. Newly processed audio also offers format selection in this modal; legacy audio uses its original format. Space toggles playback throughout the track page, except in text-entry fields, selects, modal dialogs, or modified keyboard shortcuts so typing and native input behavior remain usable.
 
 Render the waveform at 220 pixels high. Its visual amplitude may be normalized for legibility without changing the audio. A regular click/tap seeks. Wheel scrolling over the waveform zooms around the pointer; two-finger pinch zooms around the touch midpoint. Dragging pans a zoomed waveform. Arrow keys seek and plus/minus keys zoom when the waveform has focus. There is no tool for looping a selected interval.
 
@@ -264,7 +276,7 @@ Separate playback derivatives may be generated. AAC at 256 kbit/s is the agreed 
 
 ### Download packages and email gate
 
-Offer both a complete-release ZIP and individual-track ZIPs. Every ZIP includes:
+The Download button opens a modal containing package selection, included-track disclosure and email entry. Offer both a complete-release ZIP and individual-track ZIPs. Every ZIP includes:
 
 - The unchanged original WAV file or files included in that download.
 - Release artwork in PNG or JPG format.
@@ -392,7 +404,7 @@ Use focused behavior tests and a small set of end-to-end journeys. These scenari
 3. Two links to the same version show separate comment threads. The owner can view and reply within both contexts without exposing one to the other.
 4. A link created at version three with the onward policy cannot see versions one or two, but can see version four when it becomes ready.
 5. If version four loses its audio, the same link lands on version three. If version three also has no audio, it does not fall back to hidden version two.
-6. Download works only when both link and version permit it and the file exists. Direct requests obey the same rule. New lossless uploads offer WAV from the playback master and cached 320 kbps MP3, with WAV selected by default. Lossy uploads offer MP3 only. Existing uploads retain their original download. Failed encoding must not expose a partial export.
+6. Download works only when both link and version permit it and the file exists. Direct requests obey the same rule. New lossless uploads offer WAV from the playback master and cached 320 kbps MP3, with WAV selected by default. Lossy uploads offer MP3 only. Existing uploads retain their original audio inside the ZIP. Listener downloads require email; authenticated demo owners are exempt. Packages include the pre-release warning and metadata. Failed encoding must not expose a partial export.
 7. A new version becomes visible after processing succeeds. A failed upload or replacement does not disrupt the last valid playable file.
 8. Replacing an older version does not make it latest. A version with comments rejects unequal duration and keeps its threads and combined analytics after a valid replacement.
 9. A listener can delete a comment only with its ownership credential. A matching display name or analytics identifier is insufficient. The track owner can moderate all of that track's comments.

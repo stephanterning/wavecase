@@ -3,7 +3,14 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
@@ -16,12 +23,43 @@ import {
   links,
   sessions,
   events,
+  artists,
 } from "../app/server/schema";
 import { processAudio } from "../app/server/audio";
-import { loader as media } from "../app/routes/media";
+import { inflateRawSync } from "node:zlib";
+import { action as download, loader as media } from "../app/routes/media";
 import { hash, origin } from "../app/server/security";
 const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
 after(() => pool.end());
+
+function unzip(buffer: ArrayBuffer) {
+  const zip = Buffer.from(buffer);
+  const end = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  let cursor = zip.readUInt32LE(end + 16);
+  const files = new Map<string, Buffer>();
+  for (let n = 0; n < zip.readUInt16LE(end + 10); n++) {
+    const nameLength = zip.readUInt16LE(cursor + 28);
+    const name = zip.toString("utf8", cursor + 46, cursor + 46 + nameLength);
+    const size = zip.readUInt32LE(cursor + 20),
+      offset = zip.readUInt32LE(cursor + 42);
+    const start =
+      offset +
+      30 +
+      zip.readUInt16LE(offset + 26) +
+      zip.readUInt16LE(offset + 28);
+    const bytes = zip.subarray(start, start + size);
+    files.set(
+      name,
+      zip.readUInt16LE(cursor + 10) === 8 ? inflateRawSync(bytes) : bytes,
+    );
+    cursor +=
+      46 +
+      nameLength +
+      zip.readUInt16LE(cursor + 30) +
+      zip.readUInt16LE(cursor + 32);
+  }
+  return files;
+}
 
 test(
   "download formats enforce permissions, cache one MP3 and remove it with audio",
@@ -35,7 +73,8 @@ test(
         track = randomUUID(),
         version = randomUUID(),
         link = randomUUID(),
-        session = randomUUID();
+        session = randomUUID(),
+        artist = randomUUID();
       await db
         .insert(users)
         .values({ id: owner, name: "Owner", email: owner + "@test.invalid" });
@@ -45,8 +84,18 @@ test(
         expires: new Date(Date.now() + 60000),
       });
       await db
-        .insert(tracks)
-        .values({ id: track, ownerId: owner, title: "Downloads" });
+        .insert(artists)
+        .values({ id: artist, ownerId: owner, name: "Åsa", slug: artist });
+      await writeFile(join(directory, "cover.jpg"), "artwork bytes");
+      await db.insert(tracks).values({
+        id: track,
+        ownerId: owner,
+        artistId: artist,
+        artist: "Old artist",
+        title: "Downloads",
+        description: "Track notes",
+        cover: "cover.jpg",
+      });
       await db.insert(links).values({
         id: link,
         trackId: track,
@@ -69,6 +118,8 @@ test(
         id: version,
         trackId: track,
         name: "v1",
+        description: "Version notes",
+        status: "finished",
         filename: "Master.wav",
         state: "ready",
         download: true,
@@ -82,20 +133,37 @@ test(
       };
       const get = (
         format: string,
+        fields: Record<string, string> = {},
         headers: Record<string, string> = {},
-        method = "GET",
       ) =>
+        download({
+          ...args,
+          request: new Request(origin + "/media/" + version, {
+            method: "POST",
+            headers: { origin, ...headers },
+            body: new URLSearchParams({
+              share: link,
+              email: " listener@example.test ",
+              format,
+              ...fields,
+            }),
+          }),
+        });
+      const oldGet = (method = "GET") =>
         media({
           ...args,
           request: new Request(
-            origin + "?share=" + link + "&download=1&format=" + format,
-            { headers, method },
+            origin +
+              "?share=" +
+              link +
+              "&download=1&email=listener@example.test",
+            { method },
           ),
         });
       const status = (code: number) => (error: unknown) =>
         error instanceof Response && error.status === code;
       await assert.rejects(get("mp3"), status(403));
-      assert.deepEqual(await readdir(directory), ["master.wav"]);
+      assert.deepEqual(await readdir(directory), ["cover.jpg", "master.wav"]);
       await db.update(links).set({ download: true }).where(eq(links.id, link));
       await db
         .update(versions)
@@ -107,31 +175,87 @@ test(
         .set({ download: true })
         .where(eq(versions.id, version));
       await assert.rejects(get("flac"), status(400));
-      const wav = await get("wav");
-      assert.equal(wav.headers.get("Content-Type"), "audio/wav");
-      assert.equal(
-        Buffer.from(await wav.arrayBuffer())
-          .subarray(0, 4)
-          .toString(),
-        "RIFF",
+      await assert.rejects(get("mp3", { email: "" }), status(400));
+      await assert.rejects(
+        get("mp3", { email: "bad", owner: "true" }),
+        status(400),
       );
-      const simultaneous = await Promise.all([get("mp3"), get("mp3")]);
-      const bytes = await Promise.all(simultaneous.map((r) => r.arrayBuffer()));
-      assert.deepEqual(bytes[0], bytes[1]);
-      assert.equal(simultaneous[0].headers.get("Content-Type"), "audio/mpeg");
+      await assert.rejects(
+        get("wav", {}, { origin: "https://other.test" }),
+        status(403),
+      );
+      await assert.rejects(oldGet(), status(405));
+      await assert.rejects(oldGet("HEAD"), status(405));
+      assert.deepEqual(await readdir(directory), ["cover.jpg", "master.wav"]);
+      const wav = await get("wav");
+      assert.equal(wav.headers.get("Content-Type"), "application/zip");
+      assert.equal(wav.headers.get("Cache-Control"), "private, no-store");
+      const folder = "Åsa - Downloads - v1";
       assert.match(
-        simultaneous[0].headers.get("Content-Disposition")!,
-        /Master.mp3/,
+        wav.headers.get("Content-Disposition")!,
+        /%C3%85sa%20-%20Downloads%20-%20v1.zip/,
+      );
+      const wavFiles = unzip(await wav.arrayBuffer());
+      assert.deepEqual(
+        [...wavFiles.keys()],
+        [
+          `${folder}/${folder}.wav`,
+          `${folder}/artwork.jpg`,
+          `${folder}/demo-info.txt`,
+        ],
+      );
+      assert.deepEqual(
+        wavFiles.get(`${folder}/${folder}.wav`),
+        await readFile(join(directory, "master.wav")),
+      );
+      assert.equal(
+        wavFiles.get(`${folder}/artwork.jpg`)!.toString(),
+        "artwork bytes",
+      );
+      const info = wavFiles.get(`${folder}/demo-info.txt`)!.toString();
+      for (const text of [
+        "Pre-release version. Do not share.",
+        "Artist: Åsa",
+        "Title: Downloads",
+        "Version: v1",
+        "Status: finished",
+        "Uploaded:",
+        "Track notes",
+        "Version notes",
+      ])
+        assert.ok(info.includes(text), text);
+      for (const text of [link, owner, "@test", "@example", "Old artist"])
+        assert.ok(!info.includes(text), text);
+      const simultaneous = await Promise.all([get("mp3"), get("mp3")]);
+      const bytes = await Promise.all(
+        simultaneous.map(async (r) =>
+          unzip(await r.arrayBuffer()).get(`${folder}/${folder}.mp3`)!,
+        ),
+      );
+      assert.deepEqual(bytes[0], bytes[1]);
+      assert.deepEqual(
+        bytes[0],
+        await readFile(join(directory, "master.wav.mp3")),
       );
       const cached = await stat(join(directory, "master.wav.mp3"));
-      const partial = await get("mp3", { range: "bytes=2-5" });
-      assert.equal(partial.status, 206);
-      assert.deepEqual(
-        Buffer.from(await partial.arrayBuffer()),
-        Buffer.from(bytes[0]).subarray(2, 6),
+      // An authenticated owner downloads a ZIP without email and creates no listener event.
+      await db
+        .update(versions)
+        .set({ download: false })
+        .where(eq(versions.id, version));
+      const own = await get(
+        "mp3",
+        { email: "", share: "" },
+        { cookie: "session=" + session },
       );
-      const head = await get("mp3", {}, "HEAD");
-      assert.equal((await head.arrayBuffer()).byteLength, 0);
+      assert.deepEqual(
+        unzip(await own.arrayBuffer()).get(`${folder}/${folder}.mp3`),
+        bytes[0],
+      );
+      await db
+        .update(versions)
+        .set({ download: true })
+        .where(eq(versions.id, version));
       assert.equal(
         (await stat(join(directory, "master.wav.mp3"))).mtimeMs,
         cached.mtimeMs,
@@ -141,7 +265,18 @@ test(
         .from(events)
         .where(eq(events.versionId, version));
       assert.equal(recorded.length, 3);
-      assert.equal((recorded[1].context as { format: string }).format, "mp3");
+      assert.ok(
+        recorded.every(
+          (e) =>
+            (e.context as { email: string }).email === "listener@example.test",
+        ),
+      );
+      assert.equal(
+        recorded.filter(
+          (e) => (e.context as { format: string }).format === "mp3",
+        ).length,
+        2,
+      );
       // Hold the same row lock used during encoding, then revoke the link while
       // the already-authorized request is waiting. Cached exports must recheck too.
       const blocker = await pool.connect();
@@ -186,6 +321,39 @@ test(
       await db.update(links).set({ active: false }).where(eq(links.id, link));
       await assert.rejects(get("mp3"), status(404));
       await db.update(links).set({ active: true }).where(eq(links.id, link));
+      await db
+        .update(versions)
+        .set({ metadata: {}, filename: "Legacy".repeat(40) + ".aiff" })
+        .where(eq(versions.id, version));
+      await db.update(tracks).set({ cover: null }).where(eq(tracks.id, track));
+      await assert.rejects(get("original", { email: "" }), status(400));
+      await assert.rejects(get("wav"), status(400));
+      const legacy = unzip(await (await get("original")).arrayBuffer());
+      assert.deepEqual(
+        [...legacy.keys()],
+        [`${folder}/${folder}.aiff`, `${folder}/demo-info.txt`],
+      );
+      assert.deepEqual(
+        legacy.get(`${folder}/${folder}.aiff`),
+        await readFile(join(directory, "master.wav")),
+      );
+      const { loader: analytics } = await import("../app/routes/analytics");
+      await assert.rejects(
+        analytics({
+          ...args,
+          params: { id: track },
+          request: new Request(origin + "?share=" + link),
+        }),
+        status(404),
+      );
+      const stats = await analytics({
+        ...args,
+        params: { id: track },
+        request: new Request(origin, {
+          headers: { cookie: "session=" + session },
+        }),
+      });
+      assert.equal(stats.events.length, 4);
       const form = new FormData();
       form.set("intent", "remove");
       form.set("version", version);
@@ -199,8 +367,24 @@ test(
           body: form,
         }),
       });
-      assert.deepEqual(await readdir(directory), []);
-      await assert.rejects(get("mp3"), status(404));
+      assert.deepEqual(await readdir(directory), ["cover.jpg"]);
+      const clear = new FormData();
+      clear.set("intent", "clear-analytics");
+      await manage({
+        ...args,
+        params: { id: track },
+        request: new Request(origin, {
+          method: "POST",
+          headers: { origin, cookie: "session=" + session },
+          body: clear,
+        }),
+      });
+      assert.equal(
+        (await db.select().from(events).where(eq(events.versionId, version)))
+          .length,
+        0,
+      );
+      await assert.rejects(get("original"), status(404));
     } finally {
       if (previous === undefined) delete process.env.DATA_DIR;
       else process.env.DATA_DIR = previous;

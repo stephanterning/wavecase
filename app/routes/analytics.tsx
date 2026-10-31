@@ -353,6 +353,13 @@ export default function Analytics() {
                 "original",
             ).toUpperCase()}
           </p>
+          <p>
+            Email:{" "}
+            {String(
+              (r.event.context as { email?: string } | null)?.email ||
+                "Not recorded",
+            )}
+          </p>
           <p>Browser ID: {r.event.browser}</p>
           <Context value={r.event.context} />
         </details>
