@@ -5,6 +5,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   createMemoryRouter,
+  MemoryRouter,
   RouterProvider,
   RouterContextProvider,
 } from "react-router";
@@ -13,6 +14,7 @@ import { songwriters, songwriterPath } from "../app/domain/songwriters";
 import { SongwriterCredits } from "../app/components/songwriter-credits";
 import SongwriterPage, { loader } from "../app/routes/songwriter";
 import ReleasePage from "../app/routes/release-page";
+import PublicMusic from "../app/routes/public-music";
 import { db, pool } from "../app/server/db";
 import { artists, releases, releaseTracks, users } from "../app/server/schema";
 import { origin } from "../app/server/security";
@@ -35,8 +37,14 @@ test("songwriter credits split complete names and normalize readable addresses",
   assert.equal(songwriterPath("王菲"), "/songwriter/%E7%8E%8B%E8%8F%B2");
   assert.equal(
     renderToStaticMarkup(
-      createElement(SongwriterCredits, { value: "Stephan Terning; Åsa Öberg" }),
-    ),
+      createElement(
+        MemoryRouter,
+        null,
+        createElement(SongwriterCredits, {
+          value: "Stephan Terning; Åsa Öberg",
+        }),
+      ),
+    ).replaceAll(' data-discover="true"', ""),
     '<a href="/songwriter/stephan-terning">Stephan Terning</a>, <a href="/songwriter/asa-oberg">Åsa Öberg</a>',
   );
 });
@@ -45,9 +53,17 @@ function renderPage(
   Component: typeof SongwriterPage | typeof ReleasePage,
   data: unknown,
 ) {
-  const router = createMemoryRouter([{ id: "page", path: "/", Component }], {
-    hydrationData: { loaderData: { page: data } },
-  });
+  const router = createMemoryRouter(
+    [
+      {
+        Component: PublicMusic,
+        children: [{ id: "page", path: "/", Component }],
+      },
+    ],
+    {
+      hydrationData: { loaderData: { page: data } },
+    },
+  );
   try {
     return renderToStaticMarkup(createElement(RouterProvider, { router }));
   } finally {
@@ -81,9 +97,9 @@ test("release metadata links each songwriter to their generated page", () => {
   });
   assert.match(
     html,
-    /href="\/songwriter\/stephan-terning">Stephan Terning<\/a>/,
+    /href="\/songwriter\/stephan-terning"[^>]*>Stephan Terning<\/a>/,
   );
-  assert.match(html, /href="\/songwriter\/asa-oberg">Åsa Öberg<\/a>/);
+  assert.match(html, /href="\/songwriter\/asa-oberg"[^>]*>Åsa Öberg<\/a>/);
   assert.match(html, /<dd class="preserve-lines">Example Producer<\/dd>/);
 });
 
@@ -111,25 +127,21 @@ test(
     const missing = (error: unknown) =>
       error instanceof Response && error.status === 404;
     try {
-      await db
-        .insert(users)
-        .values(
-          ownerIds.map((id) => ({
-            id,
-            name: "Owner",
-            email: `${id}@example.test`,
-          })),
-        );
-      await db
-        .insert(artists)
-        .values(
-          artistIds.map((id, i) => ({
-            id,
-            ownerId: ownerIds[i],
-            name: ["Martin Dice", "HUST"][i],
-            slug: `songwriter-test-${id}`,
-          })),
-        );
+      await db.insert(users).values(
+        ownerIds.map((id) => ({
+          id,
+          name: "Owner",
+          email: `${id}@example.test`,
+        })),
+      );
+      await db.insert(artists).values(
+        artistIds.map((id, i) => ({
+          id,
+          ownerId: ownerIds[i],
+          name: ["Martin Dice", "HUST"][i],
+          slug: `songwriter-test-${id}`,
+        })),
+      );
       await db.insert(releases).values([
         {
           id: releaseIds[0],

@@ -68,6 +68,13 @@ Release ZIPs now contain a directory named `Artist - Release title`; individual-
 
 PR 3 review: merged the public-release and share-preview changes from main, rejected damaged/unsafe floating-point conversions before publication, and kept native Space behavior inside modal dialogs. All 46 tests pass with the isolated database, including release preservation and permission revocation during an in-flight download.
 
+
+## Continuous public release player
+
+Release, artist, and songwriter routes now share a public music layout with one audio element. Internal navigation retains playback and the original release queue. A persistent mini player and release-page controls share playback state, normalization, media-session controls, and actual-play counting. Playing a different track replaces the queue; pause/resume preserves it. Completion retains the last track's metadata, and Play restarts the queue from its originally selected track. Leaving for management or demos disposes the release player.
+
+Focused tests cover queue and media lifecycle behavior, including stale rejected play requests and pause during loading. The full suite passed against an isolated PostgreSQL database; lint, type checking, and the production Docker build passed. A Chromium journey exercised real audio across artist/songwriter/release navigation, back/forward, both control surfaces, progression/replay, per-track gain, lock-screen callbacks, analytics attribution, native ZIP downloads, narrow layout, reload, and management exit. Physical iPhone background playback remains a device acceptance check.
+
 ## Email-gated demo ZIPs and download modals
 
 Demo downloads now use a modal and POST to produce a streamed ZIP containing the selected WAV, MP3 or unchanged legacy original, optional artwork and `demo-info.txt`. Packages use readable artist/title/version names. The fixed `Pre-release version. Do not share.` warning appears in the modal and info file, including finished demos. Info includes current artist, title, version, status, upload timestamp and descriptions; recipient addresses and private link/account identifiers are not added to the package.

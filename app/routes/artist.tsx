@@ -1,5 +1,6 @@
 import { releasePath } from "../domain/releases";
 import {
+  Link,
   useLoaderData,
   type LoaderFunctionArgs,
   type MetaFunction,
@@ -53,7 +54,7 @@ export default function ArtistPage() {
   const d = useLoaderData<typeof loader>();
   return (
     <section className="artist-page">
-      {d.owner && <a href="/releases">Manage artists & releases</a>}
+      {d.owner && <Link to="/releases">Manage artists & releases</Link>}
       {d.artist.image && (
         <img
           className="artist-image"
@@ -74,9 +75,9 @@ export default function ArtistPage() {
       <h2>Releases</h2>
       <div className="grid">
         {d.releases.map((r) => (
-          <a
+          <Link
             className="release-card"
-            href={releasePath(d.artist, r)}
+            to={releasePath(d.artist, r)}
             key={r.id}
           >
             <img
@@ -87,7 +88,7 @@ export default function ArtistPage() {
             <p>
               {r.kind.toUpperCase()} · {r.metadata.releaseDate}
             </p>
-          </a>
+          </Link>
         ))}
       </div>
       {!d.releases.length && <p>No published releases yet.</p>}

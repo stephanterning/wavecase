@@ -2,14 +2,11 @@ import { DownloadDialog, DownloadEmail } from "../components/download-dialog";
 import { releaseArtistSuffix, releasePath } from "../domain/releases";
 import { getReleaseServiceIcon } from "../domain/release-services";
 import { SongwriterCredits } from "../components/songwriter-credits";
-import { useMediaSession } from "../components/media-session";
-import {
-  disconnectPlaybackAudio,
-  playbackGainDb,
-  playNormalized,
-} from "../components/playback-audio";
+import { useReleasePlayer } from "../components/release-player";
+import { playbackGainDb } from "../components/playback-audio";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
+  Link,
   useLoaderData,
   useRevalidator,
   type LoaderFunctionArgs,
@@ -100,42 +97,19 @@ export default function ReleasePage() {
     const timer = setInterval(() => void revalidator.revalidate(), 3000);
     return () => clearInterval(timer);
   }, [waitingForMeasurements, revalidator]);
-  const [selected, select] = useState<string | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
-  const [error, setError] = useState("");
-  const audio = useRef<HTMLAudioElement>(null);
-  const counted = useRef(false);
+  const { playback, queue, index, status, position, duration } =
+    useReleasePlayer();
+  const selected =
+    queue?.releaseId === d.release.id ? queue.tracks[index].id : null;
+  const playing = status === "playing" || status === "loading";
   const visited = useRef("");
-  const selectedTrack = available.find((t) => t.id === selected);
   const endpoint = `/release-assets/${d.release.id}`;
   useEffect(() => {
-    const media = audio.current;
-    return () => {
-      if (!media) return;
-      media.pause();
-      disconnectPlaybackAudio(media);
-      media.removeAttribute("src");
-      media.load();
-    };
-  }, []);
-  useMediaSession(
-    audio,
-    {
-      title: selectedTrack?.title,
-      artist: selectedTrack?.metadata.artist || d.artist.name,
-      album: d.release.title,
-      artwork: d.mediaArtwork,
-    },
-    () => setError("Playback could not start. Please try again."),
-    () =>
-      audio.current && selectedTrack?.audioMeasurements
-        ? playNormalized(
-            audio.current,
-            playbackGainDb(selectedTrack.audioMeasurements),
-          )
-        : Promise.resolve(),
-  );
+    playback.reconcile(
+      d.release.id,
+      playable.map((track) => track.id),
+    );
+  }, [playback, d.release.id, playable]);
   function event(kind: string, extra: Record<string, string> = {}) {
     if (d.owner || !d.release.published) return;
     void fetch(`${endpoint}/events`, {
@@ -162,26 +136,23 @@ export default function ReleasePage() {
     }).catch(() => {});
   }, [d.release.id, d.release.published, d.owner]);
   function start(id: string) {
-    const track = playable.find((t) => t.id === id);
-    if (!audio.current || !track) return;
-    setError("");
-    if (selected === id) {
-      if (audio.current.paused)
-        void playNormalized(
-          audio.current,
-          playbackGainDb(track.audioMeasurements),
-        ).catch(() => setError("Playback could not start. Please try again."));
-      else audio.current.pause();
-    } else {
-      select(id);
-      counted.current = false;
-      setPosition(0);
-      audio.current.src = `${endpoint}/audio?track=${id}`;
-      void playNormalized(
-        audio.current,
-        playbackGainDb(track.audioMeasurements),
-      ).catch(() => setError("Playback could not start. Please try again."));
-    }
+    playback.start(
+      {
+        releaseId: d.release.id,
+        url: releasePath(d.artist, d.release),
+        title: d.release.title,
+        artwork: d.mediaArtwork,
+        countPlays: !d.owner && d.release.published,
+        tracks: playable.map((track) => ({
+          id: track.id,
+          title: track.title,
+          artist: track.metadata.artist || d.artist.name,
+          duration: track.duration || 0,
+          gainDb: playbackGainDb(track.audioMeasurements),
+        })),
+      },
+      id,
+    );
   }
   return (
     <article
@@ -195,7 +166,7 @@ export default function ReleasePage() {
       <div className="release-backdrop" aria-hidden="true" />
       {d.owner && (
         <p className="release-owner">
-          <a href={`/releases/${d.release.id}`}>Edit release</a>
+          <Link to={`/releases/${d.release.id}`}>Edit release</Link>
           {!d.release.published && " · Private draft preview"}
         </p>
       )}
@@ -215,36 +186,10 @@ export default function ReleasePage() {
           </p>
           <h1>{d.release.title}</h1>
           <div className="release-artist">
-            <a href={`/artists/${d.artist.slug}`}>{d.artist.name}</a>
+            <Link to={`/artists/${d.artist.slug}`}>{d.artist.name}</Link>
             {releaseArtistSuffix(d.artist.name, d.tracks)}
           </div>
           <p className="preserve-lines">{d.release.description}</p>
-          <audio
-            ref={audio}
-            preload="none"
-            onPlaying={() => {
-              setPlaying(true);
-              setError("");
-              if (!counted.current && selected) {
-                counted.current = true;
-                event("play", { track: selected });
-              }
-            }}
-            onPause={() => setPlaying(false)}
-            onTimeUpdate={(e) => setPosition(e.currentTarget.currentTime)}
-            onError={() =>
-              setError(
-                "Audio is unavailable. Refresh the page or try again later.",
-              )
-            }
-            onEnded={() => {
-              setPlaying(false);
-              counted.current = false;
-              const next =
-                playable[playable.findIndex((t) => t.id === selected) + 1];
-              if (next) start(next.id);
-            }}
-          />
           <ol className="release-tracklist">
             {d.tracks.map((t) => (
               <li key={t.id}>
@@ -279,18 +224,16 @@ export default function ReleasePage() {
                 </div>
                 {selected === t.id && (
                   <label className="release-seek">
-                    {time(position)} / {time(selectedTrack?.duration || 0)}
+                    {time(position)} / {time(duration)}
                     <input
                       aria-label="Playback position"
                       type="range"
                       min={0}
-                      max={selectedTrack?.duration || 1}
+                      max={duration || 1}
                       step={0.1}
                       value={position}
                       onChange={(e) => {
-                        if (audio.current)
-                          audio.current.currentTime = Number(e.target.value);
-                        setPosition(Number(e.target.value));
+                        playback.seek(Number(e.target.value));
                       }}
                     />
                   </label>
@@ -298,7 +241,6 @@ export default function ReleasePage() {
               </li>
             ))}
           </ol>
-          {error && <p role="alert">{error}</p>}
           {!!d.release.links.length && (
             <section>
               <h2>Stream or buy</h2>

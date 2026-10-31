@@ -117,6 +117,21 @@ The review reproduced and fixed silently shortened conversions from damaged inpu
 
 All 46 tests passed in Docker against `wavecase_test`, with no skipped database scenarios. Lint, type checking and the production image build passed. The merge preserves the separate public release audio/ZIP workflow and both sets of styles and documentation. In the built app, pressing Space on the focused download-dialog close button closes the modal, restores focus to the download trigger, and leaves playback paused at zero.
 
+
+## Continuous public release playback
+
+`tests/release-playback.test.ts` checks queue replacement, pause/resume, automatic progression, replay from the originally selected track, per-track gain, actual-play counting, owner exclusion, stale play failures, revoked availability, and layout cleanup. `tests/playback-audio.test.ts` also verifies that a rejected earlier play cannot pause its replacement.
+
+Using an isolated installation with two releases and a shared songwriter:
+
+1. Start from the middle of a multi-track release. Navigate through its artist and songwriter to another release. Verify uninterrupted audio and no second audio element; browsing must not change the queue.
+2. Return through mini-player artwork/title and browser back/forward. The current track's button and position slider must reflect the same audio and position. The mini-player artist must not be a link.
+3. Pause/resume from both sets of controls and from the lock screen. Check that position and queue survive and no extra play is counted. Selecting another track replaces the queue. Try rapid selections and pause during loading.
+4. Allow automatic progression while viewing another page. Check titles, per-track artists, normalization, and per-track play counts. Finish the final track: retain its metadata, then restart the original queue with Play.
+5. Visit management or demo pages: release playback and its media session must stop. Reload a public page: the player begins empty. Confirm unavailable tracks do not enter a queue, audio errors stop clearly, and fresh unavailability cannot leave buffered audio playing.
+6. Check desktop and narrow mobile layouts, keyboard activation, long titles, scroll restoration, page metadata, and email-gated downloads after client navigation. Validate background playback and automatic progression on a physical iPhone separately from desktop browser automation.
+7. With music loaded, press Space on release, artist, and songwriter pages, including with a different track's button or the position slider focused. Only the shared player should toggle, without scrolling or replacing its queue. Hold Space: it must toggle once. Enter must still activate the focused button. Verify typing, selects, editable content, dialog buttons, and modified shortcuts retain their normal behavior. After the final track ends, Space restarts the original queue. Before loading music and after leaving the public layout, Space must retain its native behavior.
+
 ## Email-gated demo ZIPs and download modals
 
 - On a private demo share page, Download opens a modal with the version, fixed pre-release warning, WAV/MP3 choice (or original format for legacy audio), package description and required email. Blank or malformed email must not start a download. Valid syntax starts a ZIP without mailbox verification or subscription.

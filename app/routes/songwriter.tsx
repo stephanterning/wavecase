@@ -1,5 +1,6 @@
 import { asc, eq, sql } from "drizzle-orm";
 import {
+  Link,
   useLoaderData,
   type LoaderFunctionArgs,
   type MetaFunction,
@@ -76,9 +77,9 @@ export default function SongwriterPage() {
       <h2>Releases</h2>
       <div className="grid">
         {data.releases.map((release) => (
-          <a
+          <Link
             className="release-card"
-            href={releasePath(release.artist, release)}
+            to={releasePath(release.artist, release)}
             key={release.id}
           >
             <img
@@ -92,7 +93,7 @@ export default function SongwriterPage() {
               {release.kind.toUpperCase()}
               {release.releaseDate && ` · ${release.releaseDate}`}
             </p>
-          </a>
+          </Link>
         ))}
       </div>
     </section>

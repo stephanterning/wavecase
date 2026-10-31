@@ -186,7 +186,7 @@ Comment creation and replies use a modal, with no inline feedback form on the li
 
 Support background playback and lock-screen media controls where supported by the platform. Repeat is controlled from the web player; a repeat command is not available in the standard Media Session action set.
 
-For both demos and releases, provide the playing track's title, artist and available cover artwork to the platform's media session. Releases use the track-specific artist when supplied, otherwise the release artist, and include the release title as the album. Update the metadata when tracks change and clear it when leaving the player or learning that access was revoked. Private demo artwork retains the same access checks as on the listening page.
+For both demos and releases, provide the playing track's title, artist and available cover artwork to the platform's media session. Releases use the track-specific artist when supplied, otherwise the release artist, and include the release title as the album. Update the metadata when tracks change and clear it when leaving the player or learning that access was revoked. Public release playback keeps its media session while navigating within the public music section; leaving that section clears it. Private demo artwork retains the same access checks as on the listening page.
 
 When switching versions, preserve the playback position when it exists in the destination version and preserve the play or pause state. Starting from zero when the position is outside the new duration is the proposed fallback. Cache already opened versions where practical to make subsequent switches fast. This is an interaction performance requirement, not an offline listening feature.
 
@@ -274,6 +274,20 @@ Accept WAV masters, preferring 24-bit, 48 kHz uploads. Other WAV bit depths and 
 
 Separate playback derivatives may be generated. AAC at 256 kbit/s is the agreed minimum playback quality. This permission to create listening copies does not permit rewriting or converting the downloadable masters and is separate from the work-in-progress WAV playback policy.
 
+### Continuous public playback
+
+Release, artist, and songwriter pages share one player. Playback continues during navigation between these public music pages, including browser back/forward. Entering administration, account, library, or demo pages stops playback and discards the queue. Playback is held only in the current tab's memory; a full reload starts with an empty player.
+
+Selecting a different track replaces the queue with that track and the subsequent playable tracks in its release, in release order. Tracks without available, measured audio are excluded. Playback advances automatically through this fixed queue. Play on the current paused track resumes its position and retains the queue. At the end of the final track, playback stops and the final track's artwork, title, and artist remain visible. Play then restarts the original queue from its first selected track. Selecting another track instead creates a new queue. A playback failure stops with an error rather than silently advancing.
+
+After the first Play, a mini player appears on every public music page, including the active release page. It shows release artwork, the current track's title and artist (falling back to the release artist), and play/pause. Artwork and title link only to the queued release's page. The artist is plain text. A future Play control on a listing page must also link back to the selected release, not the listing that initiated playback.
+
+Track controls and the playback-position slider reflect the shared player's actual state wherever the current track is shown. Navigation never selects a track or resets its position. Loudness normalization, media-session controls, and play counting belong to the shared playback lifecycle; page visits remain separate from actual playback starts. Server-side media permissions continue to apply, and newly learned unavailability stops affected playback.
+
+Once music is loaded, Space toggles the shared player on all public music pages, including when another button or the playback-position slider has focus. It has the same behavior as the mini-player button, including restarting a completed queue. A held key toggles only once and does not scroll the page. Text entry, other form inputs, selects, dialogs, composition, and modified shortcuts retain their normal behavior. Enter still activates the focused control. With an empty player, Space retains its normal behavior.
+
+The public routes share a React Router layout without changing their URLs or server loaders. Future public music views join this layout. Management and demo routes remain outside it.
+
 ### Download packages and email gate
 
 The Download button opens a modal containing package selection, included-track disclosure and email entry. Offer both a complete-release ZIP and individual-track ZIPs. Every ZIP includes:
@@ -321,7 +335,7 @@ The following proposals were discussed but have not been individually finalized.
 - Address pattern: `/artists/martin-dice` and `/artists/martin-dice/pressure`. Suggest lowercase, hyphenated slugs from names and titles, allow edits before publication, and resolve conflicts with meaningful suffixes. Keep published addresses stable when display names change; redirect old addresses after an explicit URL change. Namespace and collision rules remain to be finalized.
 - Search and sharing: index published pages, provide descriptive page titles and descriptions, cover-image link previews, and structured music metadata.
 - Artist page: artist name, optional profile image, short biography, external links, and published releases ordered by release date, newest first.
-- Release layout: large cover beside the player and track list on desktop; a single column on mobile. Use a blurred, darkened artwork background, ordinary page scrolling, consistent service-link styling, and expandable detailed metadata. Keep feedback threads and work-in-progress version controls out of this page. Automatic progression through the track list is a proposed player behavior.
+- Release layout: large cover beside the player and track list on desktop; a single column on mobile. Use a blurred, darkened artwork background, ordinary page scrolling, consistent service-link styling, and expandable detailed metadata. Keep feedback threads and work-in-progress version controls out of this page. Playback follows the continuous public playback requirements above.
 - Release metadata: title, primary artist, release type, release date, label, catalog number, UPC/EAN, artwork, description, genre, and phonographic/copyright notices. Track metadata: title, artist and guests, track number, version designation, ISRC, songwriters, producers, other credits, explicit marking, and measured duration.
 - Email handling: explain at entry that the supplied address is shared with the release owner and stored with the download. Mailing-list subscription would require a separate choice and is not included in the agreed feature. Retention/deletion rules and whether repeat downloads reuse an earlier submission remain to be finalized.
 - Counting: exclude the authenticated owner's own visits and test playback; count plays only after playback actually starts. Exact visit, replay, and duplicate-event counting rules, and whether artist-page views need a separate report, remain to be finalized.

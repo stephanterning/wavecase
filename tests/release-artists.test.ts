@@ -4,11 +4,17 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import ReleasePage from "../app/routes/release-page";
+import PublicMusic from "../app/routes/public-music";
 import type { TrackMetadata } from "../app/domain/releases";
 
 function artistLine(name: string, slug: string, metadata: TrackMetadata[]) {
   const router = createMemoryRouter(
-    [{ id: "release", path: "/", Component: ReleasePage }],
+    [
+      {
+        Component: PublicMusic,
+        children: [{ id: "release", path: "/", Component: ReleasePage }],
+      },
+    ],
     {
       hydrationData: {
         loaderData: {
@@ -38,7 +44,9 @@ function artistLine(name: string, slug: string, metadata: TrackMetadata[]) {
     const html = renderToStaticMarkup(
       createElement(RouterProvider, { router }),
     );
-    return html.match(/<div class="release-artist">(.*?)<\/div>/)?.[1];
+    return html
+      .replaceAll(' data-discover="true"', "")
+      .match(/<div class="release-artist">(.*?)<\/div>/)?.[1];
   } finally {
     router.dispose();
   }
