@@ -16,12 +16,17 @@ import {
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { versionStatuses } from "../domain/versions";
-import { recordVisit, listenerIdentity } from "../components/telemetry";
+import { recordVisit } from "../components/telemetry";
 import { useEffect, useRef, useState } from "react";
 import { db } from "../server/db";
 import { versions, links, reuploadRequests } from "../server/schema";
 import { sameOrigin, token, hash, origin } from "../server/security";
 import { trackAccess } from "../server/access";
+export const meta = () => [
+  { title: "Wavecase" },
+  { name: "referrer", content: "same-origin" },
+];
+
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let id = params.id;
   const share = params.share;
@@ -307,36 +312,16 @@ export default function Track() {
                 current.canDownload ? "Download audio" : "Download unavailable"
               }
             >
-              {current.canDownload && current.metadata?.audioPolicy === 2 ? (
+              {current.canDownload ? (
                 <Download
                   key={current.id + current.revision}
                   versionId={current.id}
                   versionName={current.name}
                   share={data.share}
+                  owner={data.owner}
+                  modern={current.metadata?.audioPolicy === 2}
                   wav={current.metadata?.wavDownload === true}
                 />
-              ) : current.canDownload ? (
-                <a
-                  className="icon-action"
-                  aria-label="Download original"
-                  href={
-                    "/media/" +
-                    current.id +
-                    "?download=1" +
-                    (data.share ? "&share=" + data.share : "")
-                  }
-                  onClick={(e) => {
-                    if (data.share) {
-                      const url = new URL(e.currentTarget.href);
-                      const identity = listenerIdentity(data.share);
-                      url.searchParams.set("browser", identity.browser);
-                      url.searchParams.set("session", identity.session);
-                      e.currentTarget.href = url.toString();
-                    }
-                  }}
-                >
-                  <Icon name="download" />
-                </a>
               ) : (
                 <button
                   className="icon-action"

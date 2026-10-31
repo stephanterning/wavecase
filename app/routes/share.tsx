@@ -8,7 +8,10 @@ import { db } from "../server/db";
 import { links, reuploadRequests } from "../server/schema";
 import { sameOrigin } from "../server/security";
 
-export const meta: MetaFunction<typeof loader> = ({ loaderData: data, error }) => {
+export const meta: MetaFunction<typeof loader> = ({
+  loaderData: data,
+  error,
+}) => {
   if (error || !data?.shareUrl)
     return [{ title: "Wavecase" }, { name: "robots", content: "noindex" }];
   const { track, shareUrl, share } = data;
@@ -19,6 +22,7 @@ export const meta: MetaFunction<typeof loader> = ({ loaderData: data, error }) =
   image.searchParams.set("share", share!);
   return [
     { title: `${title} · Wavecase` },
+    { name: "referrer", content: "same-origin" },
     { name: "robots", content: "noindex" },
     { name: "description", content: description },
     { property: "og:site_name", content: "Wavecase" },
