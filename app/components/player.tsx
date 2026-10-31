@@ -66,6 +66,10 @@ export function Player({
       artwork: artwork ? { src: artwork, type: "image/jpeg" } : null,
     },
     () => setError("Audio could not play. Please try again."),
+    () =>
+      audioRef.current
+        ? playNormalized(audioRef.current, gainDb)
+        : Promise.resolve(),
   );
   const comment = useEffectEvent((selection: CommentSelection) =>
     onComment?.(selection),

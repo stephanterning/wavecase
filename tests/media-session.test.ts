@@ -56,10 +56,19 @@ test("media sessions show the current track and clear private metadata and contr
 
   const media = new Media();
   let errors = 0;
+  let normalizedPlays = 0;
   const attach = (metadata: MediaMetadataInit) =>
-    attachMediaSession(media as unknown as HTMLAudioElement, metadata, () => {
-      errors++;
-    });
+    attachMediaSession(
+      media as unknown as HTMLAudioElement,
+      metadata,
+      () => {
+        errors++;
+      },
+      () => {
+        normalizedPlays++;
+        return media.play();
+      },
+    );
   const stopDemo = attach({
     title: "Demo title",
     artist: "Demo artist",
@@ -73,6 +82,11 @@ test("media sessions show the current track and clear private metadata and contr
   assert.equal(session.playbackState, "paused");
   handlers.get("play")!({ action: "play" });
   assert.equal(media.paused, false);
+  assert.equal(
+    normalizedPlays,
+    1,
+    "lock-screen play uses the normalization callback",
+  );
   assert.equal(session.playbackState, "playing");
   handlers.get("seekto")!({ action: "seekto", seekTime: 23 });
   assert.equal(media.currentTime, 23);

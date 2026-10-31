@@ -217,6 +217,11 @@ export const releaseTracks = pgTable("release_tracks", {
     .default({}),
   original: text(),
   playback: text(),
+  audioMeasurements: jsonb().$type<{
+    lufs: number | null;
+    peak: number | null;
+    truePeak: number | null;
+  }>(),
   pendingOriginal: text(),
   error: text(),
   duration: doublePrecision(),

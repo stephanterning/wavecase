@@ -57,6 +57,13 @@
       "when": 1793384579080,
       "tag": "0007_dizzy_sandman",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793426556169,
+      "tag": "0008_charming_masked_marvel",
+      "breakpoints": true
     }
   ]
 }

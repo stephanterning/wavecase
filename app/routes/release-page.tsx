@@ -1,9 +1,15 @@
 import { releaseArtistSuffix, releasePath } from "../domain/releases";
 import { getReleaseServiceIcon } from "../domain/release-services";
 import { useMediaSession } from "../components/media-session";
+import {
+  disconnectPlaybackAudio,
+  playbackGainDb,
+  playNormalized,
+} from "../components/playback-audio";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   useLoaderData,
+  useRevalidator,
   type LoaderFunctionArgs,
   type MetaFunction,
 } from "react-router";
@@ -83,6 +89,14 @@ const time = (seconds: number) =>
 export default function ReleasePage() {
   const d = useLoaderData<typeof loader>();
   const available = d.tracks.filter((t) => t.available);
+  const playable = available.filter((t) => t.audioMeasurements);
+  const waitingForMeasurements = available.some((t) => !t.audioMeasurements);
+  const revalidator = useRevalidator();
+  useEffect(() => {
+    if (!waitingForMeasurements) return;
+    const timer = setInterval(() => void revalidator.revalidate(), 3000);
+    return () => clearInterval(timer);
+  }, [waitingForMeasurements, revalidator]);
   const [selected, select] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
@@ -92,6 +106,16 @@ export default function ReleasePage() {
   const visited = useRef("");
   const selectedTrack = available.find((t) => t.id === selected);
   const endpoint = `/release-assets/${d.release.id}`;
+  useEffect(() => {
+    const media = audio.current;
+    return () => {
+      if (!media) return;
+      media.pause();
+      disconnectPlaybackAudio(media);
+      media.removeAttribute("src");
+      media.load();
+    };
+  }, []);
   useMediaSession(
     audio,
     {
@@ -101,6 +125,13 @@ export default function ReleasePage() {
       artwork: d.mediaArtwork,
     },
     () => setError("Playback could not start. Please try again."),
+    () =>
+      audio.current && selectedTrack?.audioMeasurements
+        ? playNormalized(
+            audio.current,
+            playbackGainDb(selectedTrack.audioMeasurements),
+          )
+        : Promise.resolve(),
   );
   function event(kind: string, extra: Record<string, string> = {}) {
     if (d.owner || !d.release.published) return;
@@ -128,22 +159,25 @@ export default function ReleasePage() {
     }).catch(() => {});
   }, [d.release.id, d.release.published, d.owner]);
   function start(id: string) {
-    if (!audio.current) return;
+    const track = playable.find((t) => t.id === id);
+    if (!audio.current || !track) return;
     setError("");
     if (selected === id) {
       if (audio.current.paused)
-        void audio.current
-          .play()
-          .catch(() => setError("Playback could not start. Please try again."));
+        void playNormalized(
+          audio.current,
+          playbackGainDb(track.audioMeasurements),
+        ).catch(() => setError("Playback could not start. Please try again."));
       else audio.current.pause();
     } else {
       select(id);
       counted.current = false;
       setPosition(0);
       audio.current.src = `${endpoint}/audio?track=${id}`;
-      void audio.current
-        .play()
-        .catch(() => setError("Playback could not start. Please try again."));
+      void playNormalized(
+        audio.current,
+        playbackGainDb(track.audioMeasurements),
+      ).catch(() => setError("Playback could not start. Please try again."));
     }
   }
   return (
@@ -204,7 +238,7 @@ export default function ReleasePage() {
               setPlaying(false);
               counted.current = false;
               const next =
-                available[available.findIndex((t) => t.id === selected) + 1];
+                playable[playable.findIndex((t) => t.id === selected) + 1];
               if (next) start(next.id);
             }}
           />
@@ -228,10 +262,15 @@ export default function ReleasePage() {
                   {t.available && (
                     <button
                       type="button"
+                      disabled={!t.audioMeasurements}
                       aria-label={`${selected === t.id && playing ? "Pause" : "Play"} ${t.title}`}
                       onClick={() => start(t.id)}
                     >
-                      {selected === t.id && playing ? "Pause" : "Play"}
+                      {!t.audioMeasurements
+                        ? "Preparing playback…"
+                        : selected === t.id && playing
+                          ? "Pause"
+                          : "Play"}
                     </button>
                   )}
                 </div>

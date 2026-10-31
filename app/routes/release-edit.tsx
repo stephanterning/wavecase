@@ -230,6 +230,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
             .set({
               original: null,
               playback: null,
+              audioMeasurements: null,
               pendingOriginal: null,
               duration: null,
               sampleRate: null,

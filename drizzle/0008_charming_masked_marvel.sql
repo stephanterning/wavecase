@@ -1,0 +1,1 @@
+ALTER TABLE "release_tracks" ADD COLUMN "audioMeasurements" jsonb;
