@@ -49,7 +49,7 @@ Listener downloads require an active link, visible version, link and version dow
 Download opens a modal and submits via POST, so addresses stay out of download URLs; old direct GET/HEAD download requests do not serve files. Playback GET/range/HEAD delivery remains separate. Every package contains:
 
 - Selected WAV, MP3, or unchanged legacy original, using the readable `Artist - Title - Version` name (omit missing artist) and its format extension.
-- Optional `artwork.jpg` and `demo-info.txt`, inside a directory with the same name as the ZIP.
+- `demo-info.txt` and, when available, `artwork.jpg`, inside a directory with the same name as the ZIP.
 - The fixed warning `Pre-release version. Do not share.`, also shown in the modal, including for `finished` demos. The info file includes current artist, title, version, status, upload timestamp, format, and descriptions.
 
 Preserve Unicode and sanitize unsafe filename characters. Do not add recipient addresses, private share URLs, or owner account details to package metadata. Explain that email is shared with the owner and stored with the download request. Require each listener request to submit it; do not verify mailboxes, send messages, subscribe addresses, or save email in browser storage. Only the owner sees download addresses with format, version, link, time, and visitor context. Clearing track analytics deletes them; there is no separate address list or automatic expiry.
@@ -84,7 +84,7 @@ Owner-only demo analytics group activity by named link, locally generated browse
 
 Record link visits independently of the player, including missing-audio pages. A play requires actual playback: first start, a whole-track repeat, or playback of another version. Pause/resume, seeks, visits, preloads, and switching versions while paused do not add plays. Exclude authenticated owner activity. Capture played intervals even from cached media.
 
-Views include link/browser summaries, names, first/latest activity, listening time, unique coverage, version heatmaps, session timelines, pauses/seeks/endings, and download requests. Replaying a minute adds two minutes of listening but one minute of coverage. Replacement keeps one combined version history. Download events describe initiated transfers, not verified completion; older events may lack format/email.
+Views include link/browser summaries, names, first/latest activity, listening time, unique coverage, version heatmaps, session timelines, pauses/seeks/endings, and download requests. Playing the same minute twice is two minutes of listening but one minute of coverage. Replacement keeps one combined version history. Download events describe initiated transfers, not verified completion; older events may lack format/email.
 
 Sessions use a per-link browser-tab ID, renewed after 30 minutes without recorded activity. Temporary demo telemetry failures retry with stable event IDs while the page is alive; termination may lose pending events. Keep raw events so grouping does not redefine play counts. Retain analytics until explicitly cleared by the owner, including after audio removal.
 
