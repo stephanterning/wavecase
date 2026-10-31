@@ -1,456 +1,175 @@
-# Wavecase Product and Technical Specification
+# Wavecase product and technical specification
 
-Wavecase lets musicians share work in progress, collect feedback on particular versions, and understand listening activity through individually named private links. Uploaders have passkey accounts. Listeners follow a link without creating an account.
+Wavecase is a self-hosted music sharing application with two separate workflows: private demos for version-specific feedback, and public releases for finished music. Uploaders use passkey accounts; listeners need no account. Independent installations support multiple owners and configurable audio limits, even though the initial personal installation serves one uploader and roughly ten listeners per month.
 
-The initial personal installation serves one uploader and approximately ten listeners per month. The public open-source project must also support independent installations with multiple uploaders. Application limits must be configurable rather than tied to the initial installation.
+This is the product contract, reconciled with the implementation through PR #10 on October 31, 2026. It takes precedence over conflicting product guidance in parent directories. [Implementation status](implementation-status.md) records limitations; [testing](testing.md) covers verification and device acceptance. All committed content and interface text are English. The license is AGPL-3.0-only.
 
-This specification captures the product interview through October 30, 2026. Product requirements and the selected stack are recorded below. Proposed implementation defaults and remaining details are explicitly separated from agreed requirements. Implementation is being validated locally; see [implementation status](implementation-status.md).
+## Accounts and ownership
 
-Wavecase also includes a separate Releases feature for finished, released music: public artist and release pages, streaming and shop links, optional full-track playback, and email-gated downloads of original masters with artwork and credits. These requirements describe agreed scope, not implementation completion.
+- The first completed setup creates the administrator and closes bootstrap registration, including concurrent attempts. Setup selects open or invitation-only registration; an administrator can change it later.
+- Invitations are single-use, revocable, and expire after seven days. A supplied invitation is consumed only after successful account creation, even when registration is open.
+- Accounts require a display name and unverified email. Passkeys are the only login method; accounts can hold multiple passkeys and cannot remove their last one.
+- Administrators manage registration, invitations, account disablement, and recovery. This role grants no access to another owner's private music, comments, or analytics. Each demo and artist profile has one owner; there is no shared track administration.
+- After verifying identity, an administrator may issue a single-use, 15-minute recovery link for a non-administrator. Successful recovery replaces old passkeys and sessions. Administrator recovery requires the server command described in [operations](operations.md#accounts-and-recovery). Neither flow sends email or introduces password login.
 
-## Project scope
+## Private demos
 
-The project includes the application, Docker packaging, first-run setup, persistent storage integration, and documentation needed to run the application. The selected license is GNU AGPL version 3. All committed content is in English, including interface text.
+### Library and versions
 
-Host hardware selection, internet connectivity, domain and reverse proxy or tunnel setup, and backup operation are outside the project scope. Files and database data must nevertheless persist outside container writable layers so the operator can back them up independently.
+The private library supports title search and sorting by title or newest track. A track has a required title, optional artist, cover, and shared description. Suggest title/version names from the upload filename. Versions have a user-defined name, description, upload timestamp, download permission, and one status: `early idea`, `work in progress`, `almost finished`, or `finished`.
 
-## Accounts and installation
+Version order follows new-upload order, not labels, processing completion, or replacements. Successful processing publishes a new version automatically; existing links keep their previous playable audio while processing is pending. There is no demo draft/publish step.
 
-### First run
+The artist may be free text or an owned artist profile. Explicit selection checks ownership. Free text links automatically only when exactly one owned profile matches, ignoring case and surrounding whitespace; the migration applies the same rule without reassigning existing links. Ambiguous/unmatched names remain free text. Linked demos display the profile's current name and optional thumbnail, linking to its stable public page even without published releases. Renaming preserves the relationship. This never publishes or lists the demo on the artist page, and listeners do not receive the owner's profile choices.
 
-Before setup is complete, anyone who reaches the installation can use the setup form to create its first administrator account with a passkey. The first completed setup closes the bootstrap flow. Concurrent attempts must not create additional bootstrap administrators.
+### Audio policy
 
-Setup selects either open registration or registration through an administrator invitation link. The administrator can change this setting later.
+Accept mono/stereo audio from WAV, AIFF, FLAC, MP3, MP4/M4A/MOV, Matroska/WebM, Ogg, AAC, ASF/WMA, APE, WavPack, AU, and CAF, subject to the shipped FFmpeg decoders. Unsupported, invalid, or empty input must fail clearly. Keep channel metadata extensible; multichannel/Atmos playback is outside scope.
 
-Account invitation links are single-use, expire seven days after creation, and can be revoked by an installation administrator. Consume an invitation only when account creation succeeds.
+For new uploads and replacements:
 
-### Roles and access
+- Cap the stored master at 24 bit and 48 kHz independently, without increasing a lower source bit depth or sample rate. Apply triangular dither when reducing above 24 bit; preserve mono/stereo without downmixing, trimming, compression, or loudness normalization during conversion.
+- Recognized PCM/lossless sources, including FLAC, ALAC, and APE, use a PCM WAV master. Keep a suitable WAV unchanged; otherwise convert. This single master serves playback and WAV download.
+- Preserve compatible lossy audio without re-encoding; other supported sources receive a compatible WAV playback master within the ceiling. Decoding lossy audio does not make it eligible for WAV download.
+- Reject decoder failures and floating-point samples that are non-finite or exceed the PCM range. Validate and publish before deleting a superseded upload; failures must preserve the current valid audio.
+- Generate waveform peaks and integrated LUFS, sample peak (dBFS), true peak (dBTP), loudness range, and duration from playback audio. Show these measurements on the demo page, without sample rate/bit depth.
 
-| Role | Capabilities |
-| --- | --- |
-| Installation administrator | Manage accounts, registration policy, invitations, and installation settings. The role does not grant access to other uploaders' tracks, comments, or analytics. |
-| Uploader | Manage a private library of owned tracks, versions, share links, comments, and analytics. Each track has one owner. |
-| Listener | Access the content allowed by a share link, listen, comment under a chosen name, and download permitted audio. No account is required. |
+New audio recognized as lossless/PCM offers WAV and MP3 download choices, defaulting to WAV; other sources offer MP3 only. MP3 uses LAME at constant 320 kbps, algorithm quality 2, prepared on first request and cached. Preserve 44.1/48 kHz for MP3; lower-rate sources export at 32 kHz for MPEG-1 compatibility. This export resampling does not improve source quality or alter the master. Concurrent requests share encoding; failures expose no partial export, and removal/replacement clears cached exports.
 
-An administrator can also own tracks as an uploader. Other account holders can participate through share links but cannot jointly administer a track in the first release.
+Previously published audio keeps its existing playback and unchanged legacy original until replaced. Download that original inside the same demo ZIP workflow.
 
-### Identity and recovery
+### Share links and downloads
 
-An uploader account requires a display name and email address. The email address is not verified and is not an authentication method. Passkeys are the only account authentication method; multiple passkeys can be registered to an account.
+A link belongs to one track and carries an owner-only label for a recipient or group. Possession grants access; it does not verify identity. Links support all versions or a fixed starting version and every later version. New links default to the latest published version and future versions; creating this policy before publication fails. Missing audio must never broaden that boundary. Labels, boundaries, download settings, and active state can change without changing the URL.
 
-The application must provide an administrator-assisted process to enroll a replacement passkey after a user loses all existing passkeys. Recovery of the installation administrator requires access to the server. The exact recovery protocol remains a technical design item; it must not introduce ordinary password or email login.
+Open the newest visible playable version; if none are playable, retain metadata and feedback without playback. An inactive link shows neutral information and denies protected content, while retaining comments/statistics for the owner. Re-enabling restores access under current settings. Active share pages provide title/description/authorized-cover previews with `noindex`; previews do not bypass link checks.
 
-## Work-in-progress library and feedback
+Listener downloads require an active link, visible version, link and version download permission, available audio, an allowed format, and a syntactically valid email. Enforce all conditions on the server and recheck after MP3 preparation. The authenticated demo owner bypasses listener download permission/email requirements and creates no listener download event. Unavailable versions show an inactive download control.
 
-The library, version, share-link, playback, analytics, and visual requirements in the following sections describe the work-in-progress and feedback workflow. Public releases have their own requirements under Public artists and releases, including different playback formats, download access, and analytics scope.
+Download opens a modal and submits via POST, so addresses stay out of download URLs; old direct GET/HEAD download requests do not serve files. Playback GET/range/HEAD delivery remains separate. Every package contains:
 
-## Library and metadata
+- Selected WAV, MP3, or unchanged legacy original, using the readable `Artist - Title - Version` name (omit missing artist) and its format extension.
+- Optional `artwork.jpg` and `demo-info.txt`, inside a directory with the same name as the ZIP.
+- The fixed warning `Pre-release version. Do not share.`, also shown in the modal, including for `finished` demos. The info file includes current artist, title, version, status, upload timestamp, format, and descriptions.
 
-The initial library has search and sorting, without folders or shared projects.
+Preserve Unicode and sanitize unsafe filename characters. Do not add recipient addresses, private share URLs, or owner account details to package metadata. Explain that email is shared with the owner and stored with the download request. Require each listener request to submit it; do not verify mailboxes, send messages, subscribe addresses, or save email in browser storage. Only the owner sees download addresses with format, version, link, time, and visitor context. Clearing track analytics deletes them; there is no separate address list or automatic expiry.
 
-| Track field | Requirement |
-| --- | --- |
-| Title | Required; suggest a title from the upload filename. |
-| Artist name | Optional free text or a linked artist profile owned by the same account. |
-| Cover image | Optional. |
-| Description | Optional; shared across versions. |
+### Feedback
 
-The artist field offers the account's own artist profiles while retaining free-text entry. Selecting a profile stores its ID. Saving a free-text name automatically links exactly one matching profile in the same account, ignoring letter case and surrounding whitespace. Ambiguous and unmatched names remain unlinked until the owner chooses a profile. Existing demos receive the same unambiguous matching in the migration; already linked demos are not reassigned.
+Threads belong to exactly one version and one link. Listeners see only their link's visible versions and conversations. Threads can concern a timestamp, range, or whole version and allow repeated replies. Owner feedback defaults to the selected version across links, with independent version/link filters. Replies retain the original thread's context; timestamp navigation selects that version and seeks. Missing audio disables seeking, not reading or replying.
 
-On both the owner's demo page and authorized share pages, a linked artist displays the profile's current name as a link to its public artist page, including when that page has no published releases. If the profile has an image, show a small thumbnail to the left of the name within the same link. Renaming a profile preserves the relationship and URL. Free-text names stay plain text. The link does not publish the demo or list it on the artist page, and private share-link access rules remain unchanged. Listener responses must not include the owner's other artist-profile choices.
+Listeners choose an unverified display name, reused from browser local storage. A separate browser-held secret grants deletion rights; matching names or analytics IDs never do. Losing the secret does not recover ownership in another browser. The track owner may moderate any comment on that track; administrator status alone is insufficient. Deleting a comment with later replies leaves `deleted`; a final comment or unanswered opening disappears. Comment editing and resolved states are outside scope.
 
-Each version has its own name, description, upload timestamp, download permission, and status. Version names are user-defined, such as `v1`, `v1.1`, or `v3.2`. Suggest a version name from the filename when recognizable and allow the uploader to correct it. Labels do not determine ordering.
+Unread indications are remembered per browser. Revisit the page to see replies; web push is deferred.
 
-The version status is one of:
+### Playback and interaction
 
-- `early idea`
-- `work in progress`
-- `almost finished`
-- `finished`
+All demo and release playback targets -16 LUFS integrated through constant player gain. Attenuate loud audio; boost quiet audio only within both 0 dBFS sample and 0 dBTP true-peak ceilings, reserving 0.01 dB true-peak headroom for rounding. Missing peak measurements, silence, or below-gate loudness must not produce a boost. Apply no limiting/compression. Stored audio, downloads, waveform data, and displayed measurements stay unchanged. Any future volume control attenuates the normalized signal.
 
-## Audio and publication
+Demo controls are play/pause, elapsed/total time, repeat with tooltip, and a separate download icon. There are no native audio controls, restart/volume buttons, zoom slider, or range-loop mode. Space toggles playback outside editable fields, selects, dialogs, and modified shortcuts. Version switching preserves position when it fits the destination duration (otherwise starts at zero) and preserves play/pause state. Reuse opened media where practical; this is not offline playback.
 
-### Upload and playback files
+The 220-pixel waveform may normalize visual amplitude. Click/tap seeks, wheel zooms around the pointer, repeated pinches zoom around the touch midpoint, and dragging pans a zoomed waveform. With waveform focus, arrows seek and plus/minus zoom. Comment gestures are:
 
-Accept a broad range of audio formats through server-side decoding. The concrete supported set is determined by the shipped FFmpeg build and verified fixtures; an unsupported or invalid file must produce a clear error.
+- Add comment: whole-version modal without time inputs.
+- Right-click or touch hold: point comment; right-button drag or hold-then-drag: range, ordered in either direction.
+- Context-menu key or Shift+F10: point comment for keyboard users. Pinch/cancel must not trigger an accidental comment.
 
-For new uploads and file replacements, cap the stored audio at 24 bit and 48 kHz, limiting each property independently without increasing a lower source bit depth or sample rate. Reduce bit depths above 24 with triangular dithering. Convert uncompressed PCM and recognized lossless sources (including WAV, AIFF, CAF PCM, FLAC, ALAC and APE) to a PCM WAV master when necessary. The same stored master serves playback and WAV downloads; do not retain a separate lower-quality playback copy. Keep an already suitable WAV unchanged. Delete a superseded source upload only after processing, validation and publication succeed. Reject decoder errors and floating-point sources with non-finite samples or peaks outside the PCM range rather than publishing shortened or silently clipped replacements.
+Comment/reply/download dialogs trap focus, support Escape/close, and return focus to their trigger. A comment retains its selected version/thread while open and closes after successful submission.
 
-Preserve compatible lossy uploads for playback without re-encoding. Other supported sources receive a compatible WAV master within the same ceiling, but decoding a lossy source does not make it eligible for WAV download. Existing published uploads keep their stored files and playback until their audio is replaced; downloads include the unchanged legacy original inside the demo ZIP.
+Media Session provides title, artist, available artwork, play/pause, and seek where supported. Private artwork keeps its access checks. Update metadata when tracks change; clear it on player exit, media failure, or learned revocation. Background/lock-screen behavior requires real-device verification; repeat remains a web control.
 
-For newly processed audio, the download form offers mutually exclusive WAV and MP3 options, with WAV selected by default when available. WAV is available only for recognized uncompressed or lossless sources; lossy sources offer MP3 only. MP3 uses LAME at constant 320 kbps with algorithm quality 2, encoded from the master on the first request and cached for subsequent downloads. Keep 44.1/48 kHz sources at their sample rate; use 32 kHz for lower-rate MP3 exports because 320 kbps requires MPEG-1. This export-only resampling does not restore lost quality or alter the stored master. Remove cached exports when their audio is replaced or removed.
+### Analytics
 
-The first release supports mono and stereo. Represent channel information without a schema restriction to two channels. Dolby Atmos is a possible future feature requiring separate format, metadata, and playback design; it is not part of the first release.
+Owner-only demo analytics group activity by named link, locally generated browser ID, and optional listener name. Commenting associates earlier activity from that browser through the same link with the chosen name. Browser IDs and names are not verified people/devices; multiple browsers do not prove forwarding.
 
-### Processing and visibility
+Record link visits independently of the player, including missing-audio pages. A play requires actual playback: first start, a whole-track repeat, or playback of another version. Pause/resume, seeks, visits, preloads, and switching versions while paused do not add plays. Exclude authenticated owner activity. Capture played intervals even from cached media.
 
-A new version becomes available automatically after upload and required audio processing succeed. There is no manual draft or publish step. Until then, existing share links continue to open the previous playable version.
+Views include link/browser summaries, names, first/latest activity, listening time, unique coverage, version heatmaps, session timelines, pauses/seeks/endings, and download requests. Replaying a minute adds two minutes of listening but one minute of coverage. Replacement keeps one combined version history. Download events describe initiated transfers, not verified completion; older events may lack format/email.
 
-Version ordering follows the order in which new versions were uploaded. Replacing the file of an existing version does not change that version's position. A slower processing job must not make an older upload appear newer than a later upload.
+Sessions use a per-link browser-tab ID, renewed after 30 minutes without recorded activity. Temporary demo telemetry failures retry with stable event IDs while the page is alive; termination may lose pending events. Keep raw events so grouping does not redefine play counts. Retain analytics until explicitly cleared by the owner, including after audio removal.
 
-### Audio measurements
+Record available IP, device/browser/OS details, timestamps, and referring website origin without private paths/query strings. Approximate country/city comes from an optional operator-provided local MMDB database. Missing information remains unknown; no external geolocation request is sent.
 
-The listener page shows measurements for the playback file:
+### Replacement, removal, and restoration
 
-- LUFS, with integrated loudness as the proposed initial interpretation.
-- Peak level in dBFS.
-- True peak in dBTP.
-- Loudness range.
-- Duration.
+Replacement keeps version identity, order, link relationships, comments, and combined statistics. If any comments exist, require exactly equal decoded duration by cross-multiplying source sample frames and rates as integers; rounded display times are insufficient. Preserve these source measurements after conversion. Process and validate before switching files; failed replacement leaves current audio usable.
 
-Do not display sample rate or bit depth on the listener page. Internal processing metadata may retain both.
-
-## Share links
-
-A share link belongs to one track and has a private label chosen by the uploader, such as a recipient name or group. Both individual and group links are supported. Possession of the link grants access according to its current settings; it does not verify the identity of its visitor.
-
-### Version visibility
-
-Each link has one of two policies:
-
-| Policy | Visible versions |
-| --- | --- |
-| All versions | All existing and future versions of the track. |
-| From a version onward | The latest version at link creation and all versions uploaded after it. Earlier versions are hidden. |
-
-New share links default to Latest and future versions (the second policy). The second policy stores a fixed starting version. The uploader can later edit the policy and its starting point, as well as the link label and download setting, without changing the share URL.
-
-An active link opens its newest visible version with an available, ready audio file. If the newest visible version has no audio, use the next newest playable version allowed by that link. Never fall back to a version outside the link's allowed range. If none are playable, show the retained information without playback.
-
-### Download permissions
-
-Audio download requires all of the following:
-
-- The share link is active and allows access to the selected version.
-- The link allows downloads.
-- The selected version allows downloads.
-- Its stored master (or legacy original) is available, and the requested format is permitted for that source.
-
-The listener sees an inactive download button for a version that cannot be downloaded. These restrictions must also be enforced by the server on direct file requests.
-
-### Demo download packages and email gate
-
-Every demo download is a streamed ZIP containing the selected version's audio, its track artwork as `artwork.jpg` when available, and `demo-info.txt`. Name the ZIP and its enclosing directory `Artist - Title - Version`, omitting the artist when absent. Use the same readable base name for the audio with the selected format's extension; legacy originals retain their extension and bytes. Preserve Unicode and replace unsafe filesystem characters. A linked artist uses its current profile name.
-
-The modal and info file display the fixed English warning `Pre-release version. Do not share.`, including versions marked `finished`. The info file includes artist when known, track title, version name, status, upload timestamp, audio format, and any track/version descriptions. Do not add the recipient's address, private share link or owner's account details to the package.
-
-Listeners must submit a syntactically valid email address with each download request. Do not verify the mailbox, send confirmation mail, require an account or subscribe the address to a mailing list. Explain in the modal that the address is shared with the demo owner and stored with the download request. Do not persist the address in browser storage. The authenticated demo owner is exempt from email entry and their own downloads do not create listener events.
-
-Enforce the email gate, current share-link policy, version visibility, download permissions and audio availability on the server. Use POST for downloads so email addresses do not enter download URLs; old direct GET download URLs do not serve files. Recheck access after preparing an MP3. Playback range and HEAD requests remain supported independently of ZIP downloads.
-
-Store the supplied address with the existing download event, format, version, share link, time and visitor context. Only the demo owner can inspect it in analytics. Clearing a track's analytics also deletes these addresses; there is no separate address list or automatic retention period.
-
-### Deactivation
-
-The uploader can deactivate a share link. An inactive link shows neutral information without revealing track details. Its previous comments and statistics remain available to the owner. Re-enabling a link restores access according to its current settings.
-
-## Comments and listener identity
-
-### Context and threads
-
-A comment thread belongs to exactly one version and one share link. Listeners only see the threads for the link through which they entered. A listener must also have access to the relevant version. The uploader can view all of their track's threads with the originating version and link identified.
-
-A thread can refer to a single timestamp, a selected time range, or the whole version. Listeners and the uploader can reply repeatedly in the same thread. Owner replies stay within that thread's link and version context.
-
-The uploader's track page includes a Feedback section below the player. By default it shows threads for the selected version across all share links. The uploader can choose all versions and can independently filter by share link. Each thread identifies its listener, originating link, version, and timestamp or range, where present. These owner-only filters never broaden a listener's access.
-
-Selecting a thread's timestamp selects its version and seeks to that point. Threads remain readable and replyable when their audio is missing; seeking is then unavailable. Replies are always sent within the selected thread's original link and version, regardless of the active filters.
-
-### Names and ownership
-
-A listener provides a freely chosen display name when commenting. Store that name in local storage for the installation, so it can be reused on other share pages. It is a self-reported name, not verified identity.
-
-Comment ownership uses a separate generated secret held by the browser and verified by the server. A display name or publicly visible analytics identifier must never grant deletion permission. Losing the browser secret or using another browser does not automatically recover ownership of old comments.
-
-The uploader is authenticated through their account and can delete any comment on their own tracks. Installation administrator privileges alone do not grant this capability over other owners' tracks.
-
-### Deletion behavior
-
-Listeners can delete their own comments. If a deleted comment has later replies in its thread, preserve its position with the text `deleted` so the conversation remains readable. A final comment with no later replies disappears, as does a standalone opening comment with no replies.
-
-Comment editing and resolved or completed thread states are not included in the first release.
-
-### Notifications
-
-The initial approach is to revisit the share page and see new replies, with unread indications as a proposed interface default. Web push is deferred. Push support may be added later, accounting for browser permission and platform installation requirements.
-
-## Playback experience
-
-Normalize all in-app playback toward -16 LUFS integrated using a constant gain in the player. Attenuate louder audio and boost quieter audio only as far as both sample peak and true peak allow, with ceilings of 0 dBFS and 0 dBTP. Apply no compression or limiting. This changes playback volume only: stored audio, original downloads, waveform data, and displayed file measurements remain unchanged. Use existing measurements for existing uploads as well as new uploads. Leave 0.01 dB of true-peak headroom for measurement rounding; do not boost when either peak measurement is unavailable. Silence or audio below the loudness measurement gate receives no loudness boost. Keep normalization independent of any future manual volume control, which would attenuate the normalized signal from 100% down to silence.
-
-Both uploader and listener views must work on desktop and mobile, including mobile uploads. Use application-styled player controls: play/pause, elapsed/total time, and a repeat icon toggle with a tooltip. Do not expose native browser audio controls, a restart button, a volume control, or a zoom slider. Audio download is an icon with a tooltip outside the playback controls. It opens a modal with the selected version, package contents, and an email field for listeners. Newly processed audio also offers format selection in this modal; legacy audio uses its original format. Space toggles playback throughout the track page, except in text-entry fields, selects, modal dialogs, or modified keyboard shortcuts so typing and native input behavior remain usable.
-
-Render the waveform at 220 pixels high. Its visual amplitude may be normalized for legibility without changing the audio. A regular click/tap seeks. Wheel scrolling over the waveform zooms around the pointer; two-finger pinch zooms around the touch midpoint. Dragging pans a zoomed waveform. Arrow keys seek and plus/minus keys zoom when the waveform has focus. There is no tool for looping a selected interval.
-
-Comment creation and replies use a modal, with no inline feedback form on the listening page. The listener's Add comment button opens a whole-version comment with no time inputs. Right-click or touch-and-hold on the waveform selects a point; releasing opens the modal with its start time filled. Holding the right button (or dragging after a touch hold) selects a range in either direction; releasing opens the modal with ordered start/end times. Pinching cancels a pending long press. Keyboard users can open a point comment with the context-menu key or Shift+F10. The modal retains its original version/thread context, traps focus, supports Escape/cancel, and closes after a successful submission.
-
-Support background playback and lock-screen media controls where supported by the platform. Repeat is controlled from the web player; a repeat command is not available in the standard Media Session action set.
-
-For both demos and releases, provide the playing track's title, artist and available cover artwork to the platform's media session. Releases use the track-specific artist when supplied, otherwise the release artist, and include the release title as the album. Update the metadata when tracks change and clear it when leaving the player or learning that access was revoked. Public release playback keeps its media session while navigating within the public music section; leaving that section clears it. Private demo artwork retains the same access checks as on the listening page.
-
-When switching versions, preserve the playback position when it exists in the destination version and preserve the play or pause state. Starting from zero when the position is outside the new duration is the proposed fallback. Cache already opened versions where practical to make subsequent switches fast. This is an interaction performance requirement, not an offline listening feature.
-
-## Listening and download analytics
-
-### Attribution
-
-Organize analytics by the named share link, unique browser, and optional self-reported listener name. When a visitor comments, associate available listening activity from the same browser with their name. The uploader must only see activity associated with their own content.
-
-Use a generated browser identifier persisted locally. Browser changes, private browsing, cleared storage, and shared devices mean this is not a reliable count of physical devices or people. Additional browsers on a personal link can suggest forwarding but do not prove it.
-
-Capture available visitor information including IP address, country, approximate locality when available, device category, operating system, browser, referring website when supplied, and timestamps. Missing information remains unknown rather than being guessed. Geographic lookup is approximate and needs a concrete data source before implementation.
-
-### Events and views
-
-A play requires started playback of delivered audio. A page visit, preload, or audio request alone must not count as a play. Instrument playback so cached listening can be measured as well as network-delivered listening. Exclude the authenticated track owner's own playback from recipient analytics.
-
-Retain sufficient events and played intervals to show:
-
-- Link visits, plays, unique browsers, and associated names when known.
-- First and latest activity.
-- Total listening time and unique coverage of each version.
-- Pauses, forward and backward seeks, replayed passages, and endings.
-- Individual sessions with a timeline of what was played and skipped.
-- Aggregated heatmaps of listening across the track timeline.
-- Download events with format, version, time, and visitor context (legacy events may omit format).
-
-Heatmaps measure observed playback rather than buffer downloads. Distinguish total listening time from unique coverage: playing the same minute twice is two minutes of listening and one minute of unique coverage. A download record should distinguish an initiated transfer from any completion evidence actually available to the application.
-
-Keep detailed analytics until the uploader explicitly deletes them. Removing a track's audio does not remove its analytics. Replacing a version's audio keeps one combined history; do not split reports by file replacement or introduce a visible file-revision history.
-
-Count a play when audio playback first starts. Pausing and resuming or seeking within an ongoing play does not increment the counter. Each new whole-track repeat cycle and starting playback of another version count as a new play. Every increment requires actual playback; changing versions while paused does not count. Seeking to the beginning alone remains a seek; there is no separate restart control.
-
-Session boundaries remain an implementation detail to finalize. Preserve the underlying playback events so session grouping does not change the agreed play-counting rules.
-
-## Replacing and removing audio
-
-### Replacement
-
-An uploader can replace a version's audio. If the version has comments through any share link, the replacement must have exactly the same duration. Do not accept a replacement merely because both files display the same rounded minutes and seconds. The exact comparison method across decoded formats remains an implementation detail to specify and test.
-
-The version retains its identity, position, link relationships, comments, and combined statistics. Validate and process a replacement before making it active; a failed replacement leaves the existing file usable.
-
-### Removal and restoration
-
-An uploader can remove all audio for a track or remove the audio of one version. Remove all stored masters, legacy originals/playback files and cached MP3 exports while retaining track and version metadata, comments, analytics, and other non-audio information. The retained version is labeled `Audio file missing` in the English interface.
-
-An active link to a removed track still shows the track information, existing conversations, and a message that the audio has been removed. Provide a button to request that the uploader upload it again. The proposed delivery is an item in the uploader's administration view, recording the track, link, and listener name if known.
-
-The uploader can restore a missing file to its existing version, subject to the same comment-dependent duration rule, or upload a new version. Existing share URLs continue to work according to their visibility policies. An inactive link remains neutral even if its track has been removed or restored.
-
-## Visual direction
-
-Use a dark theme with clear typography, a prominent waveform, accessible controls, and easy version selection. Keep detailed analytics and administration in their own views so the listening page stays focused on the track and feedback.
-
-The owner's visual references are [Visona](https://visona.org) and [Demmo](https://www.demmo.link). The approved initial mockup is the implementation's visual baseline; no detailed visual attributes of Visona have been assumed.
-
-The current layout uses a pure black page background, near-black surfaces and buttons, high-contrast light text and borders, and a restrained mint accent for playback. Pages use the available screen width with modest side padding and smaller vertical spacing; the version selector uses only the space its content needs. The listener view gives the track, version selector, waveform, and feedback most of the space. The uploader view puts Feedback below the player, defaulting to the selected version across all links, with version and share-link filters. Compact version and share-link lists and a small activity summary follow. On narrow screens, feedback and management sections stack below the player. This initial visual direction is approved; final browser and mobile polish remains part of acceptance testing.
+Removing one version's audio or all audio on a track removes masters, legacy files, and MP3 caches while retaining metadata, comments, links, and analytics. Show `Audio file missing`. Active listeners can request reupload; the owner sees the link and optional saved name and can dismiss the request. Restoration uses the same version/duration rule, or the owner may upload a new version. Inactive links stay neutral throughout.
 
 ## Public artists and releases
 
-### Scope and ownership
+### Ownership, publication, and discovery
 
-Account holders can manage multiple artist profiles within the same Wavecase account. Each release belongs to one primary artist profile; guest artists are recorded in metadata. Support singles, EPs, and albums from the first version of this feature, with an ordered track list.
+An account can own multiple artist profiles. Each single, EP, or album belongs to one primary profile and has an ordered track list; guests remain metadata. Release masters and metadata are independent of demos. Editing/removing demo audio never changes a release; conversion from demo to release is deferred.
 
-Release creation initially uses a separate upload and metadata-entry workflow. Release masters and metadata are independent of work-in-progress tracks, versions, private share links, and feedback. Editing or removing work-in-progress audio must not change a published release. Creating a release from an existing work-in-progress track is deferred.
+Artist profiles are public, including before any release is published. They show name, optional image, biography, external links, and published releases newest first by release date (creation date fallback). Releases start as private drafts with owner previews. Publication requires artwork and at least one named track, but audio and other credits are optional. Published edits take effect on save; unpublishing hides release pages/media from visitors and removes listing entries. Republishing keeps the address.
 
-Each artist has a public page listing their published releases. Each release has its own public page with artwork, relevant metadata and credits, and owner-supplied links to streaming services and online shops such as Bandcamp. Visitors do not need a Wavecase account to view these pages.
+Artist slugs are unique across the installation; release slugs are unique within the artist. Suggest lowercase hyphenated addresses such as `/artists/martin-dice/pressure`, validate collisions, and require a meaningful alternative. Slugs are set at creation; display-name/title edits do not change URLs. Explicit slug edits/redirects are deferred. Release pages include descriptive metadata, cover previews, canonical URLs, and structured music data; draft previews use `noindex`.
 
-On release pages, links to Spotify, Deezer, SoundCloud, Amazon Music, Qobuz, YouTube, Apple Music, Tidal, and TikTok display the supplied service icon beside the owner's link label. Identify the service from the destination hostname and serve the icons locally. On Amazon storefront hosts, only `/music/player/` links receive the Amazon Music icon. Other destinations keep their text links.
+Songwriter credits link to generated `/songwriter/:songwriter` pages. Split complete names on comma, semicolon, or newline; normalize whitespace/case/diacritics/punctuation for matching. List each matching published release once across artists, headed `Artist - Release title`. Credit edits/unpublishing update listings immediately; no published matches returns 404. Songwriters have no separate administration or verified identity; normalized name collisions can combine credits.
 
-### Public addresses and presentation
+### Metadata and layout
 
-Artist and release URLs must be logical, human-readable, and suitable for search engines, using meaningful artist names and release titles rather than opaque generated identifiers.
+Release metadata includes title, type, primary artist, description, artwork, release date, label, catalog number, UPC/EAN, genre, credits, and copyright/phonographic notices. Track fields include title, order, artist, guests, version designation, ISRC, songwriters, producers, credits, explicit marking, and measured duration/format. A single-track heading keeps the linked primary artist first, appends distinct additional artists as plain text, and uses `featuring` for guests; multi-track releases keep track credits in their track context.
 
-The visual references supplied by the owner are [Anjunachill](https://anjunachill.co/abc01.gcn) and [Martin Dice — Pressure on Amuse](https://share.amuse.io/track/martin-dice-pressure). Screenshots were supplied during the product discussion. Use the release artwork to form the full-page background, alongside a clearly displayed cover, artist, title, and service links. The exact layout remains a proposed design below.
+Public releases use a blurred, darkened artwork background, prominent cover/title/artist, player/track list, service links, and expandable credits. Desktop places cover and content side by side; mobile stacks them. Keep demo feedback/version management out of these pages.
 
-### Optional audio and coupled availability
+Owner-supplied HTTP(S) service/shop links show their labels. Release links to Spotify, Deezer, SoundCloud, Amazon Music, Qobuz, YouTube, Apple Music, Tidal, and TikTok use local service icons determined by hostname; Amazon storefronts require a `/music/player/` path. Other destinations remain text links.
 
-Audio uploads are optional. A release may contain only artwork, metadata, and external links, or may have audio for only some tracks. Show the full track list and make audio availability clear.
+### Audio and continuous playback
 
-Playback and download availability are controlled together by one release-level setting; there are no independent playback-only or download-only modes. When enabled, tracks with uploaded, ready audio can be played in full on the release page and downloaded. Playback does not require an email address. When disabled, the public artwork, metadata, and external links remain available, but Wavecase playback and downloads are unavailable. Enforce this setting on direct media and download requests as well as in the interface.
+Audio is optional for all or some tracks. Always show the full list and disclose which tracks have audio. One release-level setting controls playback and downloads together, including direct requests. Disabling it leaves the public metadata, artwork, and links available. Streaming needs no email.
 
-Accept WAV masters, preferring 24-bit, 48 kHz uploads. Other WAV bit depths and sample rates may be uploaded without conversion for download. Preserve the uploaded master unchanged, including existing tags; never claim a download is 24-bit, 48 kHz unless that is its actual format. Show the actual download format.
+Accept mono/stereo PCM WAV masters, preferring 24 bit/48 kHz but preserving other supported resolutions and original bytes/tags for download. Generate separate AAC/M4A playback at a target 256 kbit/s; report actual master format rather than claiming the preferred resolution. Normalize player volume using measurements of the AAC. The worker measures legacy release playback without rewriting it; while measurements are pending, show Preparing playback and keep eligible downloads available.
 
-Separate playback derivatives may be generated. AAC at 256 kbit/s is the agreed minimum playback quality. This permission to create listening copies does not permit rewriting or converting the downloadable masters and is separate from the work-in-progress WAV playback policy.
+Release, artist, and songwriter routes share one React Router layout and one audio element:
 
-### Continuous public playback
+- Selecting a different track replaces the queue with that track and the remaining playable, measured tracks in its release, in order. Browsing—including back/forward—does not change the queue or position.
+- Track controls and the mini player share state. Pause/resume retains position/queue. Advance automatically; after the final track ends retain its metadata, then Play restarts the original queue from the first selected track. A playback error stops instead of silently skipping.
+- After music is selected, the mini player appears across public music pages. Artwork/title link to the queued release; artist is plain text, using track artist then release artist fallback. Media Session uses that artist and release title as album; release artwork is a fitted/padded 512 × 512 JPEG derived from the current authorized cover.
+- With music loaded, Space toggles the shared player even with another button or the position slider focused. Holding it toggles once without scrolling. Editing, other form inputs, selects, dialogs, composition, modifiers, and Enter retain native behavior; an empty player preserves normal Space behavior.
+- Leaving for management, accounts, library, or demos disposes playback and its media session. A full reload starts empty. Newly learned unavailability stops affected playback; server authorization always applies. Future public music views join this layout without moving management/demo routes into it.
 
-Release, artist, and songwriter pages share one player. Playback continues during navigation between these public music pages, including browser back/forward. Entering administration, account, library, or demo pages stops playback and discards the queue. Playback is held only in the current tab's memory; a full reload starts with an empty player.
+### Release downloads and statistics
 
-Selecting a different track replaces the queue with that track and the subsequent playable tracks in its release, in release order. Tracks without available, measured audio are excluded. Playback advances automatically through this fixed queue. Play on the current paused track resumes its position and retains the queue. At the end of the final track, playback stops and the final track's artwork, title, and artist remain visible. Play then restarts the original queue from its first selected track. Selecting another track instead creates a new queue. A playback failure stops with an error rather than silently advancing.
+Downloads use a modal and POST, offering complete-release or individual-track ZIPs. Every request—including the owner's—requires a syntactically valid email. Explain owner access/storage; do not verify, email, subscribe, or retain addresses in browser storage. Downloads require a published release with audio enabled, artwork, and ready audio, even for owners.
 
-After the first Play, a mini player appears on every public music page, including the active release page. It shows release artwork, the current track's title and artist (falling back to the release artist), and play/pause. Artwork and title link only to the queued release's page. The artist is plain text. A future Play control on a listing page must also link back to the selected release, not the listing that initiated playback.
+Each streamed ZIP contains unchanged WAV masters, normalized `artwork.png` (up to 2000 pixels per side), and `release-info.txt` with release/selected-track metadata and actual formats. Full ZIP/directory names use `Artist - Release title`; individual packages use `Artist - Track title`. WAV entries use `NN - Artist - Track title.wav`, preserving release track numbers and track-specific artist fallback. Preserve Unicode and bound/sanitize names without changing WAV bytes. Partial packages clearly disclose the included tracks/count before download and in the info file.
 
-Track controls and the playback-position slider reflect the shared player's actual state wherever the current track is shown. Navigation never selects a track or resets its position. Loudness normalization, media-session controls, and play counting belong to the shared playback lifecycle; page visits remain separate from actual playback starts. Server-side media permissions continue to apply, and newly learned unavailability stops affected playback.
+Owner statistics show release-page visits, actual per-track playback starts, external-link clicks, and download requests with email, time, and included tracks. Exclude authenticated owner visits/plays/clicks; record owner downloads. Pause/resume adds no play; replay after ending does. Event IDs deduplicate repeated submissions. These are observations, not proof of human listening or completed transfers.
 
-Once music is loaded, Space toggles the shared player on all public music pages, including when another button or the playback-position slider has focus. It has the same behavior as the mini-player button, including restarting a completed queue. A held key toggles only once and does not scroll the page. Text entry, other form inputs, selects, dialogs, composition, and modified shortcuts retain their normal behavior. Enter still activates the focused control. With an empty player, Space retains its normal behavior.
+Public pages and other owners—including administrators—cannot inspect private analytics/addresses. Release statistics have no detailed listening heatmaps/timelines, artist-page view counts, CSV export, deletion/retention UI, or automatic expiry.
 
-The public routes share a React Router layout without changing their URLs or server loaders. Future public music views join this layout. Management and demo routes remain outside it.
+## Technical design and operations
 
-### Download packages and email gate
-
-The Download button opens a modal containing package selection, included-track disclosure and email entry. Offer both a complete-release ZIP and individual-track ZIPs. Every ZIP includes:
-
-- The unchanged original WAV file or files included in that download.
-- Release artwork in PNG or JPG format.
-- A readable `release-info.txt` containing relevant metadata and credits. An individual-track package includes release-level information and that track's information.
-
-Download names remain readable outside Wavecase. A release ZIP and its enclosing directory are named `Artist - Release title`; an individual-track ZIP and directory are named `Artist - Track title`. WAV filenames use `NN - Artist - Track title.wav`, preserving the track's release number even in partial or individual downloads. Use a track-specific artist when supplied, otherwise the primary release artist. All files, including `artwork.png` and `release-info.txt`, go inside the named directory. Preserve spaces and Unicode letters, including Swedish characters; replace unsafe filesystem characters and bound filename length. Renaming package entries must not change WAV contents.
-
-For a release with only some masters uploaded, the release ZIP contains only the available tracks. Before download, clearly identify the included tracks and the partial coverage, for example, `3 of 5 tracks included`. Include the package's track list in `release-info.txt` as well. Do not imply that unavailable audio is included.
-
-A visitor must enter an email address with valid syntax before downloading. Do not require an account, mailbox verification, a confirmation email, or proof that the address exists. After accepting the address, start the requested download immediately and save the supplied address with the download event in the database. The gate must also apply to direct package requests; an entered address must not grant access to disabled or otherwise unavailable downloads.
-
-The address is self-reported, not a verified identity. Associate each download event with the requested release or individual track, the package contents, and the time. A request or initiated transfer must not be presented as proof that the entire download completed.
-
-### Metadata and credits
-
-Include relevant release and track metadata and credits on the release page and in the download text file. Label and track-level ISRC are explicitly required fields to support; guest artists are metadata rather than additional primary profile ownership. The proposed field inventory below remains subject to refinement, including which fields are mandatory to publish.
-
-For a release containing one track, the artist line below the release title also shows that track's additional artists and guests. Keep the primary profile name first and linked; show additional comma-separated artist names as plain text and guests after `featuring`. Omit repeated primary artist names. Releases with multiple tracks retain the primary profile in the heading, so a guest on one track is not credited across the whole release.
-
-### Generated songwriter pages
-
-Songwriter names in track metadata link to generated public pages at `/songwriter/stephan-terning`. Each page lists every published release containing at least one track credited to that songwriter, once per release and newest first. List titles use `Artist - Release title`. These pages have no separate profile, editable content, or administration; saved credit changes and publication changes are reflected immediately. Draft releases are excluded, including for signed-in owners. Unknown names and names credited only on drafts return 404.
-
-Songwriter credits are separated by commas, semicolons, or line breaks. Names are matched by a lowercase, hyphenated form with accents and repeated whitespace normalized; distinct people whose names normalize to the same address share a listing. Spelling corrections change the derived address. Names are not linked to uploader accounts or artist profiles.
-
-### Release analytics
-
-The initial release analytics scope is:
-
-- Page views.
-- Plays per track.
-- Clicks on external links, attributed to the selected link.
-- Download events with the supplied email address, time, and requested release or track.
-
-Display this information inside Wavecase for the owner. CSV export is deferred. Do not include heatmaps, detailed listening timelines, or the work-in-progress workflow's detailed listening analysis in this feature. Download addresses and non-public statistics follow account ownership boundaries; public pages must not expose them, and installation administrator status alone does not grant access to another owner's data.
-
-### Proposed release defaults and remaining details
-
-The following proposals were discussed but have not been individually finalized. They must not be mistaken for additional agreed requirements:
-
-- Publication workflow: private draft, preview, manual publication, editing, and unpublishing. Only published releases appear on the artist page; republication retains the address. Exact editing and publication behavior remains to be finalized.
-- Address pattern: `/artists/martin-dice` and `/artists/martin-dice/pressure`. Suggest lowercase, hyphenated slugs from names and titles, allow edits before publication, and resolve conflicts with meaningful suffixes. Keep published addresses stable when display names change; redirect old addresses after an explicit URL change. Namespace and collision rules remain to be finalized.
-- Search and sharing: index published pages, provide descriptive page titles and descriptions, cover-image link previews, and structured music metadata.
-- Artist page: artist name, optional profile image, short biography, external links, and published releases ordered by release date, newest first.
-- Release layout: large cover beside the player and track list on desktop; a single column on mobile. Use a blurred, darkened artwork background, ordinary page scrolling, consistent service-link styling, and expandable detailed metadata. Keep feedback threads and work-in-progress version controls out of this page. Playback follows the continuous public playback requirements above.
-- Release metadata: title, primary artist, release type, release date, label, catalog number, UPC/EAN, artwork, description, genre, and phonographic/copyright notices. Track metadata: title, artist and guests, track number, version designation, ISRC, songwriters, producers, other credits, explicit marking, and measured duration.
-- Email handling: explain at entry that the supplied address is shared with the release owner and stored with the download. Mailing-list subscription would require a separate choice and is not included in the agreed feature. Retention/deletion rules and whether repeat downloads reuse an earlier submission remain to be finalized.
-- Counting: exclude the authenticated owner's own visits and test playback; count plays only after playback actually starts. Exact visit, replay, and duplicate-event counting rules, and whether artist-page views need a separate report, remain to be finalized.
-
-### Release acceptance scenarios
-
-1. One account manages multiple artist profiles. Each release belongs to one primary profile, while guest artists remain metadata. Public artist pages list the appropriate published releases using readable URLs.
-2. A single, EP, or album can be published without audio. Its artwork, metadata, track list, and external links remain usable without a visitor account.
-3. A release with audio for three of five tracks shows all five tracks, allows full playback of the three available tracks when enabled, and clearly identifies those three as the release ZIP contents.
-4. Turning the release's audio setting off disables both playback and downloads, including direct requests, while preserving the public page and external links. Turning it on restores both for ready audio.
-5. Invalid email syntax prevents a download. A syntactically valid but unverified address starts the requested download without account creation or an email-confirmation step and is recorded with the event.
-6. Both release and individual-track ZIPs include artwork and `release-info.txt`. Each WAV matches its original upload, including when its resolution differs from the preferred 24-bit, 48 kHz format. Playback derivatives do not alter those originals.
-7. Owners can inspect page views, per-track plays, external-link clicks, and download events with supplied addresses inside Wavecase. Public visitors and other account holders cannot inspect private download addresses or analytics.
-8. Removing or replacing work-in-progress audio does not change a release's independently uploaded masters, metadata, or public availability.
-
-## Selected technology
-
-| Responsibility | Technology |
+| Responsibility | Implementation |
 | --- | --- |
-| Application language | TypeScript, using strict checking. |
-| Web interface and server routes | React 19 and React Router in framework mode, built with Vite and served by Node.js. |
-| React optimization | React Compiler enabled from the start, with recommended React Hooks and compiler lint rules. |
-| Database and migrations | PostgreSQL and Drizzle. |
-| Passkeys | SimpleWebAuthn server and browser packages. |
-| Audio decoding and analysis | FFmpeg and ffprobe. |
-| Waveform interface | wavesurfer.js integrated with browser audio playback. |
-| Durable background jobs | pg-boss using PostgreSQL. |
-| Packaging | Docker Compose. |
+| UI and server routes | React 19, React Router framework mode, Vite, strict TypeScript, Node.js 24. |
+| React optimization | React Compiler and recommended Hooks/compiler lint rules; verify compiler output after build-tooling changes. Avoid routine manual memoization. |
+| Persistence | PostgreSQL 17 with Drizzle schema/migrations. |
+| Identity | SimpleWebAuthn browser/server passkeys. |
+| Audio | FFmpeg/ffprobe processing, server-generated peaks, wavesurfer.js UI, Web Audio playback gain. |
+| Jobs | pg-boss in PostgreSQL, with retries for recoverable processing failures and pending-upload reconciliation. |
+| Packaging | One image for web/worker, separate PostgreSQL, Docker Compose and GitHub Actions. |
 
-Use stable dependency releases and pin the exact chosen versions when initializing the implementation. Verify React Compiler is actually applied in build output or React DevTools. Manual memoization should be driven by measured need rather than applied routinely.
+| Repository area | Purpose |
+| --- | --- |
+| `app/routes.ts`, `app/routes/` | Route tree, loaders/actions, page UI, and protected media endpoints. |
+| `app/components/`, `app/domain/` | Playback/dialog/feedback UI and shared domain rules. |
+| `app/server/` | Access/authentication, schema, storage, audio/download processing, and workers. |
+| `drizzle/` | Versioned SQL migrations and snapshots. |
+| `scripts/` | Production server, migrations, recovery, notices, and registry-digest helper. |
+| `tests/`, `.github/workflows/` | Behavior tests and image/release automation. |
+| `docs/design/` | Historical interactive mockup and editable fragment; not runtime UI. |
 
-### Application structure
+Web and worker share persistent file storage. PostgreSQL holds accounts, metadata, ownership, share settings, comments, analytics, waveform peaks, and durable jobs. Peaks live with version metadata so publication is atomic without coordinating another waveform file. Files include demo masters/legacy originals, MP3 exports, release WAV/AAC, artwork, and pending uploads. Preserve both database and files outside container writable layers.
 
-Keep web routes, shared validation, domain rules, database schema, and worker code in one repository. Routes should call server-side domain functions that consistently enforce ownership, link visibility, and download permissions. The waveform library should have a defined lifecycle so normal React updates do not recreate the audio player.
+Routes enforce ownership and current visibility/download policy, including direct, partial, and conditional media requests. Protected storage is never static public content. Demo audio caches revalidate; release audio uses no-store. Replacing a file changes media cache identity without adding a visible revision/history. When the client learns of revocation, stop playback/discard affected caches; delivered bytes cannot be recalled. Same-origin mutation checks and production rate limits complement authorization. External navigation must not leak private URLs through referrers.
 
-Docker Compose contains three services: the web application, an audio processing worker, and PostgreSQL. The web application and worker share the codebase and mounted audio storage. pg-boss stores jobs in PostgreSQL, so the architecture does not require a separate queue service.
+Use exact dependency pins and commit lockfiles/migrations with changes. [Operations](operations.md) defines configuration, startup/migration sequencing, image publishing, recovery, and backup boundaries. Hardware, connectivity, domains/proxies, backup execution, and deployments remain operator responsibilities.
 
-Store audio masters and cached exports as files in a host-mounted data directory; retain legacy originals and playback derivatives for existing uploads. Store accounts, metadata, generated waveform peaks, ownership, link settings, comments, analytics, and job state in PostgreSQL. Waveform peaks are kept with version metadata to make publication atomic without coordinating a separate waveform file; they remain part of database backups. PostgreSQL also uses explicitly persistent storage outside its container writable layer.
+## Visual direction and scope
 
-### Audio processing and delivery
+Use a black background, near-black surfaces, clear high-contrast typography/borders, restrained mint playback accents, and accessible controls. Demo pages prioritize track, compact version selector, waveform, then feedback; owner management and detailed analytics have their own sections/views. Use available width with modest padding; stack content on narrow screens. The historical [mockup](design/wavecase-design.html) records the initial concept, not exact current controls. Supplied visual references were Visona/Demmo for demos and Anjunachill/Amuse for releases; final device polish remains acceptance work.
 
-Process audio in durable background jobs. Derive waveform data on the server so rendering a waveform does not require decoding the complete audio file on a listener's phone. Publish a version only after its required artifacts are ready.
-
-Audio delivery must support seeking and permission checks, including partial file requests. Originals and derivatives must not be exposed through an unprotected static directory. File replacement changes the media cache identity without creating a separate user-visible version or analytics history.
-
-Recheck link policy for protected requests. When a client learns that a link was disabled or audio removed, stop offering playback and discard affected application caches. Bytes already delivered to a listener cannot be recalled.
-
-## Proposed implementation defaults
-
-These defaults fill smaller gaps without changing the agreed feature scope. They remain reviewable before the relevant implementation work.
-
-- Preserve mono as mono and stereo as stereo. Apply no loudness normalization, compression, trimming, or automatic downmix during format conversion.
-- Interpret the displayed LUFS measurement as integrated loudness over the playback file.
-- Begin at zero when a version switch cannot retain the previous playback position.
-- Show unread replies on return, and deliver reupload requests in the uploader view.
-- Use automatic retries for recoverable processing failures and preserve the last valid audio until a replacement succeeds.
-- Derive heatmaps and coverage from recorded played intervals rather than treating transferred bytes as listening.
-
-## Initial implementation decisions
-
-- Sessions use a browser-tab session identifier per share link, renewed after 30 minutes without recorded activity. A share-page visit is recorded independently of its player, including when no version has audio. Raw events are retained so grouping can be revised independently of play counts. Temporary telemetry failures retry with stable event IDs while the page remains alive; closing a page can still lose unacknowledged activity. Referring websites are stored as origins only, without paths, query strings or share tokens.
-- Compare replacement duration using decoded source sample frames and sample rate, cross-multiplied as integers. This avoids rounded timestamps and permits exactly equal durations at different sample rates.
-- Preserve compatible lossy sources; cap newly processed masters at 24 bit/48 kHz, reducing each property independently. Preserve compatible PCM WAV within the ceiling. Playback measurements describe the actual master used for playback. Retain decoded source sample counts and rates for exact replacement-duration validation even after deleting the source upload.
-- Version visibility uses a monotonic upload order, independent of labels, processing completion, and timestamp precision.
-- Administrator-assisted recovery uses a single-use, 15-minute enrollment link after the administrator verifies identity. Successful recovery replaces prior passkeys and sessions. Administrator recovery requires the server command. Neither path uses email authentication.
-- Optional approximate geolocation uses a local GeoIP City MMDB file supplied by the installation operator. No external lookup is performed. Missing data remains unknown.
-- HTTP media caching requires revalidation; ownership and current link permissions are checked before conditional responses. Already delivered audio cannot be recalled.
-- Unread reply indications are remembered per browser. A cleared browser storage starts without previous read history.
-- Default upload and duration limits are configurable. Supported audio containers are WAV, AIFF, FLAC, MP3, MP4/M4A/MOV, Matroska/WebM, Ogg, AAC, ASF/WMA, APE, WavPack, AU, and CAF, subject to the shipped FFmpeg decoders. Files outside this supported set fail clearly.
-- Device passkey prompts, iPhone background playback, lock-screen controls, and the final desktop/mobile layout require the owner's acceptance testing before publication.
-
-Web push, folders, collaborative track administration, thread resolution states, selected-range looping, and Atmos playback are outside the first release.
-
-## Acceptance scenarios
-
-Use focused behavior tests and a small set of end-to-end journeys. These scenarios define important observable outcomes without requiring tests that mirror every implementation detail.
-
-1. An empty installation allows the first passkey administrator registration once, including under concurrent setup attempts. Subsequent registration follows the selected policy.
-2. Two uploaders have separate libraries. Installation administrator status alone cannot read another uploader's protected media, comments, or statistics.
-3. Two links to the same version show separate comment threads. The owner can view and reply within both contexts without exposing one to the other.
-4. A link created at version three with the onward policy cannot see versions one or two, but can see version four when it becomes ready.
-5. If version four loses its audio, the same link lands on version three. If version three also has no audio, it does not fall back to hidden version two.
-6. Download works only when both link and version permit it and the file exists. Direct requests obey the same rule. New lossless uploads offer WAV from the playback master and cached 320 kbps MP3, with WAV selected by default. Lossy uploads offer MP3 only. Existing uploads retain their original audio inside the ZIP. Listener downloads require email; authenticated demo owners are exempt. Packages include the pre-release warning and metadata. Failed encoding must not expose a partial export.
-7. A new version becomes visible after processing succeeds. A failed upload or replacement does not disrupt the last valid playable file.
-8. Replacing an older version does not make it latest. A version with comments rejects unequal duration and keeps its threads and combined analytics after a valid replacement.
-9. A listener can delete a comment only with its ownership credential. A matching display name or analytics identifier is insufficient. The track owner can moderate all of that track's comments.
-10. Deleting a comment with later replies preserves `deleted`; deleting a final comment or an unanswered opening comment removes it from the visible conversation.
-11. Removing track audio preserves metadata, comments, analytics, and link URLs. A request to upload again reaches the owner, and restoring audio revives eligible links.
-12. An inactive link displays neutral information and denies protected media and comment access, including after metadata or audio restoration.
-13. A session with forward and backward seeks yields the correct played intervals, listening time, and unique coverage. Visits and preloads do not count as plays. Authenticated owner playback is excluded.
-14. The browser identifier and any provided name associate listening activity without being presented as verified people or physical devices. Download activity appears in the appropriate link and version context.
-15. Mobile and desktop users can choose versions, seek and zoom the waveform, comment on points and ranges, use repeat, and control background playback where platform support permits.
-16. Restarting or recreating containers preserves accounts, metadata, analytics, and files. A worker restart can recover queued work without publishing duplicate versions.
-17. The production build uses React Compiler. Relevant lint, type checking, build, authorization, media processing, and browser checks pass before a release is considered usable.
-18. A successful registration consumes its invitation. Expired, revoked, and already-used invitations cannot create accounts; unsuccessful registration does not consume an otherwise valid invitation.
-19. First playback, whole-track repeat, and playback of another version each increment the play counter. Pause and resume, seeking, and a version change while paused do not.
-20. Owner feedback defaults to the selected version across all links. Choosing all versions includes older threads, and filtering by link narrows either view. Replying preserves the thread's original context. Missing audio prevents seeking but not reading or replying.
-
-## Technical references
-
-- [React Router deployment](https://reactrouter.com/start/framework/deploying) includes Node, Docker, and PostgreSQL deployment patterns.
-- [React Compiler installation](https://react.dev/learn/react-compiler/installation) describes React Router integration, linting, and setup verification.
-- [Drizzle](https://orm.drizzle.team/docs/overview) provides TypeScript schema definitions and database migration tooling.
-- [SimpleWebAuthn](https://simplewebauthn.dev/docs/) provides browser and server WebAuthn libraries.
-- [pg-boss](https://github.com/timgit/pg-boss) provides PostgreSQL-backed background jobs for Node.js.
-- [FFmpeg EBU R128 analysis](https://ffmpeg.org/ffmpeg-filters.html#ebur128) documents loudness measurements.
-- [wavesurfer.js](https://wavesurfer.xyz/) provides waveform controls; its [streaming guidance](https://wavesurfer.pages.dev/docs/) describes precomputed peaks and duration.
-- [Media Session actions](https://developer.mozilla.org/en-US/docs/Web/API/MediaSession/setActionHandler) define browser integration with media controls.
-- [Apple Web Push requirements](https://developer.apple.com/documentation/usernotifications/sending-web-push-notifications-in-web-apps-and-browsers) describe platform requirements for a future notification feature.
-- [GNU AGPL version 3](https://choosealicense.com/licenses/agpl-3.0/) describes the selected source-availability obligations.
-
-## Initial release-feature implementation decisions
-
-The first implementation uses the proposed private draft, preview, manual publish/unpublish workflow. Publishing requires artwork and at least one named track; audio and the remaining metadata are optional. Published metadata edits take effect when saved. Artist and release slugs are set at creation, with explicit validation and readable alternatives required for collisions; changing names does not change URLs. Explicit URL renaming/redirect management remains deferred.
-
-Release playback uses mono/stereo AAC at a target of 256 kbit/s in M4A files. WAV masters remain unchanged. Artwork is normalized to PNG at up to 2000 pixels per side and included in every ZIP. Downloads stream directly rather than assembling entire albums in memory. Each request requires an email submission and is recorded, including owner download requests; authenticated owner visits and plays are excluded from public statistics. Download addresses are not verified or subscribed to a mailing list.
-
-The initial statistics view counts release-page visits, actual per-track playback starts, external-link clicks and download requests. Pause/resume is not a new play; replaying after the end is. Event IDs deduplicate duplicate submissions. Artist-page view counts, detailed listening telemetry, CSV export, address-retention tooling and explicit slug changes are outside this implementation. The existing work-in-progress analytics remain unchanged.
+Out of scope: web push, folders/projects, shared ownership, comment editing/resolution, selected-range looping, Atmos, demo-to-release conversion, slug redirects, mailing lists, and the release analytics extensions listed above. Preserve access control and data integrity when simplifying other low-impact edge cases. Verify the important observable outcomes in [the testing guide](testing.md) rather than maintaining duplicate acceptance checklists here.
