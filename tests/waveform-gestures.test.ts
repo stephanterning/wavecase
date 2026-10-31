@@ -112,6 +112,18 @@ test("waveform gestures support both selection directions, zoomed coordinates, t
   pointer("pointerup", 400, 0, 1, true);
   pointer("pointerup", 800, 0, 2, true);
   assert.equal(selections.length, count);
+  // Each new pinch must work after both fingers were lifted, including zoom out.
+  for (const targetWidth of [2000, 1000, 2000]) {
+    const endX = 200 + (400 * targetWidth) / width;
+    pointer("pointerdown", 200, 0, 1, true);
+    pointer("pointerdown", 600, 0, 2, true);
+    pointer("pointermove", endX, 0, 2, true);
+    pointer("pointerup", endX, 0, 2, true);
+    pointer("pointerup", 200, 0, 1, true);
+    assert.equal(width, targetWidth);
+    assert.equal(media.currentTime, 0);
+    assert.equal(selections.length, count);
+  }
   pointer("pointerdown", 200);
   pointer("pointercancel", 300);
   pointer("pointerup", 400);
