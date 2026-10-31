@@ -1,5 +1,6 @@
 import { releaseArtistSuffix, releasePath } from "../domain/releases";
 import { getReleaseServiceIcon } from "../domain/release-services";
+import { SongwriterCredits } from "../components/songwriter-credits";
 import { useMediaSession } from "../components/media-session";
 import {
   disconnectPlaybackAudio,
@@ -389,7 +390,13 @@ export default function ReleasePage() {
                     .map(([k, v]) => (
                       <div key={k}>
                         <dt>{k}</dt>
-                        <dd className="preserve-lines">{String(v)}</dd>
+                        <dd className="preserve-lines">
+                          {k === "songwriters" ? (
+                            <SongwriterCredits value={String(v)} />
+                          ) : (
+                            String(v)
+                          )}
+                        </dd>
                       </div>
                     ))}
                 </dl>

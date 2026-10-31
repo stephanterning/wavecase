@@ -4,6 +4,7 @@ export default [
   route("releases/:id", "routes/release-edit.tsx"),
   route("artists/:artist", "routes/artist.tsx"),
   route("artists/:artist/:release", "routes/release-page.tsx"),
+  route("songwriter/:songwriter", "routes/songwriter.tsx"),
   route("release-assets/:id/:kind", "routes/release-assets.ts"),
   route("artist-images/:id", "routes/artist-image.ts"),
   route("health", "routes/health.ts"),

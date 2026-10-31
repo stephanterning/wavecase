@@ -98,6 +98,12 @@ The `tests/releases.test.ts` suite checks readable addresses and safe external l
 
 Physical iPhone playback, actual sound quality and the owner's real artwork/masters still require device acceptance testing. Browser automation with a narrow viewport does not replace it.
 
+## Generated songwriter pages
+
+`tests/songwriters.test.ts` checks linked metadata, name normalization, multiple writers, cross-artist listings, one entry per release, `Artist - Release title` headings, whole-name matching, draft exclusion, and immediate updates after credit edits or unpublishing. Database cases use only `wavecase_test`.
+
+Open a published release's **Metadata & credits**, follow a songwriter name, and check the release cards on desktop and a narrow viewport. The generated page has no administration controls. A songwriter credited only on unpublished releases returns 404.
+
 ## Demo artist profile links
 
 `tests/track-artist.test.ts` covers own-account suggestions/matching, explicit selection, rejection of another account's profile ID, ambiguous names, case/whitespace normalization, rename stability, clearing/free text, private and inactive share links, actual rendered artist links, and the migration backfill without reassigning existing links. Public artist listings still contain only releases.

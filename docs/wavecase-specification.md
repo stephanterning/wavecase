@@ -284,6 +284,12 @@ Include relevant release and track metadata and credits on the release page and 
 
 For a release containing one track, the artist line below the release title also shows that track's additional artists and guests. Keep the primary profile name first and linked; show additional comma-separated artist names as plain text and guests after `featuring`. Omit repeated primary artist names. Releases with multiple tracks retain the primary profile in the heading, so a guest on one track is not credited across the whole release.
 
+### Generated songwriter pages
+
+Songwriter names in track metadata link to generated public pages at `/songwriter/stephan-terning`. Each page lists every published release containing at least one track credited to that songwriter, once per release and newest first. List titles use `Artist - Release title`. These pages have no separate profile, editable content, or administration; saved credit changes and publication changes are reflected immediately. Draft releases are excluded, including for signed-in owners. Unknown names and names credited only on drafts return 404.
+
+Songwriter credits are separated by commas, semicolons, or line breaks. Names are matched by a lowercase, hyphenated form with accents and repeated whitespace normalized; distinct people whose names normalize to the same address share a listing. Spelling corrections change the derived address. Names are not linked to uploader accounts or artist profiles.
+
 ### Release analytics
 
 The initial release analytics scope is:

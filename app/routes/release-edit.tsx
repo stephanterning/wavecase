@@ -275,6 +275,9 @@ function Fields({
           {field
             .replace(/([A-Z])/g, " $1")
             .replace(/^./, (s) => s.toUpperCase())}
+          {field === "songwriters" && (
+            <small>Separate names with commas or semicolons.</small>
+          )}
           {field === "credits" ? (
             <textarea
               name={field}
