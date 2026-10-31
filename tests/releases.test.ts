@@ -3,7 +3,7 @@ import { RouterContextProvider } from "react-router";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -364,78 +364,108 @@ test(
         ),
         denied(404),
       );
-      for (const selection of ["", track]) {
-        const response = await assetAction(
+      await assert.rejects(
+        assetAction(
           args(
-            post({ email: "not-verified@example.test", track: selection }),
+            post({ email: "valid@example.test", format: "flac" }),
             "download",
           ),
-        );
-        assert.equal(response.headers.get("content-type"), "application/zip");
-        const folder = selection
-          ? "Åsa Öberg - Blå timmen"
-          : "Martin Dice - Pressure";
-        const disposition = response.headers.get("content-disposition")!;
-        assert.equal(
-          decodeURIComponent(disposition.split("filename*=UTF-8''")[1]),
-          folder + ".zip",
-        );
-        // Read ZIP central directory to verify exact stored WAV and text entries, without another runtime dependency.
-        const zip = Buffer.from(await response.arrayBuffer());
-        const end = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
-        let cursor = zip.readUInt32LE(end + 16);
-        const entries = new Map<string, Buffer>();
-        for (let n = 0; n < zip.readUInt16LE(end + 10); n++) {
-          const nameLength = zip.readUInt16LE(cursor + 28),
-            extra = zip.readUInt16LE(cursor + 30),
-            comment = zip.readUInt16LE(cursor + 32);
-          const name = zip.toString(
-              "utf8",
-              cursor + 46,
-              cursor + 46 + nameLength,
+        ),
+        denied(400),
+      );
+      for (const format of ["wav", "mp3"]) {
+        for (const selection of ["", track]) {
+          const response = await assetAction(
+            args(
+              post({
+                email: "not-verified@example.test",
+                track: selection,
+                format,
+              }),
+              "download",
             ),
-            size = zip.readUInt32LE(cursor + 20),
-            offset = zip.readUInt32LE(cursor + 42);
-          const start =
-            offset +
-            30 +
-            zip.readUInt16LE(offset + 26) +
-            zip.readUInt16LE(offset + 28);
-          let bytes = zip.subarray(start, start + size);
-          if (zip.readUInt16LE(cursor + 10) === 8)
-            bytes = (await import("node:zlib")).inflateRawSync(bytes);
-          entries.set(name, bytes);
-          cursor += 46 + nameLength + extra + comment;
+          );
+          assert.equal(response.headers.get("content-type"), "application/zip");
+          const folder = selection
+            ? "Åsa Öberg - Blå timmen"
+            : "Martin Dice - Pressure";
+          const disposition = response.headers.get("content-disposition")!;
+          assert.equal(
+            decodeURIComponent(disposition.split("filename*=UTF-8''")[1]),
+            folder + ".zip",
+          );
+          // Read ZIP central directory to verify exact stored WAV and text entries, without another runtime dependency.
+          const zip = Buffer.from(await response.arrayBuffer());
+          const end = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+          let cursor = zip.readUInt32LE(end + 16);
+          const entries = new Map<string, Buffer>();
+          for (let n = 0; n < zip.readUInt16LE(end + 10); n++) {
+            const nameLength = zip.readUInt16LE(cursor + 28),
+              extra = zip.readUInt16LE(cursor + 30),
+              comment = zip.readUInt16LE(cursor + 32);
+            const name = zip.toString(
+                "utf8",
+                cursor + 46,
+                cursor + 46 + nameLength,
+              ),
+              size = zip.readUInt32LE(cursor + 20),
+              offset = zip.readUInt32LE(cursor + 42);
+            const start =
+              offset +
+              30 +
+              zip.readUInt16LE(offset + 26) +
+              zip.readUInt16LE(offset + 28);
+            let bytes = zip.subarray(start, start + size);
+            if (zip.readUInt16LE(cursor + 10) === 8)
+              bytes = (await import("node:zlib")).inflateRawSync(bytes);
+            entries.set(name, bytes);
+            cursor += 46 + nameLength + extra + comment;
+          }
+          assert.deepEqual(
+            [...entries.keys()].sort(),
+            [
+              `${folder}/03 - Åsa Öberg - Blå timmen.${format}`,
+              `${folder}/artwork.png`,
+              `${folder}/release-info.txt`,
+            ].sort(),
+          );
+          assert.deepEqual(
+            entries.get(`${folder}/artwork.png`),
+            await readFile(join(dir, "artwork.png")),
+          );
+          assert.deepEqual(
+            [...entries].find(([name]) => name.endsWith(`.${format}`))![1],
+            await readFile(
+              join(dir, format === "wav" ? "master.wav" : "master.wav.mp3"),
+            ),
+          );
+          assert.match(
+            entries.get(`${folder}/release-info.txt`)!.toString(),
+            /Included tracks: 1 of 2/,
+          );
+          assert.match(
+            entries.get(`${folder}/release-info.txt`)!.toString(),
+            /SEAAA2600001/,
+          );
+          assert.match(
+            entries.get(`${folder}/release-info.txt`)!.toString(),
+            format === "wav" ? /16 bit, 44100 Hz/ : /MP3: 320 kbps/,
+          );
         }
-        assert.deepEqual(
-          [...entries.keys()].sort(),
-          [
-            `${folder}/03 - Åsa Öberg - Blå timmen.wav`,
-            `${folder}/artwork.png`,
-            `${folder}/release-info.txt`,
-          ].sort(),
-        );
-        assert.deepEqual(
-          entries.get(`${folder}/artwork.png`),
-          await readFile(join(dir, "artwork.png")),
-        );
-        assert.deepEqual(
-          [...entries].find(([name]) => name.endsWith(".wav"))![1],
-          await readFile(join(dir, "master.wav")),
-        );
-        assert.match(
-          entries.get(`${folder}/release-info.txt`)!.toString(),
-          /Included tracks: 1 of 2/,
-        );
-        assert.match(
-          entries.get(`${folder}/release-info.txt`)!.toString(),
-          /SEAAA2600001/,
-        );
-        assert.match(
-          entries.get(`${folder}/release-info.txt`)!.toString(),
-          /16 bit, 44100 Hz/,
-        );
       }
+      const cachedMp3 = await stat(join(dir, "master.wav.mp3"));
+      await (
+        await assetAction(
+          args(
+            post({ email: "cached@example.test", format: "mp3" }),
+            "download",
+          ),
+        )
+      ).arrayBuffer();
+      assert.equal(
+        (await stat(join(dir, "master.wav.mp3"))).mtimeMs,
+        cachedMp3.mtimeMs,
+      );
       await db
         .update(releaseTracks)
         .set({ metadata: {} })
@@ -489,9 +519,9 @@ test(
             eq(releaseEvents.kind, "download-started"),
           ),
         );
-      assert.equal(downloads.length, 3);
+      assert.equal(downloads.length, 6);
       assert.equal(downloads[0].email, "not-verified@example.test");
-      assert.equal(downloads[0].detail, "3. Blå timmen");
+      assert.equal(downloads[0].detail, "WAV\n3. Blå timmen");
       assert.equal(
         (
           await artistLoader({
@@ -504,6 +534,58 @@ test(
         ).releases.length,
         1,
       );
+      // Revoke downloads while a request waits for the encoder's row lock.
+      const blocker = await pool.connect();
+      let waiting: Promise<unknown> | undefined;
+      try {
+        await blocker.query("BEGIN");
+        await blocker.query(
+          "SELECT id FROM release_tracks WHERE id = $1 FOR UPDATE",
+          [track],
+        );
+        const {
+          rows: [{ pid }],
+        } = await blocker.query("SELECT pg_backend_pid() AS pid");
+        waiting = assetAction(
+          args(
+            post({ email: "revoked@example.test", format: "mp3" }),
+            "download",
+          ),
+        ).catch((e: unknown) => e);
+        let blocked = false;
+        for (let i = 0; i < 100 && !blocked; i++) {
+          const { rows } = await pool.query(
+            "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))) AS blocked",
+            [pid],
+          );
+          blocked = rows[0].blocked;
+          if (!blocked) await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        assert.equal(blocked, true);
+        await db
+          .update(releases)
+          .set({ audioEnabled: false })
+          .where(eq(releases.id, release));
+      } finally {
+        await blocker.query("ROLLBACK");
+        blocker.release();
+      }
+      const revoked = await waiting;
+      assert.ok(revoked instanceof Response && revoked.status === 403);
+      await db
+        .update(releases)
+        .set({ audioEnabled: true })
+        .where(eq(releases.id, release));
+      await editAction({
+        request: post({ intent: "remove-audio", track }, session),
+        params: { id: release },
+        context: new RouterContextProvider(),
+        url: new URL(origin),
+        pattern: "/",
+      });
+      await assert.rejects(stat(join(dir, "master.wav.mp3")), {
+        code: "ENOENT",
+      });
       await editAction({
         request: post({ intent: "unpublish" }, session),
         params: { id: release },

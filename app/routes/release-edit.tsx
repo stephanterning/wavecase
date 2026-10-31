@@ -1,3 +1,4 @@
+import { removeAudioFiles } from "../server/audio-files";
 import { releasePath } from "../domain/releases";
 import {
   Form,
@@ -253,9 +254,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         }
       }
     }
-    await Promise.all(
-      removedFiles.map((p) => unlink(join(directory(), p)).catch(() => {})),
-    );
+    await removeAudioFiles(directory(), removedFiles);
     return redirect(`/releases/${data.release.id}`);
   } catch (error) {
     return formError(error);

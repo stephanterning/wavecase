@@ -1,3 +1,4 @@
+import { releaseMp3Download } from "./download";
 import { downloadName, zipDisposition } from "./release-filenames";
 import { ZipFile } from "yazl";
 import { Readable } from "node:stream";
@@ -12,7 +13,7 @@ export async function downloadRelease(
   id: string,
   form: FormData,
 ) {
-  const data = await releaseAccess(request, id);
+  let data = await releaseAccess(request, id);
   if (
     !data.release.published ||
     !data.release.audioEnabled ||
@@ -25,11 +26,53 @@ export async function downloadRelease(
       status: 400,
     });
   const selection = String(form.get("track") || "");
-  const tracks = data.tracks.filter(
+  let tracks = data.tracks.filter(
     (t) => t.original && t.playback && (!selection || t.id === selection),
   );
   if (!tracks.length)
     throw new Response("No audio available for this download", { status: 404 });
+  const format = String(form.get("format") || "wav");
+  if (format !== "wav" && format !== "mp3")
+    throw new Response("Download format unavailable", { status: 400 });
+  const audioFiles = new Map<string, string>();
+  for (const track of tracks) {
+    try {
+      audioFiles.set(
+        track.id,
+        format === "mp3"
+          ? await releaseMp3Download(track.id, track.original!, directory())
+          : track.original!,
+      );
+    } catch (error) {
+      if (error instanceof Response) throw error;
+      console.error(
+        "Release MP3 encoding failed",
+        error instanceof Error ? error.message : error,
+      );
+      throw new Response("MP3 could not be prepared. Please try again.", {
+        status: 503,
+      });
+    }
+  }
+  // Encoding an album can take time. Recheck publication, permissions and sources.
+  const current = await releaseAccess(request, id);
+  if (
+    !current.release.published ||
+    !current.release.audioEnabled ||
+    !current.release.cover
+  )
+    throw new Response("Downloads unavailable", { status: 403 });
+  if (
+    tracks.some(
+      (t) =>
+        !current.tracks.some(
+          (c) => c.id === t.id && c.original === t.original && c.playback,
+        ),
+    )
+  )
+    throw new Response("Audio changed. Please try again.", { status: 409 });
+  tracks = current.tracks.filter((t) => audioFiles.has(t.id));
+  data = current;
   const trackArtist = (track: (typeof tracks)[number]) =>
     track.metadata.artist?.trim() || data.artist.name;
   const folder = downloadName(
@@ -38,11 +81,11 @@ export async function downloadRelease(
       : `${data.artist.name} - ${data.release.title}`,
   );
   const files = tracks.map((t) => ({
-    path: join(directory(), t.original!),
-    name: `${folder}/${downloadName(`${String(t.position).padStart(2, "0")} - ${trackArtist(t)} - ${t.title}`)}.wav`,
+    path: join(directory(), audioFiles.get(t.id)!),
+    name: `${folder}/${downloadName(`${String(t.position).padStart(2, "0")} - ${trackArtist(t)} - ${t.title}`)}.${format}`,
   }));
   files.push({
-    path: join(directory(), data.release.cover),
+    path: join(directory(), current.release.cover),
     name: `${folder}/artwork.png`,
   });
   await Promise.all(files.map((f) => stat(f.path)));
@@ -53,6 +96,7 @@ export async function downloadRelease(
     data.artist.name,
     tracks,
     data.tracks.length,
+    format,
   );
   // Stream stored entries; never buffer full masters or a complete album in memory.
   for (const file of files)
@@ -64,7 +108,7 @@ export async function downloadRelease(
     kind: "download-started",
     trackId: selection || null,
     email: parsed.data,
-    detail: tracks.map((t) => `${t.position}. ${t.title}`).join("\n"),
+    detail: `${format.toUpperCase()}\n${tracks.map((t) => `${t.position}. ${t.title}`).join("\n")}`,
   });
   zip.end();
   return new Response(Readable.toWeb(output) as ReadableStream, {

@@ -1,21 +1,23 @@
 import { useState } from "react";
 import { Icon } from "./icons";
 import { listenerIdentity } from "./telemetry";
-import { DownloadDialog, DownloadEmail } from "./download-dialog";
+import {
+  DownloadDialog,
+  DownloadEmail,
+  DownloadFormats,
+} from "./download-dialog";
 
 export function Download({
   versionId,
   versionName,
   share,
   owner,
-  modern,
   wav,
 }: {
   versionId: string;
   versionName: string;
   share?: string;
   owner: boolean;
-  modern: boolean;
   wav: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -60,42 +62,8 @@ export function Download({
             The ZIP includes this version’s audio, artwork if available, and
             demo-info.txt with track and version information.
           </p>
-          {modern ? (
-            <fieldset className="download-formats">
-              <legend>Format</legend>
-              {wav && (
-                <label className="check">
-                  <input
-                    type="radio"
-                    name="format"
-                    value="wav"
-                    defaultChecked
-                  />{" "}
-                  WAV
-                </label>
-              )}
-              <label className="check">
-                <input
-                  type="radio"
-                  name="format"
-                  value="mp3"
-                  defaultChecked={!wav}
-                />{" "}
-                MP3 · 320 kbps
-              </label>
-            </fieldset>
-          ) : (
-            <>
-              <input type="hidden" name="format" value="original" />
-              <p>Original audio format</p>
-            </>
-          )}
+          <DownloadFormats wav={wav} />
           {!owner && <DownloadEmail ownerLabel="demo owner" />}
-          {modern && (
-            <p className="muted">
-              The first MP3 download may take a moment to prepare.
-            </p>
-          )}
         </DownloadDialog>
       )}
     </>

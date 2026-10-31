@@ -101,3 +101,30 @@ export function DownloadEmail({ ownerLabel }: { ownerLabel: string }) {
     </>
   );
 }
+
+export function DownloadFormats({ wav = true }: { wav?: boolean }) {
+  return (
+    <>
+      <fieldset className="download-formats">
+        <legend>Format</legend>
+        {wav && (
+          <label className="check">
+            <input type="radio" name="format" value="wav" defaultChecked /> WAV
+          </label>
+        )}
+        <label className="check">
+          <input type="radio" name="format" value="mp3" defaultChecked={!wav} />{" "}
+          MP3 · 320 kbps
+        </label>
+      </fieldset>
+      {!wav && (
+        <p className="muted">
+          WAV is unavailable because the upload uses lossy compression.
+        </p>
+      )}
+      <p className="muted">
+        The first download in a new format may take a moment to prepare.
+      </p>
+    </>
+  );
+}
