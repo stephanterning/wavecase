@@ -81,9 +81,13 @@ export async function downloadDemo(
   const folder = downloadName(
     [artist, track.title, current.name].filter(Boolean).join(" - "),
   );
+  // Extract before shortening: a long original basename must not lose its format.
+  const legacyExtension = extname(version.filename);
   const extension = modern
     ? `.${format}`
-    : extname(downloadName(version.filename));
+    : legacyExtension
+      ? "." + downloadName(legacyExtension.slice(1)).slice(0, 16)
+      : "";
   const files = [
     { path: join(directory, file), name: `${folder}/${folder}${extension}` },
   ];

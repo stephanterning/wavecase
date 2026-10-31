@@ -77,3 +77,5 @@ Listeners submit a syntactically valid email for each request, without mailbox v
 Public release downloads now open the same modal shell for package selection, contents disclosure and email. Release owners still submit email. There are no new dependencies or database migrations.
 
 Verification: all 60 tests passed against a disposable PostgreSQL database with no skipped scenarios; lint, TypeScript and the production build passed. Chromium checks exercised actual demo WAV/MP3/owner and release full/individual ZIP transfers, required email, address reset on reopen, owner analytics, keyboard/modal behavior and narrow-screen layout. Extracted ZIP contents and Unicode names were verified. Browser tests use a UTF-8 locale. Real iPhone/Safari acceptance remains a device check.
+
+PR self-review reproduced and fixed extension loss for long legacy source filenames. The ZIP now extracts and sanitizes the extension independently of the source basename; the download regression test covers it. The owner demo page also retains its document title when setting the referrer policy needed for native POST downloads.

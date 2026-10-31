@@ -22,7 +22,10 @@ import { db } from "../server/db";
 import { versions, links, reuploadRequests } from "../server/schema";
 import { sameOrigin, token, hash, origin } from "../server/security";
 import { trackAccess } from "../server/access";
-export const meta = () => [{ name: "referrer", content: "same-origin" }];
+export const meta = () => [
+  { title: "Wavecase" },
+  { name: "referrer", content: "same-origin" },
+];
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let id = params.id;

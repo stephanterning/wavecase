@@ -87,17 +87,15 @@ test(
         .insert(artists)
         .values({ id: artist, ownerId: owner, name: "Åsa", slug: artist });
       await writeFile(join(directory, "cover.jpg"), "artwork bytes");
-      await db
-        .insert(tracks)
-        .values({
-          id: track,
-          ownerId: owner,
-          artistId: artist,
-          artist: "Old artist",
-          title: "Downloads",
-          description: "Track notes",
-          cover: "cover.jpg",
-        });
+      await db.insert(tracks).values({
+        id: track,
+        ownerId: owner,
+        artistId: artist,
+        artist: "Old artist",
+        title: "Downloads",
+        description: "Track notes",
+        cover: "cover.jpg",
+      });
       await db.insert(links).values({
         id: link,
         trackId: track,
@@ -325,7 +323,7 @@ test(
       await db.update(links).set({ active: true }).where(eq(links.id, link));
       await db
         .update(versions)
-        .set({ metadata: {}, filename: "Legacy.aiff" })
+        .set({ metadata: {}, filename: "Legacy".repeat(40) + ".aiff" })
         .where(eq(versions.id, version));
       await db.update(tracks).set({ cover: null }).where(eq(tracks.id, track));
       await assert.rejects(get("original", { email: "" }), status(400));
