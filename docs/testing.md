@@ -64,7 +64,7 @@ The follow-up browser checks used an isolated local test service with synthetic 
 
 - Space toggles playback even when a non-input control has focus; typing spaces in the comment modal must not affect playback.
 - Add comment opens a modal with no time inputs. Right-clicking the waveform opens a point comment with a start time. Drag the right mouse button in either direction to create a range with ordered start/end times, including after zooming and panning.
-- On a phone, pinch to zoom. A touch hold selects a point; hold then drag to select a range. Pinch or a cancelled pointer must not accidentally open a comment. Check these gestures on a real device, not just a narrow desktop viewport.
+- On a phone, pinch to zoom, lift both fingers, then pinch again to zoom further in and back out to the full track. Repeat after panning the zoomed waveform; only the waveform should zoom. Pinching outside the waveform should still zoom the page. A touch hold selects a point; hold then drag to select a range. Pinch or a cancelled pointer must not accidentally open a comment. Check these gestures in iPhone Safari on a real device, not just a narrow desktop viewport.
 - Escape/cancel dismisses the modal and restores focus. Successful submission closes it and displays the new thread. Replies also use a modal and keep their original link/version context.
 - Confirm the player has custom play/pause and elapsed/total time, a repeat icon toggle and tooltip, and a separate download icon. No native audio controls, restart button, or zoom slider should remain.
 

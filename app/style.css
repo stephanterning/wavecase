@@ -293,6 +293,12 @@ button:hover:not(:disabled),
   -webkit-touch-callout: none;
   cursor: crosshair;
 }
+/* Keep custom gestures inside WaveSurfer's shadow DOM after zoom makes its
+   inner viewport scrollable. The outer touch-action rule is not enough there. */
+.waveform ::part(scroll),
+.waveform ::part(wrapper) {
+  touch-action: none;
+}
 .waveform-selection {
   position: absolute;
   top: 0;
