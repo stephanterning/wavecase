@@ -1,3 +1,4 @@
+import { removeAudioFiles } from "./audio-files";
 import { and, eq, isNotNull, isNull, or } from "drizzle-orm";
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
@@ -49,12 +50,9 @@ export async function startReleaseWorker() {
         const cleanup = changed.length
           ? [track.original, track.playback]
           : [key, result.playback];
-        await Promise.all(
-          cleanup
-            .filter(
-              (p): p is string => !!p && p !== (changed.length ? key : ""),
-            )
-            .map((p) => unlink(join(directory, p)).catch(() => {})),
+        await removeAudioFiles(
+          directory,
+          cleanup.filter((p) => p !== (changed.length ? key : "")),
         );
       } catch (error) {
         if (

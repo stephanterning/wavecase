@@ -34,9 +34,9 @@ For new uploads and replacements:
 - Reject decoder failures and floating-point samples that are non-finite or exceed the PCM range. Validate and publish before deleting a superseded upload; failures must preserve the current valid audio.
 - Generate waveform peaks and integrated LUFS, sample peak (dBFS), true peak (dBTP), loudness range, and duration from playback audio. Show these measurements on the demo page, without sample rate/bit depth.
 
-New audio recognized as lossless/PCM offers WAV and MP3 download choices, defaulting to WAV; other sources offer MP3 only. MP3 uses LAME at constant 320 kbps, algorithm quality 2, prepared on first request and cached. Preserve 44.1/48 kHz for MP3; lower-rate sources export at 32 kHz for MPEG-1 compatibility. This export resampling does not improve source quality or alter the master. Concurrent requests share encoding; failures expose no partial export, and removal/replacement clears cached exports.
+All demo audio recognized as lossless/PCM offers WAV and MP3 download choices, defaulting to WAV; other sources offer MP3 only. MP3 uses LAME at constant 320 kbps, algorithm quality 2, prepared on first request and cached. Preserve 44.1/48 kHz for MP3; lower-rate sources export at 32 kHz for MPEG-1 compatibility. This export resampling does not improve source quality or alter the master. Concurrent requests share encoding; failures expose no partial export, and removal/replacement clears cached exports.
 
-Previously published audio keeps its existing playback and unchanged legacy original until replaced. Download that original inside the same demo ZIP workflow.
+Previously published audio keeps its existing playback and original until replaced. It also offers WAV/MP3 choices, checking the original codec rather than the filename. PCM WAV originals remain byte-for-byte unchanged; other recognized lossless originals receive a cached WAV export within the 24-bit/48-kHz ceiling, with triangular dithering when reducing bit depth. Lossy originals cannot request WAV. Existing POST forms requesting a legacy original remain supported.
 
 ### Share links and downloads
 
@@ -44,7 +44,7 @@ A link belongs to one track and carries an owner-only label for a recipient or g
 
 Open the newest visible playable version; if none are playable, retain metadata and feedback without playback. An inactive link shows neutral information and denies protected content, while retaining comments/statistics for the owner. Re-enabling restores access under current settings. Active share pages provide title/description/authorized-cover previews with `noindex`; previews do not bypass link checks.
 
-Listener downloads require an active link, visible version, link and version download permission, available audio, an allowed format, and a syntactically valid email. Enforce all conditions on the server and recheck after MP3 preparation. The authenticated demo owner bypasses listener download permission/email requirements and creates no listener download event. Unavailable versions show an inactive download control.
+Listener downloads require an active link, visible version, link and version download permission, available audio, an allowed format, and a syntactically valid email. Enforce all conditions on the server and recheck after export preparation. The authenticated demo owner bypasses listener download permission/email requirements and creates no listener download event. Unavailable versions show an inactive download control.
 
 Download opens a modal and submits via POST, so addresses stay out of download URLs; old direct GET/HEAD download requests do not serve files. Playback GET/range/HEAD delivery remains separate. Every package contains:
 
@@ -94,7 +94,7 @@ Record available IP, device/browser/OS details, timestamps, and referring websit
 
 Replacement keeps version identity, order, link relationships, comments, and combined statistics. If any comments exist, require exactly equal decoded duration by cross-multiplying source sample frames and rates as integers; rounded display times are insufficient. Preserve these source measurements after conversion. Process and validate before switching files; failed replacement leaves current audio usable.
 
-Removing one version's audio or all audio on a track removes masters, legacy files, and MP3 caches while retaining metadata, comments, links, and analytics. Show `Audio file missing`. Active listeners can request reupload; the owner sees the link and optional saved name and can dismiss the request. Restoration uses the same version/duration rule, or the owner may upload a new version. Inactive links stay neutral throughout.
+Removing one version's audio or all audio on a track removes masters, legacy files, and WAV/MP3 export caches while retaining metadata, comments, links, and analytics. Show `Audio file missing`. Active listeners can request reupload; the owner sees the link and optional saved name and can dismiss the request. Restoration uses the same version/duration rule, or the owner may upload a new version. Inactive links stay neutral throughout.
 
 ## Public artists and releases
 
@@ -134,9 +134,11 @@ Release, artist, and songwriter routes share one React Router layout and one aud
 
 Downloads use a modal and POST, offering complete-release or individual-track ZIPs. Every request—including the owner's—requires a syntactically valid email. Explain owner access/storage; do not verify, email, subscribe, or retain addresses in browser storage. Downloads require a published release with audio enabled, artwork, and ready audio, even for owners.
 
-Each streamed ZIP contains unchanged WAV masters, normalized `artwork.png` (up to 2000 pixels per side), and `release-info.txt` with release/selected-track metadata and actual formats. Full ZIP/directory names use `Artist - Release title`; individual packages use `Artist - Track title`. WAV entries use `NN - Artist - Track title.wav`, preserving release track numbers and track-specific artist fallback. Preserve Unicode and bound/sanitize names without changing WAV bytes. Partial packages clearly disclose the included tracks/count before download and in the info file.
+Offer mutually exclusive WAV (default) and MP3 choices for full releases and individual tracks, including existing uploads. MP3 uses the same on-demand cached LAME 320 kbps export as demos. Recheck publication, audio permissions and source identity after preparation; replacement/removal clears cached exports.
 
-Owner statistics show release-page visits, actual per-track playback starts, external-link clicks, and download requests with email, time, and included tracks. Exclude authenticated owner visits/plays/clicks; record owner downloads. Pause/resume adds no play; replay after ending does. Event IDs deduplicate repeated submissions. These are observations, not proof of human listening or completed transfers.
+Each streamed ZIP contains unchanged WAV masters or the selected MP3 exports, normalized `artwork.png` (up to 2000 pixels per side), and `release-info.txt` with release/selected-track metadata and actual formats. Full ZIP/directory names use `Artist - Release title`; individual packages use `Artist - Track title`. Audio entries use `NN - Artist - Track title.wav` or `.mp3`, preserving release track numbers and track-specific artist fallback. Preserve Unicode and bound/sanitize names without changing WAV bytes. Partial packages clearly disclose the included tracks/count before download and in the info file.
+
+Owner statistics show release-page visits, actual per-track playback starts, external-link clicks, and download requests with email, time, selected format, and included tracks. Exclude authenticated owner visits/plays/clicks; record owner downloads. Pause/resume adds no play; replay after ending does. Event IDs deduplicate repeated submissions. These are observations, not proof of human listening or completed transfers.
 
 Public pages and other owners—including administrators—cannot inspect private analytics/addresses. Release statistics have no detailed listening heatmaps/timelines, artist-page view counts, CSV export, deletion/retention UI, or automatic expiry.
 
@@ -162,7 +164,7 @@ Public pages and other owners—including administrators—cannot inspect privat
 | `tests/`, `.github/workflows/` | Behavior tests and image/release automation. |
 | `docs/design/` | Historical interactive mockup and editable fragment; not runtime UI. |
 
-Web and worker share persistent file storage. PostgreSQL holds accounts, metadata, ownership, share settings, comments, analytics, waveform peaks, and durable jobs. Peaks live with version metadata so publication is atomic without coordinating another waveform file. Files include demo masters/legacy originals, MP3 exports, release WAV/AAC, artwork, and pending uploads. Preserve both database and files outside container writable layers.
+Web and worker share persistent file storage. PostgreSQL holds accounts, metadata, ownership, share settings, comments, analytics, waveform peaks, and durable jobs. Peaks live with version metadata so publication is atomic without coordinating another waveform file. Files include demo masters/legacy originals, WAV/MP3 exports, release WAV/AAC, artwork, and pending uploads. Preserve both database and files outside container writable layers.
 
 Routes enforce ownership and current visibility/download policy, including direct, partial, and conditional media requests. Protected storage is never static public content. Demo audio caches revalidate; release audio uses no-store. Replacing a file changes media cache identity without adding a visible revision/history. When the client learns of revocation, stop playback/discard affected caches; delivered bytes cannot be recalled. Same-origin mutation checks and production rate limits complement authorization. External navigation must not leak private URLs through referrers.
 

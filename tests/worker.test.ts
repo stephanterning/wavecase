@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { db, pool } from "../app/server/db";
-import { mp3Download } from "../app/server/download";
+import { demoAudioDownload } from "../app/server/download";
 import {
   users,
   tracks,
@@ -81,22 +81,18 @@ test(
       const artist = randomUUID(),
         release = randomUUID(),
         releaseTrack = randomUUID();
-      await db
-        .insert(artists)
-        .values({
-          id: artist,
-          ownerId: owner,
-          name: "Worker artist",
-          slug: artist,
-        });
-      await db
-        .insert(releases)
-        .values({
-          id: release,
-          artistId: artist,
-          title: "Legacy release",
-          slug: release,
-        });
+      await db.insert(artists).values({
+        id: artist,
+        ownerId: owner,
+        name: "Worker artist",
+        slug: artist,
+      });
+      await db.insert(releases).values({
+        id: release,
+        artistId: artist,
+        title: "Legacy release",
+        slug: release,
+      });
       const releaseResult = await processReleaseAudio(
         directory,
         "original.wav",
@@ -170,7 +166,12 @@ test(
         assert.fail("File was not removed: " + key);
       }
       await removed("original.wav");
-      const cached = await mp3Download(version, initial.original!, directory);
+      const cached = await demoAudioDownload(
+        version,
+        initial.original!,
+        directory,
+        "mp3",
+      );
       const originalBytes = await readFile(join(directory, initial.playback!));
       await db.insert(comments).values({
         versionId: version,

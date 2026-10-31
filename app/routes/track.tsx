@@ -1,3 +1,4 @@
+import { demoWavAvailable } from "../server/download";
 import { TrackArtistField } from "../components/track-artist-field";
 import { artistChoices, linkedArtist } from "../server/track-artist";
 import { uploadVersion } from "../server/upload";
@@ -64,23 +65,35 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     owner: access.owner,
     share,
     shareUrl: share ? `${origin}/s/${encodeURIComponent(share)}` : null,
-    versions: all
-      .filter(
-        (v) =>
-          access.owner ||
-          ((v.state === "ready" || v.state === "missing") &&
-            (!access.link?.fromOrder || v.position >= access.link.fromOrder)),
-      )
-      .map(
-        ({ original, playback, pendingOriginal, pendingFilename, ...v }) => ({
-          ...v,
-          processing: !!pendingOriginal,
-          revision: original ? hash(original) : "missing",
-          canDownload:
-            !!original &&
-            (access.owner || (!!access.link?.download && v.download)),
-        }),
-      ),
+    versions: await Promise.all(
+      all
+        .filter(
+          (v) =>
+            access.owner ||
+            ((v.state === "ready" || v.state === "missing") &&
+              (!access.link?.fromOrder || v.position >= access.link.fromOrder)),
+        )
+        .map(
+          async ({
+            original,
+            playback,
+            pendingOriginal,
+            pendingFilename,
+            ...v
+          }) => ({
+            wavDownload: await demoWavAvailable(
+              { original, metadata: v.metadata },
+              process.env.DATA_DIR || "data/audio",
+            ).catch(() => false),
+            ...v,
+            processing: !!pendingOriginal,
+            revision: original ? hash(original) : "missing",
+            canDownload:
+              !!original &&
+              (access.owner || (!!access.link?.download && v.download)),
+          }),
+        ),
+    ),
     links: access.owner
       ? await db.select().from(links).where(eq(links.trackId, id!))
       : [],
@@ -319,8 +332,7 @@ export default function Track() {
                   versionName={current.name}
                   share={data.share}
                   owner={data.owner}
-                  modern={current.metadata?.audioPolicy === 2}
-                  wav={current.metadata?.wavDownload === true}
+                  wav={current.wavDownload}
                 />
               ) : (
                 <button

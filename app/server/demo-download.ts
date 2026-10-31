@@ -8,7 +8,7 @@ import { z } from "zod";
 import { emailSchema } from "../domain/releases";
 import { versionAccess } from "./access";
 import { db } from "./db";
-import { mp3Download } from "./download";
+import { demoAudioDownload, demoWavAvailable } from "./download";
 import { downloadName, zipDisposition } from "./release-filenames";
 import { events } from "./schema";
 import { linkedArtist } from "./track-artist";
@@ -32,32 +32,29 @@ export async function downloadDemo(
       status: 400,
     });
   const { version } = access;
-  const modern = version.metadata?.audioPolicy === 2;
+  const directory = process.env.DATA_DIR || "data/audio";
   const format = String(
     form.get("format") ||
-      (modern ? (version.metadata?.wavDownload ? "wav" : "mp3") : "original"),
+      ((await demoWavAvailable(version, directory)) ? "wav" : "mp3"),
   );
   if (
-    modern
-      ? !["wav", "mp3"].includes(format) ||
-        (format === "wav" && !version.metadata?.wavDownload)
-      : format !== "original"
+    !["wav", "mp3", "original"].includes(format) ||
+    (format === "original" && version.metadata?.audioPolicy === 2)
   )
     throw new Response("Download format unavailable", { status: 400 });
   let file = version.original;
   if (!file || version.state !== "ready")
     throw new Response("Audio file missing", { status: 404 });
-  const directory = process.env.DATA_DIR || "data/audio";
-  if (format === "mp3") {
+  if (format === "mp3" || format === "wav") {
     try {
-      file = await mp3Download(version.id, file, directory);
+      file = await demoAudioDownload(version.id, file, directory, format);
     } catch (error) {
       if (error instanceof Response) throw error;
       console.error(
-        "MP3 encoding failed",
+        "Audio export failed",
         error instanceof Error ? error.message : error,
       );
-      throw new Response("MP3 could not be prepared. Please try again.", {
+      throw new Response("Audio could not be prepared. Please try again.", {
         status: 503,
       });
     }
@@ -83,11 +80,12 @@ export async function downloadDemo(
   );
   // Extract before shortening: a long original basename must not lose its format.
   const legacyExtension = extname(version.filename);
-  const extension = modern
-    ? `.${format}`
-    : legacyExtension
-      ? "." + downloadName(legacyExtension.slice(1)).slice(0, 16)
-      : "";
+  const extension =
+    format !== "original"
+      ? `.${format}`
+      : legacyExtension
+        ? "." + downloadName(legacyExtension.slice(1)).slice(0, 16)
+        : "";
   const files = [
     { path: join(directory, file), name: `${folder}/${folder}${extension}` },
   ];

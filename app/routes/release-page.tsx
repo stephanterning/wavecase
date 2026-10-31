@@ -1,4 +1,8 @@
-import { DownloadDialog, DownloadEmail } from "../components/download-dialog";
+import {
+  DownloadDialog,
+  DownloadEmail,
+  DownloadFormats,
+} from "../components/download-dialog";
 import { releaseArtistSuffix, releasePath } from "../domain/releases";
 import { getReleaseServiceIcon } from "../domain/release-services";
 import { SongwriterCredits } from "../components/songwriter-credits";
@@ -284,7 +288,7 @@ export default function ReleasePage() {
                     {available.map((t) => t.title).join(", ")}.
                   </p>
                   <p className="muted">
-                    Every ZIP includes original WAV audio, artwork and
+                    Every ZIP includes audio in the selected format, artwork and
                     release-info.txt with metadata and credits.
                   </p>
                   <label>
@@ -300,6 +304,7 @@ export default function ReleasePage() {
                       ))}
                     </select>
                   </label>
+                  <DownloadFormats />
                   <DownloadEmail ownerLabel="release owner" />
                 </DownloadDialog>
               )}

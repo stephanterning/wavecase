@@ -1,13 +1,13 @@
 # Implementation status
 
-This describes `main` after PR #10 (October 31, 2026). The repository includes both private demos and public releases, Docker packaging, and CI image publishing. Device acceptance remains separate from automated verification.
+This describes the implementation as of October 31, 2026. The repository includes both private demos and public releases, Docker packaging, and CI image publishing. Device acceptance remains separate from automated verification.
 
 ## Available
 
 - Passkey setup/sign-in, invitations, multiple passkeys, account disablement, and administrator/server recovery.
 - Private libraries with versions, linked artist profiles, named share links, waveform feedback, audio replacement/restoration, and owner-only listening analytics.
-- Demo processing with a 24-bit/48 kHz ceiling, playback loudness normalization, and email-gated WAV/MP3/legacy ZIP downloads.
-- Multiple artist profiles, draft/published singles/EPs/albums, generated songwriter pages, credits, service links, original-WAV ZIPs, and release statistics.
+- Demo processing with a 24-bit/48 kHz ceiling, playback loudness normalization, and email-gated WAV/MP3 ZIP downloads for new and legacy uploads (WAV only for uncompressed/lossless sources).
+- Multiple artist profiles, draft/published singles/EPs/albums, generated songwriter pages, credits, service links, original-WAV or cached 320 kbps MP3 ZIPs, and release statistics.
 - One release player across public artist, songwriter, and release pages, including queue progression, Space controls, normalization, and media-session metadata.
 - Durable processing jobs, database migrations, persistent files, and tested image publishing for amd64/arm64.
 
