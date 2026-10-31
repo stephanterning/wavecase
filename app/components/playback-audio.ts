@@ -5,6 +5,7 @@ const sources = new WeakMap<
   HTMLAudioElement,
   { source: MediaElementAudioSourceNode; gain: GainNode; connected: boolean }
 >();
+const attempts = new WeakMap<HTMLAudioElement, object>();
 
 export function playbackGainDb(metadata: Record<string, unknown> | null) {
   const finite = (value: unknown): value is number =>
@@ -23,6 +24,8 @@ export function playbackGainDb(metadata: Record<string, unknown> | null) {
 }
 
 export async function playNormalized(media: HTMLAudioElement, gainDb: number) {
+  const attempt = {};
+  attempts.set(media, attempt);
   // Let supporting browsers treat Web Audio as music, including in background.
   const audioSession = (
     navigator as Navigator & { audioSession?: { type: string } }
@@ -51,12 +54,14 @@ export async function playNormalized(media: HTMLAudioElement, gainDb: number) {
       media.play(),
     ]);
   } catch (error) {
-    media.pause();
+    // A rejected play from a replaced source must not pause its replacement.
+    if (attempts.get(media) === attempt) media.pause();
     throw error;
   }
 }
 
 export function disconnectPlaybackAudio(media: HTMLAudioElement) {
+  attempts.delete(media);
   const graph = sources.get(media);
   if (!graph) return;
   graph.source.disconnect();

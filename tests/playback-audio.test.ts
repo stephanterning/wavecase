@@ -143,6 +143,25 @@ test("playback applies gain before playing, reuses sources, and resumes the cont
     false,
     "context failure must not leave silent playback running",
   );
+  rejectResume = false;
+  let rejectOld!: (error: Error) => void;
+  const oldPlay = new Promise<void>((_, reject) => {
+    rejectOld = reject;
+  });
+  let calls = 0;
+  t.mock.method(media, "play", () => {
+    playing = true;
+    return ++calls === 1 ? oldPlay : Promise.resolve();
+  });
+  const interrupted = playNormalized(media, -3);
+  await playNormalized(media, -6);
+  rejectOld(new Error("Source replaced"));
+  await assert.rejects(interrupted, /Source replaced/);
+  assert.equal(
+    playing,
+    true,
+    "an old play rejection must not pause a new source",
+  );
   disconnectPlaybackAudio(media);
   disconnectPlaybackAudio(next);
 });
