@@ -280,6 +280,7 @@ export default function Track() {
               }
               peaks={current.peaks || []}
               duration={current.duration || 0}
+              metadata={current.metadata}
             />
           ) : (
             <p>
