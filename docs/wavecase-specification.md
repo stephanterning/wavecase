@@ -272,6 +272,8 @@ After the first Play, a mini player appears on every public music page, includin
 
 Track controls and the playback-position slider reflect the shared player's actual state wherever the current track is shown. Navigation never selects a track or resets its position. Loudness normalization, media-session controls, and play counting belong to the shared playback lifecycle; page visits remain separate from actual playback starts. Server-side media permissions continue to apply, and newly learned unavailability stops affected playback.
 
+Once music is loaded, Space toggles the shared player on all public music pages, including when another button or the playback-position slider has focus. It has the same behavior as the mini-player button, including restarting a completed queue. A held key toggles only once and does not scroll the page. Text entry, other form inputs, selects, dialogs, composition, and modified shortcuts retain their normal behavior. Enter still activates the focused control. With an empty player, Space retains its normal behavior.
+
 The public routes share a React Router layout without changing their URLs or server loaders. Future public music views join this layout. Management and demo routes remain outside it.
 
 ### Download packages and email gate
