@@ -8,7 +8,6 @@ import {
 import { Form, useLoaderData, useSearchParams } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
 import { eq, desc } from "drizzle-orm";
-import { useState } from "react";
 import { db } from "../server/db";
 import { events, links, versions } from "../server/schema";
 import { trackAccess } from "../server/access";
@@ -144,10 +143,14 @@ function eventDescription(event: Row["event"]) {
 export default function Analytics() {
   const data = useLoaderData<typeof loader>();
   const [search, setSearch] = useSearchParams();
-  const link = search.get("link") || "";
-  const [browser, setBrowser] = useState("");
+  const requestedLink = search.get("link") || "";
+  const link = data.links.some((item) => item.id === requestedLink)
+    ? requestedLink
+    : "";
   const linkRows = data.events.filter((r) => !link || r.event.linkId === link);
   const browserIds = [...new Set(linkRows.map((r) => r.event.browser))];
+  const requestedBrowser = search.get("browser") || "";
+  const browser = browserIds.includes(requestedBrowser) ? requestedBrowser : "";
   const rows = linkRows.filter((r) => !browser || r.event.browser === browser);
   const sessions = [
     ...new Set(
@@ -177,9 +180,9 @@ export default function Analytics() {
               setSearch((params) => {
                 if (e.target.value) params.set("link", e.target.value);
                 else params.delete("link");
+                params.delete("browser");
                 return params;
               });
-              setBrowser("");
             }}
           >
             <option value="">All links</option>
@@ -192,7 +195,16 @@ export default function Analytics() {
         </label>
         <label>
           Listener browser
-          <select value={browser} onChange={(e) => setBrowser(e.target.value)}>
+          <select
+            value={browser}
+            onChange={(e) => {
+              setSearch((params) => {
+                if (e.target.value) params.set("browser", e.target.value);
+                else params.delete("browser");
+                return params;
+              });
+            }}
+          >
             <option value="">All browsers</option>
             {browserIds.map((id) => (
               <option key={id} value={id}>
