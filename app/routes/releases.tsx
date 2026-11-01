@@ -102,7 +102,7 @@ export default function Releases() {
   return (
     <>
       <nav>
-        <a href="/library">Work in progress</a> · <a href="/account">Account</a>
+        <a href="/library">Work in progress</a>
       </nav>
       <p className="eyebrow">YOUR RELEASES</p>
       <h1>Ready for the world.</h1>
