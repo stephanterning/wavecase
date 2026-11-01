@@ -330,12 +330,10 @@ export function EditorDialog({
   title,
   trigger,
   id,
-  className = "",
   children,
 }: {
   title: string;
   trigger: ReactNode;
-  className?: string;
   id?: string;
   children: ReactNode;
 }) {
@@ -372,7 +370,7 @@ export function EditorDialog({
       {open && (
         <dialog
           ref={dialog}
-          className={`comment-dialog editor-dialog ${className}`}
+          className="comment-dialog editor-dialog"
           aria-label={title}
           onCancel={(event) => {
             event.preventDefault();

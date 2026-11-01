@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CloseEditor, EditForm, EditorDialog, PreviewLink } from "./editing";
+import { EditForm, PreviewLink } from "./editing";
 import { Icon } from "./icons";
 
 type ShareLink = {
@@ -21,29 +21,14 @@ export function ShareLinks({
   links: ShareLink[];
   versions: Version[];
 }) {
-  return (
-    <EditorDialog
-      title="Share links"
-      trigger="Share"
-      className="share-links-dialog"
-    >
-      <ShareLinksContents trackId={trackId} links={links} versions={versions} />
-    </EditorDialog>
-  );
-}
-
-function ShareLinksContents({
-  trackId,
-  links,
-  versions,
-}: {
-  trackId: string;
-  links: ShareLink[];
-  versions: Version[];
-}) {
   const [notice, setNotice] = useState("");
   return (
-    <>
+    <section
+      className="panel share-links-panel"
+      id="share-links"
+      aria-labelledby="share-links-heading"
+    >
+      <h2 id="share-links-heading">Share links</h2>
       <div className="share-links-toolbar">
         <EditForm
           label="New share link"
@@ -235,7 +220,6 @@ function ShareLinksContents({
       <p role="status" className="share-link-notice">
         {notice}
       </p>
-      <CloseEditor />
-    </>
+    </section>
   );
 }

@@ -1429,8 +1429,12 @@ button:has(svg) {
   color: #b7c5bc;
 }
 
-.editor-dialog.share-links-dialog {
-  width: min(1100px, calc(100vw - 32px));
+.share-links-panel {
+  container-type: inline-size;
+  container-name: share-links;
+}
+.share-links-panel > h2 {
+  margin-top: 0;
 }
 .share-links-toolbar {
   display: flex;
@@ -1491,7 +1495,7 @@ button:has(svg) {
   min-height: 1.5em;
   margin: 8px 0 0;
 }
-@media (max-width: 760px) {
+@container share-links (max-width: 760px) {
   .share-links-toolbar {
     align-items: flex-start;
     flex-direction: column;

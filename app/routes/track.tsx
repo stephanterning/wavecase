@@ -310,11 +310,7 @@ export default function Track() {
             </label>
             <button>Upload version</button>
           </EditForm>
-          <ShareLinks
-            trackId={data.track.id}
-            links={data.links}
-            versions={data.versions}
-          />
+          <a href="#share-links">Share</a>
           <a href="#feedback">Feedback</a>
           <a href="#track-details">Track details</a>
         </nav>
@@ -472,6 +468,13 @@ export default function Track() {
             </span>
           </div>
         </section>
+      )}
+      {data.owner && (
+        <ShareLinks
+          trackId={data.track.id}
+          links={data.links}
+          versions={data.versions}
+        />
       )}
       {current && (
         <Feedback
