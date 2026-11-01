@@ -1,3 +1,4 @@
+import { deleteDemo, deleteShareLink } from "../server/delete-demo";
 import { formError } from "../server/releases";
 import { resolveTrackArtist } from "../server/track-artist";
 import { execFile } from "node:child_process";
@@ -36,7 +37,18 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const intent = form.get("intent");
     const removedFiles: string[] = [];
     const directory = process.env.DATA_DIR || "data/audio";
-    if (intent === "dismiss-request") {
+    if (intent === "delete-track") {
+      await deleteDemo(
+        access.track.id,
+        access.track.ownerId,
+        String(form.get("confirmation") || ""),
+      );
+      return redirect("/library");
+    } else if (intent === "delete-link") {
+      if (form.get("confirm") !== "delete")
+        throw new Response("Confirm link deletion.", { status: 400 });
+      await deleteShareLink(access.track.id, String(form.get("link") || ""));
+    } else if (intent === "dismiss-request") {
       await db
         .delete(reuploadRequests)
         .where(
@@ -103,21 +115,53 @@ export async function action({ request, params }: ActionFunctionArgs) {
           ],
           { timeout: 30000 },
         );
-        await db
-          .update(tracks)
-          .set({ cover: key + ".jpg" })
-          .where(eq(tracks.id, access.track.id));
-        if (access.track.cover) removedFiles.push(access.track.cover);
+        await db.transaction(async (tx) => {
+          const [current] = await tx
+            .select()
+            .from(tracks)
+            .where(eq(tracks.id, access.track.id))
+            .for("update");
+          if (!current) throw new Response("Not found", { status: 404 });
+          await tx
+            .update(tracks)
+            .set({ cover: key + ".jpg" })
+            .where(eq(tracks.id, current.id));
+          if (current.cover) removedFiles.push(current.cover);
+        });
+      } catch (error) {
+        await unlink(output).catch(() => {});
+        throw error;
       } finally {
         await unlink(input).catch(() => {});
       }
     } else if (intent === "metadata") {
+      const field = z
+        .enum(["title", "artist", "description", "all"])
+        .parse(form.get("field") || "all");
       await db
         .update(tracks)
         .set({
-          title: z.string().trim().min(1).max(200).parse(form.get("title")),
-          ...(await resolveTrackArtist(access.track.ownerId, form)),
-          description: String(form.get("description") || "").slice(0, 5000),
+          ...(field === "title" || field === "all"
+            ? {
+                title: z
+                  .string()
+                  .trim()
+                  .min(1)
+                  .max(200)
+                  .parse(form.get("title")),
+              }
+            : {}),
+          ...(field === "artist" || field === "all"
+            ? await resolveTrackArtist(access.track.ownerId, form)
+            : {}),
+          ...(field === "description" || field === "all"
+            ? {
+                description: String(form.get("description") || "").slice(
+                  0,
+                  5000,
+                ),
+              }
+            : {}),
         })
         .where(eq(tracks.id, access.track.id));
     } else if (intent === "link") {
@@ -193,20 +237,43 @@ export async function action({ request, params }: ActionFunctionArgs) {
             ].filter((p): p is string => !!p),
           );
         } else if (intent === "version") {
+          const field = z
+            .enum(["name", "description", "settings", "all"])
+            .parse(form.get("field") || "all");
           await tx
             .update(versions)
             .set({
-              name: z.string().trim().min(1).max(100).parse(form.get("name")),
-              description: String(form.get("description") || "").slice(0, 5000),
-              status: z
-                .enum([
-                  "early idea",
-                  "work in progress",
-                  "almost finished",
-                  "finished",
-                ])
-                .parse(form.get("status")),
-              download: form.has("download"),
+              ...(field === "name" || field === "all"
+                ? {
+                    name: z
+                      .string()
+                      .trim()
+                      .min(1)
+                      .max(100)
+                      .parse(form.get("name")),
+                  }
+                : {}),
+              ...(field === "description" || field === "all"
+                ? {
+                    description: String(form.get("description") || "").slice(
+                      0,
+                      5000,
+                    ),
+                  }
+                : {}),
+              ...(field === "settings" || field === "all"
+                ? {
+                    status: z
+                      .enum([
+                        "early idea",
+                        "work in progress",
+                        "almost finished",
+                        "finished",
+                      ])
+                      .parse(form.get("status")),
+                    download: form.has("download"),
+                  }
+                : {}),
             })
             .where(eq(versions.id, id));
         } else if (intent === "replace") {

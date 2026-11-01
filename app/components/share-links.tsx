@@ -218,6 +218,32 @@ export function ShareLinks({
                     </label>
                     <button>Save link</button>
                   </EditForm>
+                  <EditForm
+                    label={`Delete share link: ${link.label}`}
+                    action={`/tracks/${trackId}/manage`}
+                    trigger={
+                      <span title={`Delete link: ${link.label}`}>
+                        <Icon name="trash" />
+                        <span className="sr-only">
+                          Delete link: {link.label}
+                        </span>
+                      </span>
+                    }
+                  >
+                    <input type="hidden" name="intent" value="delete-link" />
+                    <input type="hidden" name="link" value={link.id} />
+                    <input type="hidden" name="confirm" value="delete" />
+                    <p>
+                      Permanently delete <strong>{link.label}</strong> and all
+                      feedback, replies and statistics from this link? They will
+                      also be removed from all totals. This cannot be undone.
+                    </p>
+                    <p>
+                      The shared URL will stop working. Other links and the
+                      track will remain.
+                    </p>
+                    <button className="danger">Delete link permanently</button>
+                  </EditForm>
                 </td>
               </tr>
             ))}
