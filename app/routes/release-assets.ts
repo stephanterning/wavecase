@@ -1,3 +1,4 @@
+import { downloadDetails } from "../server/download-details";
 import { rejectPreviewMutation } from "../server/preview";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { readFile, stat } from "node:fs/promises";
@@ -53,6 +54,26 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const data = await releaseAccess(request, params.id!);
+  if (params.kind === "download-info") {
+    if (
+      !data.release.published ||
+      !data.release.audioEnabled ||
+      !data.release.cover
+    )
+      throw new Response("Downloads unavailable", { status: 403 });
+    const selection = new URL(request.url).searchParams.get("track");
+    const selected = data.tracks.filter(
+      (t) => t.original && t.playback && (!selection || t.id === selection),
+    );
+    return Response.json(
+      await downloadDetails(
+        directory(),
+        selected.map((t) => t.original!),
+        data.release.cover,
+      ),
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
   if (params.kind === "cover" || params.kind === "artwork.jpg") {
     if (!data.release.cover) throw new Response("Not found", { status: 404 });
     const thumbnail = params.kind === "artwork.jpg";

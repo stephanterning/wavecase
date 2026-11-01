@@ -94,6 +94,7 @@ const time = (seconds: number) =>
 export default function ReleasePage() {
   const d = useLoaderData<typeof loader>();
   const [downloadOpen, setDownloadOpen] = useState(false);
+  const [downloadTrack, setDownloadTrack] = useState("");
   const available = d.tracks.filter((t) => t.available);
   const playable = available.filter((t) => t.audioMeasurements);
   const waitingForMeasurements = available.some((t) => !t.audioMeasurements);
@@ -287,7 +288,13 @@ export default function ReleasePage() {
           )}
           {!!available.length && d.release.published && (
             <section className="release-download">
-              <button type="button" onClick={() => setDownloadOpen(true)}>
+              <button
+                type="button"
+                onClick={() => {
+                  setDownloadTrack("");
+                  setDownloadOpen(true);
+                }}
+              >
                 Download
               </button>
               {downloadOpen && (
@@ -307,7 +314,11 @@ export default function ReleasePage() {
                   </p>
                   <label>
                     Package
-                    <select name="track">
+                    <select
+                      name="track"
+                      value={downloadTrack}
+                      onChange={(e) => setDownloadTrack(e.target.value)}
+                    >
                       <option value="">
                         All available tracks ({available.length})
                       </option>
@@ -318,7 +329,9 @@ export default function ReleasePage() {
                       ))}
                     </select>
                   </label>
-                  <DownloadFormats />
+                  <DownloadFormats
+                    detailsUrl={`${endpoint}/download-info?${new URLSearchParams({ track: downloadTrack, ...(d.preview ? { preview: "1" } : {}) })}`}
+                  />
                   <DownloadEmail ownerLabel="release owner" />
                 </DownloadDialog>
               )}

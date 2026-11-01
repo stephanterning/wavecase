@@ -162,6 +162,12 @@ test(
         });
       const status = (code: number) => (error: unknown) =>
         error instanceof Response && error.status === code;
+      const detailsRequest = () =>
+        media({
+          ...args,
+          request: new Request(`${origin}?share=${link}&download-info=1`),
+        });
+      await assert.rejects(detailsRequest(), status(403));
       await assert.rejects(get("mp3"), status(403));
       assert.deepEqual(await readdir(directory), ["cover.jpg", "master.wav"]);
       await db.update(links).set({ download: true }).where(eq(links.id, link));
@@ -187,6 +193,9 @@ test(
       await assert.rejects(oldGet(), status(405));
       await assert.rejects(oldGet("HEAD"), status(405));
       assert.deepEqual(await readdir(directory), ["cover.jpg", "master.wav"]);
+      const details = await detailsRequest();
+      assert.equal(details.headers.get("Cache-Control"), "private, no-store");
+      assert.ok((await details.json()).wav.bytes > 0);
       const wav = await get("wav");
       assert.equal(wav.headers.get("Content-Type"), "application/zip");
       assert.equal(wav.headers.get("Cache-Control"), "private, no-store");

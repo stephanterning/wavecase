@@ -1,4 +1,8 @@
 import {
+  formatDownloadDetails,
+  type DownloadDetails,
+} from "../domain/download-details";
+import {
   useEffect,
   useId,
   useRef,
@@ -109,21 +113,65 @@ export function DownloadEmail({ ownerLabel }: { ownerLabel: string }) {
   );
 }
 
-export function DownloadFormats({ wav = true }: { wav?: boolean }) {
+export function DownloadFormats({
+  wav = true,
+  detailsUrl,
+}: {
+  wav?: boolean;
+  detailsUrl: string;
+}) {
+  const [result, setResult] = useState<{ url: string; data?: DownloadDetails }>(
+    { url: "" },
+  );
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(detailsUrl, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Details unavailable");
+        return response.json() as Promise<DownloadDetails>;
+      })
+      .then((data) => {
+        if (!controller.signal.aborted) setResult({ url: detailsUrl, data });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setResult({ url: detailsUrl });
+      });
+    return () => controller.abort();
+  }, [detailsUrl]);
+  const data = result.url === detailsUrl ? result.data : undefined;
   return (
     <>
       <fieldset className="download-formats">
         <legend>Format</legend>
         {wav && (
           <label className="check">
-            <input type="radio" name="format" value="wav" defaultChecked /> WAV
+            <input type="radio" name="format" value="wav" defaultChecked />
+            <span>
+              WAV{data?.wav && <small>{formatDownloadDetails(data.wav)}</small>}
+            </span>
           </label>
         )}
         <label className="check">
           <input type="radio" name="format" value="mp3" defaultChecked={!wav} />{" "}
-          MP3 · 320 kbps
+          <span>
+            MP3 · 320 kbps
+            {data && <small>{formatDownloadDetails(data.mp3)}</small>}
+          </span>
         </label>
       </fieldset>
+      {!data && (
+        <p className="muted" role="status">
+          {result.url === detailsUrl
+            ? "Size and audio details are currently unavailable."
+            : "Checking size and audio details…"}
+        </p>
+      )}
+      {data && (
+        <p className="muted">
+          Estimated total ZIP size, including artwork and metadata. WAV uses
+          measured file sizes when available; MP3 is estimated until prepared.
+        </p>
+      )}
       {!wav && (
         <p className="muted">
           WAV is unavailable because the upload uses lossy compression.

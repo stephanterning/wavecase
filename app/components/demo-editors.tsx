@@ -121,7 +121,6 @@ export function DemoIdentity({
               encType="multipart/form-data"
               action={action}
             >
-              <input type="hidden" name="intent" value="cover" />
               <label>
                 Cover image
                 <input
@@ -131,7 +130,19 @@ export function DemoIdentity({
                   required
                 />
               </label>
-              <button>Save cover</button>
+              <button name="intent" value="cover">
+                Save cover
+              </button>
+              {artwork && (
+                <button
+                  className="danger"
+                  name="intent"
+                  value="remove-cover"
+                  formNoValidate
+                >
+                  Remove cover
+                </button>
+              )}
             </EditForm>
           ) : (
             <img src={artwork} alt="Track cover" />

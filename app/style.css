@@ -1705,3 +1705,9 @@ button:has(svg) {
     grid-row: 2;
   }
 }
+
+.download-formats small {
+  display: block;
+  margin-top: 4px;
+  color: #a7b8ae;
+}

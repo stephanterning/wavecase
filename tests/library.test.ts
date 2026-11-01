@@ -37,7 +37,7 @@ test(
       ]);
       for (const version of [
         { trackId: track, name: "v5", status: "work in progress" },
-        { trackId: track, name: "v5.1", status: "almost finished" },
+        { trackId: track, name: "v5.1", status: "to finish" },
         { trackId: foreign, name: "v99", status: "finished" },
       ]) {
         await db.insert(versions).values({ ...version, filename: "test.wav" });
@@ -55,7 +55,7 @@ test(
       assert.equal(result.tracks.length, 2);
       const kiosken = result.tracks.find((row) => row.id === track)!;
       assert.equal(kiosken.latestVersion, "v5.1");
-      assert.equal(kiosken.latestStatus, "almost finished");
+      assert.equal(kiosken.latestStatus, "to finish");
       const unversioned = result.tracks.find((row) => row.id === empty)!;
       assert.equal(unversioned.latestVersion, null);
       assert.equal(unversioned.latestStatus, null);

@@ -1,6 +1,6 @@
 export const versionStatuses = [
   "early idea",
   "work in progress",
-  "almost finished",
+  "to finish",
   "finished",
 ] as const;

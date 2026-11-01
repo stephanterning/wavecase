@@ -73,7 +73,7 @@ export async function encodeMp3(directory: string, key: string) {
   }
 }
 
-async function probeDownload(directory: string, key: string) {
+export async function probeDownload(directory: string, key: string) {
   const { stdout } = await promisify(execFile)(
     "ffprobe",
     [

@@ -1,3 +1,4 @@
+import { versionStatuses } from "../domain/versions";
 import { deleteDemo, deleteShareLink } from "../server/delete-demo";
 import { formError } from "../server/releases";
 import { resolveTrackArtist } from "../server/track-artist";
@@ -83,6 +84,20 @@ export async function action({ request, params }: ActionFunctionArgs) {
               version.pendingOriginal,
             ].filter((p): p is string => !!p),
           );
+      });
+    } else if (intent === "remove-cover") {
+      await db.transaction(async (tx) => {
+        const [current] = await tx
+          .select()
+          .from(tracks)
+          .where(eq(tracks.id, access.track.id))
+          .for("update");
+        if (!current) throw new Response("Not found", { status: 404 });
+        await tx
+          .update(tracks)
+          .set({ cover: null })
+          .where(eq(tracks.id, current.id));
+        if (current.cover) removedFiles.push(current.cover);
       });
     } else if (intent === "cover") {
       const file = form.get("cover");
@@ -263,14 +278,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
                 : {}),
               ...(field === "settings" || field === "all"
                 ? {
-                    status: z
-                      .enum([
-                        "early idea",
-                        "work in progress",
-                        "almost finished",
-                        "finished",
-                      ])
-                      .parse(form.get("status")),
+                    status: z.enum(versionStatuses).parse(form.get("status")),
                     download: form.has("download"),
                   }
                 : {}),

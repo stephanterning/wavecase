@@ -1,3 +1,4 @@
+import { downloadDetails } from "../server/download-details";
 import { rejectPreviewMutation } from "../server/preview";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
@@ -10,11 +11,25 @@ import { limitedBody } from "../server/request";
 import { versionAccess } from "../server/access";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const query = new URL(request.url).searchParams;
-  const { version, owner, link } = await versionAccess(
+  const { version, owner, link, track } = await versionAccess(
     request,
     params.id!,
     query.get("share") || undefined,
   );
+  if (query.has("download-info")) {
+    if (!owner && !(link?.download && version.download))
+      throw new Response("Download unavailable", { status: 403 });
+    if (!version.original || version.state !== "ready")
+      throw new Response("Audio unavailable", { status: 404 });
+    return Response.json(
+      await downloadDetails(
+        process.env.DATA_DIR || "data/audio",
+        [version.original],
+        track.cover,
+      ),
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
   const download = query.has("download");
   if (download && !owner && !(link?.download && version.download))
     throw new Response("Download unavailable", { status: 403 });

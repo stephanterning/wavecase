@@ -98,7 +98,7 @@ test(
           trackId: track,
           name: "v5",
           filename: "test.wav",
-          status: "almost finished",
+          status: "to finish",
           download: true,
           description: "Version description",
           state: "ready",
@@ -119,6 +119,22 @@ test(
         { id: keep, trackId: track, label: "Keep me" },
         { id: foreignLink, trackId: foreign, label: "Foreign" },
       ]);
+      await writeFile(join(directory, "cover.jpg"), "test cover");
+      await assert.rejects(
+        post({ intent: "remove-cover" }, track, outsider),
+        (error: unknown) => error instanceof Response && error.status === 404,
+      );
+      assert.deepEqual(await post({ intent: "remove-cover" }), { saved: true });
+      assert.equal(
+        (await db.query.tracks.findFirst({ where: eq(tracks.id, track) }))
+          ?.cover,
+        null,
+      );
+      assert.ok(!(await readdir(directory)).includes("cover.jpg"));
+      await db
+        .update(tracks)
+        .set({ cover: "cover.jpg" })
+        .where(eq(tracks.id, track));
       const thread = randomUUID();
       await db.insert(comments).values([
         {
@@ -201,7 +217,7 @@ test(
       });
       assert.equal(current?.description, "Version description");
       assert.equal(current?.download, true);
-      assert.equal(current?.status, "almost finished");
+      assert.equal(current?.status, "to finish");
       assert.deepEqual(
         await post({
           intent: "version",

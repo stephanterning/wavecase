@@ -279,6 +279,14 @@ test(
           ...args(request(cookie), ""),
           params: { artist: `artist-${artist}`, release: "pressure" },
         });
+      await assert.rejects(
+        assetLoader(args(request(), "download-info")),
+        denied(404),
+      );
+      await assert.rejects(
+        assetLoader(args(request(session), "download-info")),
+        denied(403),
+      );
       await assert.rejects(releaseAccess(request(), release), denied(404));
       for (const cookie of [undefined, outsiderSession])
         await assert.rejects(
@@ -486,6 +494,24 @@ test(
           );
         }
       }
+      const allDetails = await assetLoader(args(request(), "download-info"));
+      assert.equal(
+        allDetails.headers.get("Cache-Control"),
+        "private, no-store",
+      );
+      const summary = await allDetails.json();
+      assert.deepEqual(summary.wav.bitDepths, [16]);
+      assert.deepEqual(summary.wav.sampleRates, [44100]);
+      const individual = await assetLoader(
+        args(new Request(`${origin}?track=${track}`), "download-info"),
+      );
+      assert.deepEqual(await individual.json(), summary);
+      await assert.rejects(
+        assetLoader(
+          args(new Request(`${origin}?track=${unavailable}`), "download-info"),
+        ),
+        denied(404),
+      );
       const cachedMp3 = await stat(join(dir, "master.wav.mp3"));
       await (
         await assetAction(
