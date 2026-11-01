@@ -75,24 +75,34 @@ export default function ArtistProfiles() {
           <button>Create artist</button>
         </Form>
       </CreateDialog>
-      <ul className="overview-list">
+      <div className="grid">
         {data.artists.map((a) => (
-          <li key={a.id}>
-            <a className="artist-list-name" href={`/artist-profiles/${a.id}`}>
-              {a.image && (
-                <img
-                  src={`/artist-images/${a.id}`}
-                  alt=""
-                  width="48"
-                  height="48"
-                />
-              )}
-              {a.name}
-            </a>
-            <span className="muted">{a.releases} releases</span>
-          </li>
+          <a
+            className="panel release-card"
+            href={`/artist-profiles/${a.id}`}
+            key={a.id}
+          >
+            {a.image ? (
+              <img
+                className="management-artwork"
+                src={`/artist-images/${a.id}`}
+                alt={`${a.name} profile`}
+                width="400"
+                height="400"
+                loading="lazy"
+              />
+            ) : (
+              <div className="management-artwork artwork-placeholder">
+                No profile image yet
+              </div>
+            )}
+            <h2>{a.name}</h2>
+            <p className="muted">
+              {a.releases} {a.releases === 1 ? "release" : "releases"}
+            </p>
+          </a>
         ))}
-      </ul>
+      </div>
       {!data.artists.length && (
         <p>No artists yet. Add your first artist profile.</p>
       )}

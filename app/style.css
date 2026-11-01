@@ -845,15 +845,6 @@ body:has(.release-mini) {
 .overview-list li p {
   margin: 0;
 }
-.artist-list-name {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-}
-.artist-list-name img {
-  object-fit: cover;
-  border-radius: 50%;
-}
 .period-form,
 .quick-actions {
   display: flex;
@@ -958,4 +949,20 @@ body:has(.release-mini) {
     flex-direction: column;
     gap: 8px;
   }
+}
+
+.library-table tbody tr {
+  position: relative;
+}
+.library-row-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.library-row-link:focus-visible {
+  outline: none;
+}
+.library-row-link:focus-visible::after {
+  outline: 2px solid #b2e0cd;
+  outline-offset: -2px;
 }

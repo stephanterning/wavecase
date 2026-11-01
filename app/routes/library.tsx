@@ -174,7 +174,9 @@ export default function Library() {
             {rows.map((track) => (
               <tr key={track.id}>
                 <td>
-                  <a href={"/tracks/" + track.id}>{track.title}</a>
+                  <a className="library-row-link" href={"/tracks/" + track.id}>
+                    {track.title}
+                  </a>
                 </td>
                 <td>
                   <time dateTime={new Date(track.createdAt).toISOString()}>
