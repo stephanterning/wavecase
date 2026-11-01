@@ -61,7 +61,9 @@ export function useConfirmDiscard() {
 function snapshot(form: HTMLFormElement) {
   return JSON.stringify(
     [...new FormData(form)]
-      .filter(([key]) => {
+      .filter(([key, value]) => {
+        // Empty file controls are equivalent to disabled upload controls.
+        if (value instanceof File && !value.name) return false;
         const field = form.elements.namedItem(key);
         return !(
           field instanceof HTMLInputElement &&
@@ -73,9 +75,7 @@ function snapshot(form: HTMLFormElement) {
         key,
         typeof value === "string"
           ? value
-          : value.name
-            ? [value.name, value.size, value.lastModified]
-            : null,
+          : [value.name, value.size, value.lastModified],
       ]),
   );
 }
