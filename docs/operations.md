@@ -56,6 +56,8 @@ ghcr.io/stephanterning/wavecase:sha-<full-40-character-commit>
 
 Images support `linux/amd64` and `linux/arm64`. Pull-request runs do not publish. Re-running a commit build preserves an existing image. There are no floating `latest` or `main` tags.
 
+The Dockerfile compiles JavaScript and CSS once on the builder's native platform (`BUILDPLATFORM`). Only these architecture-independent bundles pass to the final images; each target installs its own Node dependencies and FFmpeg. This avoids running the CPU-heavy Vite/React Compiler build through QEMU, which has stalled ARM64 publication on AMD64 runners. QEMU is still used for target-platform package installation when needed.
+
 A published GitHub Release or pre-release, such as `v0.1.0` or `v0.1.0-rc.1`, [tags the existing commit image](../.github/workflows/release.yml) without rebuilding. Wait for that branch build first; if the release job ran too early, rerun it. Release commits need not be on `main`. Promoting a candidate on the same commit keeps the same image digest; moving an existing version to another image is rejected.
 
 The Actions summary records the exact `ghcr.io/stephanterning/wavecase@sha256:...` reference. Pin that digest for deployment and retain images needed for rollback. Publishing uses `GITHUB_TOKEN` with `packages: write`; package visibility and Actions access are configured in GitHub Packages. Public source does not automatically make the package public. Private consumers need registry read access.
