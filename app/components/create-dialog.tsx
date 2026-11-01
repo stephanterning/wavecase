@@ -1,3 +1,4 @@
+import { Icon } from "./icons";
 import { useEffect, useId, useRef } from "react";
 import { useSearchParams } from "react-router";
 
@@ -12,16 +13,21 @@ export function CreateDialog({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const [search] = useSearchParams();
+  const [search, setSearch] = useSearchParams();
   const id = useId();
   useEffect(() => {
     if ((search.get("create") === "1" || error) && !dialog.current?.open)
       dialog.current?.showModal();
-  }, [search, error]);
+    if (search.has("create")) {
+      const next = new URLSearchParams(search);
+      next.delete("create");
+      setSearch(next, { replace: true, preventScrollReset: true });
+    }
+  }, [search, error, setSearch]);
   return (
     <>
       <button ref={trigger} onClick={() => dialog.current?.showModal()}>
-        {title}
+        <Icon name="plus" /> {title}
       </button>
       <dialog
         ref={dialog}
@@ -29,10 +35,14 @@ export function CreateDialog({
         aria-labelledby={id}
         onClose={() => trigger.current?.focus()}
       >
-        <div className="dialog-actions">
+        <div className="dialog-heading">
           <h2 id={id}>{title}</h2>
-          <button type="button" onClick={() => dialog.current?.close()}>
-            Close
+          <button
+            type="button"
+            aria-label="Close dialog"
+            onClick={() => dialog.current?.close()}
+          >
+            ×
           </button>
         </div>
         {children}

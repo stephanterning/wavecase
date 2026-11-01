@@ -1,3 +1,4 @@
+import { ownerPreview } from "./preview";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
@@ -12,14 +13,15 @@ export async function trackAccess(
     throw new Response("Not found", { status: 404 });
   const track = await db.query.tracks.findFirst({ where: eq(tracks.id, id) });
   const user = await viewer(request);
-  if (track && user?.id === track.ownerId)
-    return { track, owner: true, link: null };
+  const preview = ownerPreview(request, !!track && user?.id === track.ownerId);
+  if (track && user?.id === track.ownerId && !preview)
+    return { track, owner: true, link: null, preview: false };
   const link = share
     ? await db.query.links.findFirst({ where: eq(links.id, share) })
     : null;
   if (!track || !link || !link.active || link.trackId !== id)
     throw new Response("This link is unavailable.", { status: 404 });
-  return { track, owner: false, link };
+  return { track, owner: false, link, preview };
 }
 export async function versionAccess(
   request: Request,

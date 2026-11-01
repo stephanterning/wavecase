@@ -86,9 +86,8 @@ export default function Admin() {
   const result = useActionData<typeof action>();
   return (
     <>
-      <a href="/library">← Your library</a>
       <h1>Installation settings</h1>
-      <Form method="post" className="panel">
+      <Form method="post" className="panel settings-panel">
         <input type="hidden" name="intent" value="settings" />
         <label className="check">
           <input
@@ -100,7 +99,7 @@ export default function Admin() {
         </label>
         <button>Save settings</button>
       </Form>
-      <section className="panel">
+      <section className="panel settings-panel">
         <h2>Invitations</h2>
         <Form method="post">
           <button name="intent" value="invite">
@@ -129,7 +128,7 @@ export default function Admin() {
           </Form>
         ))}
       </section>
-      <section className="panel">
+      <section className="panel settings-panel">
         <h2>Accounts</h2>
         {data.users.map((user) => (
           <Form method="post" key={user.id}>

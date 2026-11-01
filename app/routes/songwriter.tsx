@@ -1,6 +1,6 @@
+import { PublicLink } from "../components/public-links";
 import { asc, eq, sql } from "drizzle-orm";
 import {
-  Link,
   useLoaderData,
   type LoaderFunctionArgs,
   type MetaFunction,
@@ -77,7 +77,7 @@ export default function SongwriterPage() {
       <h2>Releases</h2>
       <div className="grid">
         {data.releases.map((release) => (
-          <Link
+          <PublicLink
             className="release-card"
             to={releasePath(release.artist, release)}
             key={release.id}
@@ -93,7 +93,7 @@ export default function SongwriterPage() {
               {release.kind.toUpperCase()}
               {release.releaseDate && ` · ${release.releaseDate}`}
             </p>
-          </Link>
+          </PublicLink>
         ))}
       </div>
     </section>

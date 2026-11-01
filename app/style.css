@@ -60,6 +60,21 @@ p {
   letter-spacing: 2px;
   color: #b2e0cd;
 }
+.demo-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: 12px 0 24px;
+}
+.demo-heading h1,
+.demo-heading .eyebrow {
+  margin: 0;
+  min-width: 0;
+}
+.demo-activity-link {
+  margin-left: auto;
+}
 .demo-artist {
   display: inline-flex;
   align-items: center;
@@ -773,16 +788,16 @@ body:has(.release-mini) {
   border-right: 1px solid #303637;
   padding-right: 20px;
 }
-.workspace nav {
+.workspace nav[aria-label="Workspace"] {
   display: grid;
   gap: 8px;
 }
-.workspace nav a {
+.workspace nav[aria-label="Workspace"] a {
   padding: 12px;
   text-decoration: none;
   border-radius: 8px;
 }
-.workspace nav a[aria-current] {
+.workspace nav[aria-label="Workspace"] a[aria-current] {
   background: #182b23;
   color: #b2e0cd;
   font-weight: 600;
@@ -965,4 +980,451 @@ body:has(.release-mini) {
 .library-row-link:focus-visible::after {
   outline: 2px solid #b2e0cd;
   outline-offset: -2px;
+}
+
+/* Management tasks stay visible without competing with the music. */
+.section-nav,
+.filter-toolbar,
+.editor-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin: 20px 0;
+}
+.section-nav a {
+  padding: 8px 0;
+}
+.filter-toolbar label {
+  flex: 1 1 180px;
+}
+.edit-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.save-status {
+  color: #b2e0cd;
+  font-size: 14px;
+}
+.link-fields {
+  border: 0;
+  padding: 0;
+  margin: 16px 0;
+  min-width: 0;
+}
+.link-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.link-field-row label {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.release-actions {
+  margin: 16px 0;
+}
+.release-actions summary {
+  cursor: pointer;
+}
+.release-track-editor > summary {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  cursor: pointer;
+}
+.release-track-editor > summary::before {
+  content: "+";
+}
+.release-track-editor[open] > summary::before {
+  content: "−";
+}
+.release-track-editor > summary strong {
+  flex: 1;
+}
+.release-track-editor[open] > summary {
+  margin-bottom: 24px;
+}
+[id] {
+  scroll-margin-top: 20px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.save-status:empty {
+  display: none;
+}
+
+/* Music-first management: bounded artwork, contextual editors, consistent actions. */
+.workspace-content {
+  max-width: 1500px;
+  width: 100%;
+  min-width: 0;
+}
+.workspace-content h1 {
+  font-size: clamp(30px, 3.5vw, 48px);
+  letter-spacing: -1.4px;
+}
+.music-editor-hero {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 24px 0 32px;
+  border-bottom: 1px solid #303b34;
+  margin-bottom: 24px;
+}
+.music-editor-hero h1 {
+  margin: 6px 0 16px;
+}
+.music-editor-hero > div {
+  min-width: 0;
+}
+.artist-portrait {
+  width: 180px;
+  height: 180px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #1b2921;
+  display: grid;
+  place-items: center;
+  font-size: 64px;
+  overflow: hidden;
+}
+.artist-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.artist-biography {
+  max-width: 65ch;
+  white-space: pre-line;
+}
+.editor-cover {
+  width: 240px;
+  height: 240px;
+  object-fit: cover;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.editor-controls,
+.editor-toolbar,
+.dialog-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.editor-toolbar,
+.dialog-heading {
+  justify-content: space-between;
+}
+.editor-toolbar {
+  margin: 16px 0;
+}
+.dialog-heading {
+  border-bottom: 1px solid #303b34;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+.dialog-heading h2 {
+  margin: 0;
+}
+.dialog-heading button {
+  margin: 0;
+}
+.artist-editor-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 36px;
+}
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 220px));
+  gap: 24px;
+  margin-top: 24px;
+}
+.catalog-item {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+.catalog-item span {
+  color: #aab7af;
+  font-size: 13px;
+  text-transform: capitalize;
+}
+.catalog-grid .panel {
+  padding: 12px;
+  margin: 0;
+}
+.catalog-grid h2 {
+  font-size: 18px;
+}
+.editor-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 24px;
+}
+.editor-dialog .panel,
+.comment-dialog > form.panel {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.editor-dialog .edit-fields > h2 {
+  display: none;
+}
+.editor-dialog .edit-fields > button:last-child {
+  display: block;
+  margin: 24px 0 0 auto;
+  background: #b2e0cd;
+  color: #102219;
+}
+.editor-dialog .edit-fields > label:has(input[name="name"]),
+.editor-dialog .edit-fields > label:has(input[name="title"]) {
+  max-width: 480px;
+}
+.editor-dialog label:has(input[name="position"]) {
+  max-width: 100px;
+}
+.editor-dialog label:has(select[name="kind"]) {
+  max-width: 220px;
+}
+.editor-cancel {
+  margin-top: 8px;
+}
+.editor-dialog .release-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+.editor-dialog label:has(textarea) {
+  grid-column: 1/-1;
+}
+.editor-dialog textarea {
+  min-height: 100px;
+}
+.link-field-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) minmax(160px, 2fr) auto;
+  align-items: end;
+}
+.link-field-row label,
+.link-field-row button {
+  margin: 0;
+}
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+button:has(svg) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.danger {
+  color: #ff9696;
+}
+.stat-card {
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 6px;
+}
+.stat-card strong {
+  font-size: 24px;
+  margin-top: 4px;
+}
+.dashboard-section {
+  margin: 24px 0;
+}
+.publish-checklist {
+  padding: 16px;
+}
+.publish-checklist h2 {
+  font-size: 18px;
+  margin: 0;
+}
+.publish-checklist ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  padding-left: 20px;
+}
+.release-track-editor.panel {
+  padding: 16px;
+  margin: 0;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  background: transparent;
+}
+.release-track-editor summary {
+  align-items: center;
+}
+.release-track-editor > form,
+.release-track-editor > .editor-trigger {
+  margin: 12px 12px 12px 0;
+}
+.demo-management {
+  display: grid;
+  gap: 20px;
+  margin-top: 24px;
+}
+.demo-management > .editor-trigger {
+  justify-self: start;
+}
+.filter-toolbar label {
+  flex: 0 1 220px;
+}
+.filter-toolbar label:first-child {
+  flex-basis: 360px;
+}
+.download-formats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  padding: 12px;
+}
+.download-formats .check {
+  margin: 0;
+}
+.comment-dialog .dialog-actions {
+  position: sticky;
+  bottom: 0;
+  background: #0b100d;
+  padding: 12px 0;
+}
+@media (min-width: 900px) {
+  .workspace-content:has(> h1):has(> section > h2) {
+    min-width: 0;
+  }
+}
+@media (max-width: 700px) {
+  .music-editor-hero {
+    gap: 20px;
+    align-items: flex-start;
+  }
+  .artist-portrait {
+    width: 110px;
+    height: 110px;
+  }
+  .editor-cover {
+    width: 130px;
+    height: 130px;
+  }
+  .artist-editor-columns {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .catalog-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+  .editor-dialog .release-fields {
+    grid-template-columns: 1fr;
+  }
+  .link-field-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .link-field-row label:first-child {
+    grid-column: 1/-1;
+  }
+  .editor-dialog {
+    padding: 18px;
+  }
+}
+
+.editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #344038;
+  margin-top: 24px;
+  padding-top: 16px;
+  position: sticky;
+  bottom: 0;
+  background: #090b0a;
+}
+.editor-footer button {
+  margin: 0;
+}
+.editor-footer button:last-child {
+  background: #b2e0cd;
+  color: #102219;
+}
+.workspace-content:has(> h1:first-child) > .panel {
+  max-width: 900px;
+}
+
+.track-summary {
+  display: block;
+  color: #aebdb3;
+  margin-top: 6px;
+}
+.artist-page .service-links {
+  display: flex;
+  flex-wrap: wrap;
+}
+.artist-page .music-editor-hero .artist-image {
+  width: 180px;
+  height: 180px;
+  margin: 0;
+}
+.release-public .service-links {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 450px) {
+  .artist-page .music-editor-hero .artist-image {
+    width: 100px;
+    height: 100px;
+  }
+  .service-links a {
+    padding: 12px;
+    font-size: 14px;
+  }
+}
+
+.music-editor-hero {
+  justify-content: flex-start;
+}
+.editor-dialog details {
+  padding: 12px 0;
+  border-top: 1px solid #344038;
+}
+.editor-dialog details summary {
+  cursor: pointer;
+}
+
+.settings-panel {
+  max-width: 850px;
+  padding: 20px;
+}
+.settings-panel form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.settings-panel h2 {
+  margin-top: 0;
+}
+.analytics-explanation {
+  margin: 16px 0;
+  color: #b7c5bc;
 }

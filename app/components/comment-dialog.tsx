@@ -1,3 +1,4 @@
+import { commentTime } from "../domain/comment-time";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
 export type CommentDraft = {
@@ -112,26 +113,26 @@ export function CommentDialog({
         {!draft.threadId && draft.start !== null && (
           <div className="grid">
             <label>
-              Start time (seconds)
+              Start time (minutes:seconds)
               <input
-                type="number"
-                name="start"
-                min="0"
-                step="0.01"
+                type="text"
+                name="startTime"
+                pattern="[0-9]+:[0-5][0-9]([.][0-9]{1,2})?"
+                placeholder="0:00"
                 required
-                defaultValue={draft.start}
+                defaultValue={commentTime(draft.start)}
               />
             </label>
             {draft.end !== null && (
               <label>
-                End time (seconds)
+                End time (minutes:seconds)
                 <input
-                  type="number"
-                  name="end"
-                  min="0"
-                  step="0.01"
+                  type="text"
+                  name="endTime"
+                  pattern="[0-9]+:[0-5][0-9]([.][0-9]{1,2})?"
+                  placeholder="0:00"
                   required
-                  defaultValue={draft.end}
+                  defaultValue={commentTime(draft.end)}
                 />
               </label>
             )}

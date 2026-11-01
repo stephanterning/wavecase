@@ -13,7 +13,7 @@ import {
   useSearchParams,
 } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { eq } from "drizzle-orm";
+import { eq, getTableColumns, sql } from "drizzle-orm";
 import { db } from "../server/db";
 import { tracks } from "../server/schema";
 import { requireUser, sameOrigin } from "../server/security";
@@ -22,7 +22,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return {
     user,
     artists: await artistChoices(user.id),
-    tracks: await db.select().from(tracks).where(eq(tracks.ownerId, user.id)),
+    tracks: await db
+      .select({
+        ...getTableColumns(tracks),
+        latestVersion: sql<
+          string | null
+        >`(select name from versions where "trackId" = ${tracks.id} order by position desc limit 1)`,
+        latestStatus: sql<
+          string | null
+        >`(select status from versions where "trackId" = ${tracks.id} order by position desc limit 1)`,
+      })
+      .from(tracks)
+      .where(eq(tracks.ownerId, user.id)),
   };
 }
 export async function action({ request }: ActionFunctionArgs) {
@@ -99,7 +110,7 @@ export default function Library() {
       <div className="heading">
         <div>
           <p className="eyebrow">YOUR LIBRARY</p>
-          <h1>Music in progress.</h1>
+          <h1>Work in progress</h1>
         </div>
       </div>
       <div className="library-toolbar">
@@ -177,6 +188,11 @@ export default function Library() {
                   <a className="library-row-link" href={"/tracks/" + track.id}>
                     {track.title}
                   </a>
+                  <small className="track-summary">
+                    {track.latestVersion
+                      ? `${track.latestVersion} · ${track.latestStatus}`
+                      : "No versions yet"}
+                  </small>
                 </td>
                 <td>
                   <time dateTime={new Date(track.createdAt).toISOString()}>
@@ -204,14 +220,7 @@ export default function Library() {
       >
         <Form method="post" encType="multipart/form-data" className="panel">
           <h2 id="new-track-title">Add new track</h2>
-          <label>
-            First version status
-            <select name="status" defaultValue="work in progress">
-              {versionStatuses.map((status) => (
-                <option key={status}>{status}</option>
-              ))}
-            </select>
-          </label>
+
           <label>
             First audio version (optional)
             <input
@@ -231,6 +240,14 @@ export default function Library() {
           <label>
             Title
             <input name="title" required maxLength={200} />
+          </label>
+          <label>
+            First version status
+            <select name="status" defaultValue="work in progress">
+              {versionStatuses.map((status) => (
+                <option key={status}>{status}</option>
+              ))}
+            </select>
           </label>
           <TrackArtistField profiles={data.artists} />
           <div className="dialog-actions">

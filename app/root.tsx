@@ -3,6 +3,7 @@ import { viewer } from "./server/security";
 import {
   Links,
   useRouteLoaderData,
+  useLocation,
   Meta,
   Outlet,
   Scripts,
@@ -18,6 +19,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export const meta = () => [{ title: "Wavecase" }];
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root");
+  const { pathname } = useLocation();
+  const publicPage = /^\/(artists|songwriter|s)(\/|$)/.test(pathname);
   return (
     <html lang="en">
       <head>
@@ -30,10 +33,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <body>
         <header>
           <div className="brand-controls">
-            <a href="/" className="brand">
-              ▥ wavecase
-            </a>
-            {data?.user?.admin && (
+            {publicPage ? (
+              <span className="brand">▥ wavecase</span>
+            ) : (
+              <a href="/" className="brand">
+                ▥ wavecase
+              </a>
+            )}
+            {!publicPage && data?.user?.admin && (
               <a
                 className="header-icon"
                 href="/admin"
@@ -55,7 +62,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </a>
             )}
           </div>
-          {data?.user && (
+          {!publicPage && data?.user && (
             <>
               <button
                 type="button"

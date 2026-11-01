@@ -1,3 +1,4 @@
+import { parseCommentTime } from "../domain/comment-time";
 import { useEffect, useState } from "react";
 import { browserIdentity } from "./telemetry";
 import { CommentDialog, type CommentDraft } from "./comment-dialog";
@@ -21,6 +22,7 @@ export function Feedback({
   versionId,
   share,
   owner,
+  preview = false,
   links,
   versions,
   draft,
@@ -30,6 +32,7 @@ export function Feedback({
   versionId: string;
   share?: string;
   owner: boolean;
+  preview?: boolean;
   links: { id: string; label: string }[];
   versions: { id: string; name: string; state: string }[];
   draft: CommentDraft | null;
@@ -47,13 +50,20 @@ export function Feedback({
     const controller = new AbortController();
     Promise.all(
       versionIds.split(",").map((id) =>
-        fetch("/feedback/" + id + (share ? "?share=" + share : ""), {
-          signal: controller.signal,
-          headers: {
-            "X-Comment-Secret":
-              localStorage.getItem("wavecase.commentSecret") || "",
+        fetch(
+          "/feedback/" +
+            id +
+            (share ? "?share=" + share : "") +
+            (preview ? "&preview=1" : ""),
+          {
+            signal: controller.signal,
+            headers: {
+              "X-Comment-Secret": preview
+                ? ""
+                : localStorage.getItem("wavecase.commentSecret") || "",
+            },
           },
-        }).then((r) => {
+        ).then((r) => {
           if (!r.ok) {
             if (r.status === 403 || r.status === 404)
               window.dispatchEvent(new Event("wavecase-access-revoked"));
@@ -74,23 +84,28 @@ export function Feedback({
           };
         });
         setItems(collected);
-        for (const id of versionIds.split(","))
-          localStorage.setItem(
-            "wavecase.seen." + (share || "owner") + "." + id,
-            String(Date.now()),
-          );
+        if (!preview)
+          for (const id of versionIds.split(","))
+            localStorage.setItem(
+              "wavecase.seen." + (share || "owner") + "." + id,
+              String(Date.now()),
+            );
       })
       .catch((e) => {
         if (e.name !== "AbortError") setError(e.message);
       });
     return () => controller.abort();
-  }, [versionIds, share, revision]);
+  }, [versionIds, share, revision, preview]);
   const visibleItems = items.filter(
     (item) =>
       versionIds.split(",").includes(item.versionId) &&
       (owner || item.linkId === share),
   );
   async function send(form: HTMLFormElement, draft: CommentDraft) {
+    if (preview) {
+      setError("Preview only. No comment was sent.");
+      return false;
+    }
     const values = new FormData(form);
     let secret = localStorage.getItem("wavecase.commentSecret");
     if (!secret) {
@@ -114,8 +129,12 @@ export function Feedback({
             secret,
             body: values.get("body"),
             threadId,
-            start: values.get("start") ? Number(values.get("start")) : null,
-            end: values.get("end") ? Number(values.get("end")) : null,
+            start: values.get("startTime")
+              ? parseCommentTime(String(values.get("startTime")))
+              : null,
+            end: values.get("endTime")
+              ? parseCommentTime(String(values.get("endTime")))
+              : null,
           }),
         },
       );
@@ -131,6 +150,10 @@ export function Feedback({
     }
   }
   async function remove(comment: Comment) {
+    if (preview) {
+      setError("Preview only. Nothing was deleted.");
+      return;
+    }
     const response = await fetch(
       "/feedback/" + comment.versionId + (share ? "?share=" + share : ""),
       {

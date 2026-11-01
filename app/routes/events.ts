@@ -1,3 +1,4 @@
+import { rejectPreviewMutation } from "../server/preview";
 import { visitorContext } from "../server/visitor";
 import { limitedBody } from "../server/request";
 import type { ActionFunctionArgs } from "react-router";
@@ -20,6 +21,7 @@ const event = z.object({
 });
 export async function action({ request, params }: ActionFunctionArgs) {
   sameOrigin(request);
+  rejectPreviewMutation(request);
   const share =
     params.share || new URL(request.url).searchParams.get("share") || undefined;
   const visitLink = params.share

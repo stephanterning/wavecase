@@ -35,6 +35,7 @@ import {
   loader as assetLoader,
 } from "../app/routes/release-assets";
 
+import { action as artistEditAction } from "../app/routes/artist-edit";
 import { loader as artistLoader } from "../app/routes/artist";
 import { loader as releaseLoader } from "../app/routes/release-page";
 const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
@@ -239,6 +240,38 @@ test(
           },
           body: new URLSearchParams(values),
         });
+      const editArtist = (values: Record<string, string>) =>
+        artistEditAction({
+          ...args(post({ _inline: "1", ...values }, session), ""),
+          params: { id: artist },
+        });
+      await editArtist({
+        intent: "artist-links",
+        name: "Martin Dice",
+        links: "Website | https://example.test/music",
+      });
+      await editArtist({
+        intent: "edit-artist",
+        name: "Martin Dice",
+        bio: "Artist biography",
+      });
+      let profile = await db.query.artists.findFirst({
+        where: eq(artists.id, artist),
+      });
+      assert.deepEqual(profile?.links, [
+        { label: "Website", url: "https://example.test/music" },
+      ]);
+      await editArtist({
+        intent: "artist-links",
+        name: "Stale name",
+        links: "",
+      });
+      profile = await db.query.artists.findFirst({
+        where: eq(artists.id, artist),
+      });
+      assert.equal(profile?.name, "Martin Dice");
+      assert.equal(profile?.bio, "Artist biography");
+      assert.deepEqual(profile?.links, []);
       const denied = (status: number) => (e: unknown) =>
         e instanceof Response && e.status === status;
       const page = (cookie?: string) =>
@@ -586,6 +619,12 @@ test(
       await assert.rejects(stat(join(dir, "master.wav.mp3")), {
         code: "ENOENT",
       });
+      const publishedDelete = await editAction(
+        args(post({ intent: "delete" }, session), ""),
+      );
+      assert.deepEqual(publishedDelete, {
+        error: "Unpublish this release before deleting it.",
+      });
       await editAction({
         request: post({ intent: "unpublish" }, session),
         params: { id: release },
@@ -611,6 +650,53 @@ test(
         denied(404),
       );
       assert.equal((await page(session)).mediaArtwork, null);
+      await db
+        .update(releases)
+        .set({ cover: "artwork.png" })
+        .where(eq(releases.id, release));
+      await db
+        .update(releaseTracks)
+        .set({ pendingOriginal: "pending.wav" })
+        .where(eq(releaseTracks.id, track));
+      await writeFile(join(dir, "pending.wav"), "pending upload");
+      for (const cookie of [undefined, outsiderSession]) {
+        await assert.rejects(
+          editAction(args(post({ intent: "delete" }, cookie), "")),
+          denied(404),
+        );
+      }
+      const deleted = await editAction(
+        args(post({ intent: "delete" }, session), ""),
+      );
+      assert.ok(deleted instanceof Response);
+      assert.equal(deleted.headers.get("Location"), "/releases");
+      assert.equal(
+        (await db.select().from(releases).where(eq(releases.id, release)))
+          .length,
+        0,
+      );
+      assert.equal(
+        (
+          await db
+            .select()
+            .from(releaseTracks)
+            .where(eq(releaseTracks.releaseId, release))
+        ).length,
+        0,
+      );
+      assert.equal(
+        (
+          await db
+            .select()
+            .from(releaseEvents)
+            .where(eq(releaseEvents.releaseId, release))
+        ).length,
+        0,
+      );
+      for (const file of ["artwork.png", "pending.wav"]) {
+        await assert.rejects(stat(join(dir, file)), { code: "ENOENT" });
+      }
+      await assert.rejects(page(session), denied(404));
     } finally {
       if (previous === undefined) delete process.env.DATA_DIR;
       else process.env.DATA_DIR = previous;

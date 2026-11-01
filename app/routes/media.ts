@@ -1,3 +1,4 @@
+import { rejectPreviewMutation } from "../server/preview";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
@@ -79,6 +80,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
 export async function action({ request, params }: ActionFunctionArgs) {
   sameOrigin(request);
+  rejectPreviewMutation(request);
   const form = await (await limitedBody(request, 8192)).formData();
   return downloadDemo(request, params.id!, form);
 }

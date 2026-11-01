@@ -1,3 +1,4 @@
+import { rejectPreviewMutation } from "../server/preview";
 import { loader } from "./track";
 export { loader, default } from "./track";
 import type { ActionFunctionArgs, MetaFunction } from "react-router";
@@ -41,6 +42,7 @@ export const meta: MetaFunction<typeof loader> = ({
 
 export async function action({ request, params }: ActionFunctionArgs) {
   sameOrigin(request);
+  rejectPreviewMutation(request);
   const link = await db.query.links.findFirst({
     where: eq(links.id, params.share!),
   });
@@ -61,4 +63,16 @@ export async function action({ request, params }: ActionFunctionArgs) {
       set: { name: sql`coalesce(${name}, ${reuploadRequests.name})` },
     });
   return { requested: true };
+}
+
+export function ErrorBoundary() {
+  return (
+    <section className="panel">
+      <h1>This link is unavailable</h1>
+      <p>
+        Ask the sender for a new link or check that you copied the whole
+        address.
+      </p>
+    </section>
+  );
 }

@@ -1,6 +1,7 @@
+import { isPreview } from "../server/preview";
+import { PublicLink } from "../components/public-links";
 import { releasePath } from "../domain/releases";
 import {
-  Link,
   useLoaderData,
   type LoaderFunctionArgs,
   type MetaFunction,
@@ -36,6 +37,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     },
     releases: rows,
     owner: user?.id === artist.ownerId,
+    preview: isPreview(request),
     canonical: `${origin}/artists/${artist.slug}`,
   };
 }
@@ -54,19 +56,25 @@ export default function ArtistPage() {
   const d = useLoaderData<typeof loader>();
   return (
     <section className="artist-page">
-      {d.owner && (
-        <Link to={`/artist-profiles/${d.artist.id}`}>Edit artist</Link>
+      {d.owner && !d.preview && (
+        <PublicLink to={`/artist-profiles/${d.artist.id}`}>
+          Back to editing
+        </PublicLink>
       )}
-      {d.artist.image && (
-        <img
-          className="artist-image"
-          src={`/artist-images/${d.artist.id}`}
-          alt={d.artist.name}
-        />
-      )}
-      <p className="eyebrow">ARTIST</p>
-      <h1>{d.artist.name}</h1>
-      <p className="preserve-lines">{d.artist.bio}</p>
+      <header className="music-editor-hero">
+        {d.artist.image && (
+          <img
+            className="artist-image"
+            src={`/artist-images/${d.artist.id}`}
+            alt={d.artist.name}
+          />
+        )}
+        <div>
+          <p className="eyebrow">ARTIST</p>
+          <h1>{d.artist.name}</h1>
+          <p className="preserve-lines">{d.artist.bio}</p>
+        </div>
+      </header>
       <div className="service-links">
         {d.artist.links.map((l, i) => (
           <a key={i} href={l.url} target="_blank" rel="noopener noreferrer">
@@ -75,9 +83,9 @@ export default function ArtistPage() {
         ))}
       </div>
       <h2>Releases</h2>
-      <div className="grid">
+      <div className="catalog-grid">
         {d.releases.map((r) => (
-          <Link
+          <PublicLink
             className="release-card"
             to={releasePath(d.artist, r)}
             key={r.id}
@@ -90,7 +98,7 @@ export default function ArtistPage() {
             <p>
               {r.kind.toUpperCase()} · {r.metadata.releaseDate}
             </p>
-          </Link>
+          </PublicLink>
         ))}
       </div>
       {!d.releases.length && <p>No published releases yet.</p>}
