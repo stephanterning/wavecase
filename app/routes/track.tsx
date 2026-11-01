@@ -1,10 +1,5 @@
-import {
-  EditForm,
-  EditorDialog,
-  CloseEditor,
-  PreviewLink,
-  useConfirmDiscard,
-} from "../components/editing";
+import { ShareLinks } from "../components/share-links";
+import { EditForm, useConfirmDiscard } from "../components/editing";
 import { PublicLink } from "../components/public-links";
 import { demoWavAvailable } from "../server/download";
 import { TrackArtistField } from "../components/track-artist-field";
@@ -24,12 +19,20 @@ import {
   useSearchParams,
 } from "react-router";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  inArray,
+  sql,
+} from "drizzle-orm";
 import { versionStatuses } from "../domain/versions";
 import { recordVisit } from "../components/telemetry";
 import { useEffect, useRef, useState } from "react";
 import { db } from "../server/db";
-import { versions, links, reuploadRequests } from "../server/schema";
+import { versions, links, reuploadRequests, events } from "../server/schema";
 import { sameOrigin, token, hash, origin } from "../server/security";
 import { formError } from "../server/releases";
 import { trackAccess } from "../server/access";
@@ -110,7 +113,19 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         ),
     ),
     links: access.owner
-      ? await db.select().from(links).where(eq(links.trackId, id!))
+      ? await db
+          .select({
+            ...getTableColumns(links),
+            plays: sql<number>`(${db
+              .select({ value: count() })
+              .from(events)
+              .where(
+                and(eq(events.linkId, links.id), eq(events.kind, "play")),
+              )})`.mapWith(Number),
+          })
+          .from(links)
+          .where(eq(links.trackId, id!))
+          .orderBy(desc(links.createdAt), links.id)
       : [],
   };
 }
@@ -295,120 +310,11 @@ export default function Track() {
             </label>
             <button>Upload version</button>
           </EditForm>
-          <EditorDialog title="Share links" trigger="Share">
-            <>
-              <section className="panel">
-                {data.links.map((link) => (
-                  <details key={link.id}>
-                    <summary>
-                      {link.label} · {link.active ? "Active" : "Disabled"}
-                      <small className="track-summary">
-                        {link.fromOrder
-                          ? `From ${data.versions.find((v) => v.position === link.fromOrder)?.name || "selected version"} onward`
-                          : "All versions"}
-                        {" · "}
-                        {link.download ? "Downloads allowed" : "Listening only"}
-                      </small>
-                    </summary>
-                    <p>
-                      <PreviewLink href={"/s/" + link.id + "?preview=1"}>
-                        Preview as listener
-                      </PreviewLink>
-                    </p>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() =>
-                        void navigator.clipboard.writeText(
-                          window.location.origin + "/s/" + link.id,
-                        )
-                      }
-                    >
-                      Copy link
-                    </button>
-                    <EditForm
-                      label={`Share link: ${link.label}`}
-                      action={"/tracks/" + data.track.id + "/manage"}
-                    >
-                      <input type="hidden" name="intent" value="link" />
-                      <input type="hidden" name="link" value={link.id} />
-                      <label>
-                        Private label
-                        <input
-                          name="label"
-                          defaultValue={link.label}
-                          required
-                        />
-                      </label>
-                      <label className="check">
-                        <input
-                          type="checkbox"
-                          name="active"
-                          defaultChecked={link.active}
-                        />
-                        Active
-                      </label>
-                      <label className="check">
-                        <input
-                          type="checkbox"
-                          name="download"
-                          defaultChecked={link.download}
-                        />
-                        Allow downloads
-                      </label>
-                      <label>
-                        Visible versions
-                        <select
-                          name="from"
-                          defaultValue={
-                            link.fromOrder
-                              ? data.versions.find(
-                                  (v) => v.position === link.fromOrder,
-                                )?.id || ""
-                              : ""
-                          }
-                        >
-                          <option value="">All versions</option>
-                          {data.versions.map((v) => (
-                            <option key={v.id} value={v.id}>
-                              From {v.name} onward
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <button name="intent" value="link">
-                        Save link
-                      </button>
-                    </EditForm>
-                  </details>
-                ))}
-                <EditForm
-                  label="New share link"
-                  trigger="＋ Create link"
-                  resetOnSave
-                >
-                  <input type="hidden" name="intent" value="link" />
-                  <label>
-                    Private label
-                    <input name="label" required />
-                  </label>
-                  <label>
-                    Versions
-                    <select name="visibility" defaultValue="onward">
-                      <option value="all">All versions</option>
-                      <option value="onward">Latest and future versions</option>
-                    </select>
-                  </label>
-                  <label className="check">
-                    <input type="checkbox" name="download" />
-                    Allow downloads
-                  </label>
-                  <button>Create link</button>
-                </EditForm>
-              </section>
-              <CloseEditor />
-            </>
-          </EditorDialog>
+          <ShareLinks
+            trackId={data.track.id}
+            links={data.links}
+            versions={data.versions}
+          />
           <a href="#feedback">Feedback</a>
           <a href="#track-details">Track details</a>
         </nav>

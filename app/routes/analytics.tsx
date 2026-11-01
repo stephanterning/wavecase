@@ -5,7 +5,7 @@ import {
   summarizeActivity,
   uniqueCoverage,
 } from "../domain/activity";
-import { Form, useLoaderData } from "react-router";
+import { Form, useLoaderData, useSearchParams } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
 import { eq, desc } from "drizzle-orm";
 import { useState } from "react";
@@ -143,7 +143,8 @@ function eventDescription(event: Row["event"]) {
 }
 export default function Analytics() {
   const data = useLoaderData<typeof loader>();
-  const [link, setLink] = useState("");
+  const [search, setSearch] = useSearchParams();
+  const link = search.get("link") || "";
   const [browser, setBrowser] = useState("");
   const linkRows = data.events.filter((r) => !link || r.event.linkId === link);
   const browserIds = [...new Set(linkRows.map((r) => r.event.browser))];
@@ -173,7 +174,11 @@ export default function Analytics() {
           <select
             value={link}
             onChange={(e) => {
-              setLink(e.target.value);
+              setSearch((params) => {
+                if (e.target.value) params.set("link", e.target.value);
+                else params.delete("link");
+                return params;
+              });
               setBrowser("");
             }}
           >

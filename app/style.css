@@ -1428,3 +1428,106 @@ button:has(svg) {
   margin: 16px 0;
   color: #b7c5bc;
 }
+
+.editor-dialog.share-links-dialog {
+  width: min(1100px, calc(100vw - 32px));
+}
+.share-links-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin: 16px 0;
+}
+.share-links-toolbar > p {
+  max-width: 540px;
+  margin: 0;
+  font-size: 14px;
+}
+.share-links-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.share-links-table th,
+.share-links-table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid #344038;
+}
+.share-links-table thead th {
+  color: #aabbb2;
+  font-size: 13px;
+  font-weight: 500;
+}
+.share-link-name {
+  max-width: 220px;
+  overflow-wrap: anywhere;
+}
+.share-link-actions {
+  white-space: nowrap;
+}
+.share-link-actions dialog {
+  white-space: normal;
+}
+.share-link-actions > button,
+.share-link-actions > a {
+  display: inline-flex;
+  vertical-align: middle;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
+  margin: 0 2px;
+  border: 1px solid #344038;
+  border-radius: 8px;
+  background: transparent;
+  color: #b2e0cd;
+}
+.share-link-actions > button > span,
+.share-link-actions > a > span {
+  display: inline-flex;
+}
+.share-link-notice {
+  min-height: 1.5em;
+  margin: 8px 0 0;
+}
+@media (max-width: 760px) {
+  .share-links-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .share-links-table thead {
+    display: none;
+  }
+  .share-links-table,
+  .share-links-table tbody {
+    display: block;
+  }
+  .share-links-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(144px, 1fr);
+    gap: 8px 12px;
+    padding: 16px 0;
+    border-bottom: 1px solid #344038;
+  }
+  .share-links-table th,
+  .share-links-table td {
+    border: 0;
+    padding: 0;
+    overflow-wrap: anywhere;
+  }
+  .share-links-table .share-link-name {
+    grid-column: 1;
+    max-width: none;
+  }
+  .share-links-table td[data-label]::before {
+    content: attr(data-label) ": ";
+    color: #aabbb2;
+    font-size: 13px;
+  }
+  .share-link-actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
