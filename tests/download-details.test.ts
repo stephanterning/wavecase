@@ -40,13 +40,16 @@ test("download estimates sum original files and artwork, show format ranges, and
       (await stat(join(directory, "one.wav"))).size +
       (await stat(join(directory, "two.wav"))).size;
     assert.ok(
-      details.wav!.bytes > originals + 10000 &&
-        details.wav!.bytes < originals + 30000,
+      details.original.bytes! > originals + 10000 &&
+        details.original.bytes! < originals + 30000,
     );
     assert.match(
-      formatDownloadDetails(details.wav!),
+      formatDownloadDetails(details.original),
       /16–24-bit · 44.1–48 kHz/,
     );
+    assert.deepEqual(details.wav!.bitDepths, [16, 16]);
+    assert.deepEqual(details.wav!.sampleRates, [44100, 44100]);
+    assert.equal(details.flac!.bytes, null);
     assert.equal(details.mp3.bytes, 160000 + 10000 + 12288);
     assert.deepEqual(details.mp3.bitDepths, []);
     assert.deepEqual((await readdir(directory)).sort(), [
@@ -62,17 +65,19 @@ test("download estimates sum original files and artwork, show format ranges, and
     );
     await audio("legacy.flac", 96000, "flac");
     const legacy = await downloadDetails(directory, ["legacy.flac"], null);
-    assert.deepEqual(legacy.wav!.sampleRates, [48000]);
+    assert.deepEqual(legacy.wav!.sampleRates, [44100]);
     assert.deepEqual(legacy.wav!.bitDepths, [16]);
     await encodeWav(directory, "legacy.flac");
     const prepared = await downloadDetails(directory, ["legacy.flac"], null);
     assert.equal(
       prepared.wav!.bytes,
-      (await stat(join(directory, "legacy.flac.export.wav"))).size + 8192,
+      (await stat(join(directory, "legacy.flac.16-44100.wav"))).size + 8192,
     );
     await audio("lossy.mp3", 22050, "libmp3lame");
     const lossy = await downloadDetails(directory, ["lossy.mp3"], null);
     assert.equal(lossy.wav, null);
+    assert.equal(lossy.flac, null);
+    assert.ok(lossy.original.bytes! > 0);
     assert.deepEqual(lossy.mp3.sampleRates, [32000]);
     assert.equal(
       formatDownloadDetails({

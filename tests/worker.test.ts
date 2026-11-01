@@ -3,7 +3,14 @@ import assert from "node:assert/strict";
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, writeFile, rm, stat } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile,
+  writeFile,
+  rm,
+  stat,
+  unlink,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
@@ -93,21 +100,38 @@ test(
         title: "Legacy release",
         slug: release,
       });
+      const uploadedBytes = await readFile(join(directory, "original.wav"));
+      await writeFile(join(directory, "release-master.wav"), uploadedBytes);
       const releaseResult = await processReleaseAudio(
         directory,
-        "original.wav",
+        "release-master.wav",
       );
+      await promisify(execFile)("ffmpeg", [
+        "-v",
+        "error",
+        "-i",
+        join(directory, "release-master.wav"),
+        "-c:a",
+        "aac",
+        "-b:a",
+        "256k",
+        join(directory, "legacy.m4a"),
+      ]);
       const releaseBytes = await readFile(
         join(directory, releaseResult.playback),
       );
+      // Force migration to encode from the WAV master, not reuse a cache or
+      // transcode the lossy AAC. Its bytes must match the direct WAV encode.
+      await unlink(join(directory, releaseResult.playback));
       await db.insert(releaseTracks).values({
         id: releaseTrack,
         releaseId: release,
         title: "Existing audio",
         position: 1,
-        original: "original.wav",
+        original: "release-master.wav",
         ...releaseResult,
-        audioMeasurements: null,
+        playback: "legacy.m4a",
+        audioMeasurements: releaseResult.audioMeasurements,
       });
       await queue();
       async function startWorker() {
@@ -136,7 +160,7 @@ test(
         measured = await db.query.releaseTracks.findFirst({
           where: eq(releaseTracks.id, releaseTrack),
         });
-        if (measured?.audioMeasurements) break;
+        if (measured?.playback === releaseResult.playback) break;
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
       assert.deepEqual(
@@ -150,7 +174,8 @@ test(
       );
       assert.equal(initial.state, "ready");
       assert.equal(initial.duration, 3);
-      assert.equal(initial.original, initial.playback);
+      assert.equal(initial.original, "original.wav");
+      assert.notEqual(initial.original, initial.playback);
       assert.equal(initial.filename, "original.wav");
       assert.equal(initial.metadata?.sampleRate, 96000);
       async function removed(key: string) {
@@ -165,7 +190,11 @@ test(
         }
         assert.fail("File was not removed: " + key);
       }
-      await removed("original.wav");
+      await removed("legacy.m4a");
+      assert.deepEqual(
+        await readFile(join(directory, "original.wav")),
+        uploadedBytes,
+      );
       const cached = await demoAudioDownload(
         version,
         initial.original!,
@@ -234,7 +263,7 @@ test(
       assert.equal(overRange.original, initial.original);
       assert.deepEqual(
         await readFile(join(directory, overRange.original!)),
-        originalBytes,
+        uploadedBytes,
       );
       assert.ok((await stat(join(directory, cached))).size > 0);
       await removed("over.wav");
@@ -262,6 +291,7 @@ test(
       assert.equal(replaced.position, initial.position);
       assert.equal(replaced.original, replaced.playback);
       await removed(initial.original!);
+      await removed(initial.playback!);
       await removed(cached);
       await removed("short.wav");
       assert.equal(

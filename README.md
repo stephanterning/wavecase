@@ -4,7 +4,7 @@ Self-hosted music sharing for works in progress and finished releases. Uploaders
 
 - **Private demos:** named share links, audio versions, waveform comments, and listening analytics.
 - **Public releases:** artist and songwriter pages, credits, streaming/shop links, and continuous playback across public music pages.
-- **Downloads:** email-gated ZIPs with audio, artwork, and metadata. Demos offer WAV/MP3 or legacy originals; releases preserve uploaded WAV masters.
+- **Downloads:** email-gated ZIPs with audio, artwork, and metadata. Demos and releases offer 16-bit/44.1-kHz WAV/FLAC, 320 kbps MP3, and preserved originals. WAV/FLAC requires a lossless source; older demos may only retain a converted master. Releases reuse the MP3 for playback.
 
 Built with React, React Compiler, React Router, TypeScript, Node.js, PostgreSQL, Drizzle, SimpleWebAuthn, FFmpeg, wavesurfer.js, and pg-boss. See [current scope and limitations](docs/implementation-status.md).
 

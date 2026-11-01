@@ -1,4 +1,8 @@
-import { releaseMp3Download } from "./download";
+import {
+  downloadFormats,
+  type DownloadFormat,
+} from "../domain/download-details";
+import { releaseAudioDownload } from "./download";
 import { downloadName, zipDisposition } from "./release-filenames";
 import { ZipFile } from "yazl";
 import { Readable } from "node:stream";
@@ -31,25 +35,28 @@ export async function downloadRelease(
   );
   if (!tracks.length)
     throw new Response("No audio available for this download", { status: 404 });
-  const format = String(form.get("format") || "wav");
-  if (format !== "wav" && format !== "mp3")
+  const format = String(form.get("format") || "wav") as DownloadFormat;
+  if (!downloadFormats.includes(format))
     throw new Response("Download format unavailable", { status: 400 });
   const audioFiles = new Map<string, string>();
   for (const track of tracks) {
     try {
       audioFiles.set(
         track.id,
-        format === "mp3"
-          ? await releaseMp3Download(track.id, track.original!, directory())
-          : track.original!,
+        await releaseAudioDownload(
+          track.id,
+          track.original!,
+          directory(),
+          format,
+        ),
       );
     } catch (error) {
       if (error instanceof Response) throw error;
       console.error(
-        "Release MP3 encoding failed",
+        "Release audio export failed",
         error instanceof Error ? error.message : error,
       );
-      throw new Response("MP3 could not be prepared. Please try again.", {
+      throw new Response("Audio could not be prepared. Please try again.", {
         status: 503,
       });
     }
@@ -82,7 +89,7 @@ export async function downloadRelease(
   );
   const files = tracks.map((t) => ({
     path: join(directory(), audioFiles.get(t.id)!),
-    name: `${folder}/${downloadName(`${String(t.position).padStart(2, "0")} - ${trackArtist(t)} - ${t.title}`)}.${format}`,
+    name: `${folder}/${downloadName(`${String(t.position).padStart(2, "0")} - ${trackArtist(t)} - ${t.title}`)}.${format === "original" ? "wav" : format}`,
   }));
   files.push({
     path: join(directory(), current.release.cover),

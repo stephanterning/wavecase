@@ -1,3 +1,4 @@
+import type { DownloadFormat } from "./download-details";
 import { z } from "zod";
 export const slugSchema = z
   .string()
@@ -122,14 +123,14 @@ export function releaseInfo(
     bitDepth: number | null;
   }[],
   total: number,
-  format: "wav" | "mp3" = "wav",
+  format: DownloadFormat = "wav",
 ) {
   const fields = (data: object) =>
     Object.entries(data)
       .filter(([, v]) => v !== "" && v != null)
       .map(([k, v]) => `${k}: ${v}`)
       .join("\n");
-  return `${artist} — ${release.title}\nType: ${release.kind}\n${release.description}\n${fields(release.metadata)}\n\nIncluded tracks: ${tracks.length} of ${total}\n\n${tracks.map((t) => `${t.position}. ${t.title}\n${fields(t.metadata)}\n${format === "mp3" ? "MP3: 320 kbps" : `WAV: ${t.bitDepth} bit, ${t.sampleRate} Hz`}`).join("\n\n")}\n`;
+  return `${artist} — ${release.title}\nType: ${release.kind}\n${release.description}\n${fields(release.metadata)}\n\nIncluded tracks: ${tracks.length} of ${total}\n\n${tracks.map((t) => `${t.position}. ${t.title}\n${fields(t.metadata)}\n${format === "mp3" ? "MP3: 320 kbps" : format === "original" ? `Original WAV: ${t.bitDepth} bit, ${t.sampleRate} Hz` : `${format.toUpperCase()}: 16 bit, 44100 Hz`}`).join("\n\n")}\n`;
 }
 
 export const releasePath = (

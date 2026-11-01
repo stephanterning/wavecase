@@ -1,5 +1,6 @@
+import { encodeMp3 } from "./audio-exports";
 import { removeAudioFiles } from "./audio-files";
-import { and, eq, isNotNull, isNull, or } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, notLike, or } from "drizzle-orm";
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { db } from "./db";
@@ -16,23 +17,7 @@ export async function startReleaseWorker() {
       const key = track?.pendingOriginal;
       if (!track) continue;
       if (!key) {
-        // Backfill measurements without re-encoding or replacing existing files.
-        if (track.playback && !track.audioMeasurements) {
-          const audioMeasurements = await measureReleasePlayback(
-            directory,
-            track.playback,
-          );
-          await db
-            .update(releaseTracks)
-            .set({ audioMeasurements })
-            .where(
-              and(
-                eq(releaseTracks.id, track.id),
-                eq(releaseTracks.playback, track.playback),
-                isNull(releaseTracks.audioMeasurements),
-              ),
-            );
-        }
+        await upgradeReleasePlayback(track.id);
         continue;
       }
       try {
@@ -76,11 +61,7 @@ export async function startReleaseWorker() {
               eq(releaseTracks.pendingOriginal, key),
             ),
           );
-        await Promise.all(
-          [key, key + ".m4a"].map((p) =>
-            unlink(join(directory, p)).catch(() => {}),
-          ),
-        );
+        await removeAudioFiles(directory, [key, key + ".m4a"]);
       }
     }
   });
@@ -94,7 +75,10 @@ export async function reconcileReleases() {
         isNotNull(releaseTracks.pendingOriginal),
         and(
           isNotNull(releaseTracks.playback),
-          isNull(releaseTracks.audioMeasurements),
+          or(
+            isNull(releaseTracks.audioMeasurements),
+            notLike(releaseTracks.playback, "%.mp3"),
+          ),
         ),
       ),
     );
@@ -104,4 +88,29 @@ export async function reconcileReleases() {
       { trackId: track.id },
       { singletonKey: track.id, retryLimit: 3, retryDelay: 10 },
     );
+}
+
+// Keep existing playback available until the MP3 and its measurements are ready.
+// The same row lock as downloads prevents two encoders sharing a temporary file.
+export async function upgradeReleasePlayback(trackId: string) {
+  const obsolete = await db.transaction(async (tx) => {
+    const [track] = await tx
+      .select()
+      .from(releaseTracks)
+      .where(eq(releaseTracks.id, trackId))
+      .for("update");
+    if (!track?.original || !track.playback || track.pendingOriginal)
+      return null;
+    if (track.playback.endsWith(".mp3") && track.audioMeasurements) return null;
+    const playback = await encodeMp3(directory, track.original);
+    const audioMeasurements = await measureReleasePlayback(directory, playback);
+    await tx
+      .update(releaseTracks)
+      .set({ playback, audioMeasurements })
+      .where(eq(releaseTracks.id, trackId));
+    return track.playback !== playback && track.playback !== track.original
+      ? track.playback
+      : null;
+  });
+  if (obsolete) await unlink(join(directory, obsolete)).catch(() => {});
 }
