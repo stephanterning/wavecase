@@ -61,7 +61,7 @@ export default function ArtistProfiles() {
   return (
     <>
       <p className="eyebrow">YOUR ARTISTS</p>
-      <h1>Artist profiles.</h1>
+      <h1>Artists</h1>
       <CreateDialog title="Add artist" error={result?.error}>
         <Form method="post" className="panel">
           <label>
@@ -83,7 +83,7 @@ export default function ArtistProfiles() {
           <button>Create artist</button>
         </Form>
       </CreateDialog>
-      <div className="grid">
+      <div className="catalog-grid">
         {data.artists.map((a) => (
           <a
             className="panel release-card"

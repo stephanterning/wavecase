@@ -90,7 +90,7 @@ export default function Releases() {
   return (
     <>
       <p className="eyebrow">YOUR RELEASES</p>
-      <h1>Ready for the world.</h1>
+      <h1>Releases</h1>
       <CreateDialog title="Add release" error={result?.error}>
         <Form method="post" className="panel">
           <input type="hidden" name="intent" value="release" />
@@ -181,7 +181,7 @@ export default function Releases() {
         </label>
       </div>
       {!visible.length && <p>No releases match these filters.</p>}
-      <div className="grid">
+      <div className="catalog-grid">
         {visible.map(({ release, artist }) => (
           <a
             className="panel release-card"

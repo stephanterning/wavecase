@@ -15,16 +15,16 @@ export function TrackArtistField({
     <>
       {!!profiles.length && (
         <label>
-          Artist profile
+          Artist
           <select
             name="artistId"
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
           >
-            <option value="">Match by name / free text</option>
+            <option value="">Enter another artist name</option>
             {profiles.map((profile) => (
               <option key={profile.id} value={profile.id}>
-                {profile.name} (/{profile.slug})
+                {profile.name}
               </option>
             ))}
           </select>
@@ -46,10 +46,6 @@ export function TrackArtistField({
           </datalist>
         </label>
       )}
-      <p className="muted">
-        A unique matching profile in your account is linked automatically. Other
-        names stay as plain text. Linking an artist does not publish this demo.
-      </p>
     </>
   );
 }

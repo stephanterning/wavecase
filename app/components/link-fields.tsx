@@ -1,3 +1,4 @@
+import { Icon } from "./icons";
 import { useEffect, useId, useRef, useState } from "react";
 export function LinkFields({
   links = [],
@@ -70,10 +71,12 @@ export function LinkFields({
           </label>
           <button
             type="button"
+            className="icon-button danger"
+            title="Remove link"
             aria-label={`Remove link ${index + 1}`}
             onClick={() => setRows(rows.filter((item) => item.id !== row.id))}
           >
-            Remove
+            <Icon name="trash" />
           </button>
         </div>
       ))}
@@ -84,7 +87,7 @@ export function LinkFields({
           setNext(next + 1);
         }}
       >
-        Add link
+        <Icon name="plus" /> Add link
       </button>
     </fieldset>
   );

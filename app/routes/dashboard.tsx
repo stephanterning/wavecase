@@ -68,36 +68,6 @@ export default function Dashboard() {
           <a href="/artist-profiles?create=1">Add artist →</a>
         </div>
       </section>
-      <section className="dashboard-section">
-        <h2>Work in progress</h2>
-        <Cards
-          values={[
-            ["Plays", d.demo.plays],
-            ["Feedback received", d.demo.feedback],
-            ["Download requests", d.demo.downloads],
-            ["Active links · now", d.demo.links],
-          ]}
-        />
-        <p className="muted">
-          Demo downloads exclude your own requests. Download requests do not
-          confirm completed transfers.
-        </p>
-      </section>
-      <section className="dashboard-section">
-        <h2>Releases</h2>
-        <Cards
-          values={[
-            ["Page visits", d.release.visits],
-            ["Plays", d.release.plays],
-            ["Download requests", d.release.downloads],
-            ["External link clicks", d.release.clicks],
-          ]}
-        />
-        <p className="muted">
-          Release downloads include your own requests. Your visits, plays and
-          external link clicks are excluded.
-        </p>
-      </section>
       <div className="dashboard-columns">
         <section className="panel">
           <h2>Latest feedback</h2>
@@ -137,6 +107,36 @@ export default function Dashboard() {
           )}
         </section>
       </div>
+      <section className="dashboard-section">
+        <h2>Work in progress</h2>
+        <Cards
+          values={[
+            ["Plays", d.demo.plays],
+            ["Feedback received", d.demo.feedback],
+            ["Download requests", d.demo.downloads],
+            ["Active links · now", d.demo.links],
+          ]}
+        />
+        <p className="muted">
+          Demo downloads exclude your own requests. Download requests do not
+          confirm completed transfers.
+        </p>
+      </section>
+      <section className="dashboard-section">
+        <h2>Releases</h2>
+        <Cards
+          values={[
+            ["Page visits", d.release.visits],
+            ["Plays", d.release.plays],
+            ["Download requests", d.release.downloads],
+            ["External link clicks", d.release.clicks],
+          ]}
+        />
+        <p className="muted">
+          Release downloads include your own requests. Your visits, plays and
+          external link clicks are excluded.
+        </p>
+      </section>
     </>
   );
 }

@@ -40,15 +40,21 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const f = await (await limitedBody(request, 11 * 1024 * 1024)).formData();
     const intent = f.get("intent");
     const name = z.string().trim().min(1).max(200).parse(f.get("name"));
-    if (intent === "edit-artist") {
+    if (intent === "edit-artist" || intent === "artist-links") {
       const previous = await ownedArtist(request, params.id!);
       const values = {
-        name,
-        bio: z
-          .string()
-          .max(5000)
-          .parse(f.get("bio") || ""),
-        links: parseLinks(String(f.get("links") || "")),
+        ...(intent === "edit-artist"
+          ? {
+              name,
+              ...(f.has("links")
+                ? { links: parseLinks(String(f.get("links") || "")) }
+                : {}),
+              bio: z
+                .string()
+                .max(5000)
+                .parse(f.get("bio") || ""),
+            }
+          : { links: parseLinks(String(f.get("links") || "")) }),
       };
       await db.update(artists).set(values).where(eq(artists.id, previous.id));
     } else if (intent === "artist-image") {
@@ -75,66 +81,130 @@ export default function ArtistEdit() {
   const result = useActionData<typeof action>();
   return (
     <>
-      <h1>{a.name}</h1>
-      <PreviewLink href={`/artists/${a.slug}?preview=1`}>
-        View public page
-      </PreviewLink>
-      {result?.error && <p role="alert">{result.error}</p>}
-      <section className="panel">
-        <EditForm label="Artist details">
-          <input type="hidden" name="intent" value="edit-artist" />
-          <input type="hidden" name="id" value={a.id} />
-          <label>
-            Artist name
-            <input name="name" defaultValue={a.name} required maxLength={200} />
-          </label>
-          <label>
-            Biography
-            <textarea name="bio" defaultValue={a.bio} maxLength={5000} />
-          </label>
-          <LinkFields links={a.links} />
-          <button>Save artist</button>
-        </EditForm>
-        <EditForm label="Profile image" encType="multipart/form-data">
-          <input type="hidden" name="intent" value="artist-image" />
-          <input type="hidden" name="id" value={a.id} />
-          <input type="hidden" name="name" value={a.name} />
-          {a.image && (
-            <img
-              className="artist-image"
-              src={`/artist-images/${a.id}`}
-              alt={`${a.name} profile`}
-            />
+      <div className="editor-toolbar">
+        <a href="/artist-profiles">Artists</a>
+        <PreviewLink href={`/artists/${a.slug}?preview=1`}>
+          Preview artist page
+        </PreviewLink>
+      </div>
+      <header className="music-editor-hero">
+        <div className="artist-portrait">
+          {a.image ? (
+            <img src={`/artist-images/${a.id}`} alt={a.name} />
+          ) : (
+            <span>{a.name.slice(0, 1)}</span>
           )}
-          <label>
-            Profile image
-            <input
-              type="file"
-              name="image"
-              accept="image/png,image/jpeg,image/webp"
-              required
-            />
-          </label>
-          <button>Upload image</button>
-        </EditForm>
-      </section>
-      <section className="panel">
-        <h2>Releases</h2>
-        <a href={`/releases?create=1&artist=${a.id}`}>
-          Add release for {a.name}
-        </a>
-        <ul className="overview-list">
-          {rows.map((release) => (
-            <li key={release.id}>
-              <a href={`/releases/${release.id}`}>{release.title}</a>
-              <span>
-                {release.published ? "Published" : "Draft"} · {release.kind}
-              </span>
-            </li>
+        </div>
+        <div>
+          <p className="eyebrow">ARTIST</p>
+          <h1>{a.name}</h1>
+          <p className="artist-biography">
+            {a.bio || "Add a biography to introduce your music."}
+          </p>
+          <div className="editor-controls">
+            <EditForm label="Artist profile" trigger="Edit profile">
+              <input type="hidden" name="intent" value="edit-artist" />
+              <input type="hidden" name="id" value={a.id} />
+              <label>
+                Artist name
+                <input
+                  name="name"
+                  defaultValue={a.name}
+                  required
+                  maxLength={200}
+                />
+              </label>
+              <label>
+                Biography
+                <textarea name="bio" defaultValue={a.bio} maxLength={5000} />
+              </label>
+              <p className="muted">
+                Saved changes appear immediately on your public artist page.
+              </p>
+              <button>Save profile</button>
+            </EditForm>
+            <EditForm
+              label="Artist image"
+              trigger="Change image"
+              encType="multipart/form-data"
+            >
+              <input type="hidden" name="intent" value="artist-image" />
+              <input type="hidden" name="id" value={a.id} />
+              <input type="hidden" name="name" value={a.name} />
+              {a.image && (
+                <img
+                  className="artist-image"
+                  src={`/artist-images/${a.id}`}
+                  alt={`${a.name} profile`}
+                />
+              )}
+              <label>
+                Profile image
+                <input
+                  type="file"
+                  name="image"
+                  accept="image/png,image/jpeg,image/webp"
+                  required
+                />
+              </label>
+              <button>Save image</button>
+            </EditForm>
+          </div>
+        </div>
+      </header>
+      {result?.error && <p role="alert">{result.error}</p>}
+      <div className="artist-editor-columns">
+        <section>
+          <h2>Releases</h2>
+          <a href={`/releases?create=1&artist=${a.id}`}>
+            Add release for {a.name}
+          </a>
+          <div className="catalog-grid">
+            {rows.map((release) => (
+              <a
+                className="catalog-item"
+                href={`/releases/${release.id}`}
+                key={release.id}
+              >
+                {release.cover ? (
+                  <img
+                    className="management-artwork"
+                    src={`/release-assets/${release.id}/cover`}
+                    alt=""
+                  />
+                ) : (
+                  <div className="management-artwork artwork-placeholder">
+                    Add artwork
+                  </div>
+                )}
+                <strong>{release.title}</strong>
+                <span>
+                  {release.published ? "Published" : "Draft"} · {release.kind}
+                </span>
+              </a>
+            ))}
+          </div>
+          {!rows.length && (
+            <p>No releases yet. Create a draft to get started.</p>
+          )}
+        </section>
+        <aside>
+          <h2>Links</h2>
+          {a.links.map((link) => (
+            <p key={link.url}>
+              <a href={link.url} target="_blank" rel="noopener noreferrer">
+                {link.label} ↗
+              </a>
+            </p>
           ))}
-        </ul>
-        {!rows.length && <p>No releases yet. Create a draft to get started.</p>}
-      </section>
+          <EditForm label="Artist links" trigger="Edit links">
+            <input type="hidden" name="intent" value="artist-links" />
+            <input type="hidden" name="name" value={a.name} />
+            <LinkFields links={a.links} />
+            <button>Save links</button>
+          </EditForm>
+        </aside>
+      </div>
     </>
   );
 }

@@ -1,3 +1,4 @@
+import { Icon } from "./icons";
 import { useEffect, useId, useRef } from "react";
 import { useSearchParams } from "react-router";
 
@@ -26,7 +27,7 @@ export function CreateDialog({
   return (
     <>
       <button ref={trigger} onClick={() => dialog.current?.showModal()}>
-        {title}
+        <Icon name="plus" /> {title}
       </button>
       <dialog
         ref={dialog}
@@ -34,10 +35,14 @@ export function CreateDialog({
         aria-labelledby={id}
         onClose={() => trigger.current?.focus()}
       >
-        <div className="dialog-actions">
+        <div className="dialog-heading">
           <h2 id={id}>{title}</h2>
-          <button type="button" onClick={() => dialog.current?.close()}>
-            Close
+          <button
+            type="button"
+            aria-label="Close dialog"
+            onClick={() => dialog.current?.close()}
+          >
+            ×
           </button>
         </div>
         {children}

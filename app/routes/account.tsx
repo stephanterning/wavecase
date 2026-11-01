@@ -72,7 +72,7 @@ export default function Account() {
       <p>
         {user.name} · {user.email}
       </p>
-      <section className="panel">
+      <section className="panel settings-panel">
         <h2>Passkeys</h2>
         {keys.map((key, i) => (
           <Form method="post" key={key.id}>

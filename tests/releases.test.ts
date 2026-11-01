@@ -35,6 +35,7 @@ import {
   loader as assetLoader,
 } from "../app/routes/release-assets";
 
+import { action as artistEditAction } from "../app/routes/artist-edit";
 import { loader as artistLoader } from "../app/routes/artist";
 import { loader as releaseLoader } from "../app/routes/release-page";
 const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
@@ -239,6 +240,38 @@ test(
           },
           body: new URLSearchParams(values),
         });
+      const editArtist = (values: Record<string, string>) =>
+        artistEditAction({
+          ...args(post({ _inline: "1", ...values }, session), ""),
+          params: { id: artist },
+        });
+      await editArtist({
+        intent: "artist-links",
+        name: "Martin Dice",
+        links: "Website | https://example.test/music",
+      });
+      await editArtist({
+        intent: "edit-artist",
+        name: "Martin Dice",
+        bio: "Artist biography",
+      });
+      let profile = await db.query.artists.findFirst({
+        where: eq(artists.id, artist),
+      });
+      assert.deepEqual(profile?.links, [
+        { label: "Website", url: "https://example.test/music" },
+      ]);
+      await editArtist({
+        intent: "artist-links",
+        name: "Stale name",
+        links: "",
+      });
+      profile = await db.query.artists.findFirst({
+        where: eq(artists.id, artist),
+      });
+      assert.equal(profile?.name, "Martin Dice");
+      assert.equal(profile?.bio, "Artist biography");
+      assert.deepEqual(profile?.links, []);
       const denied = (status: number) => (e: unknown) =>
         e instanceof Response && e.status === status;
       const page = (cookie?: string) =>

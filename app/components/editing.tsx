@@ -1,4 +1,6 @@
 import {
+  Children,
+  isValidElement,
   createContext,
   useContext,
   useEffect,
@@ -7,6 +9,11 @@ import {
   type ReactNode,
 } from "react";
 import { useBlocker, useFetcher, type FormProps } from "react-router";
+
+const DialogActions = createContext<{
+  cancel: () => void;
+  complete: () => void;
+} | null>(null);
 
 type Editor = {
   label: string;
@@ -80,12 +87,20 @@ function snapshot(form: HTMLFormElement) {
   );
 }
 
-export function EditForm({
+function FormContents({
   label,
   children,
   resetOnSave = false,
+  modal = false,
   ...props
-}: FormProps & { label: string; resetOnSave?: boolean }) {
+}: FormProps & {
+  label: string;
+  resetOnSave?: boolean;
+  modal?: boolean;
+}) {
+  const dialogActions = useContext(DialogActions);
+  const onSaved = modal ? dialogActions?.complete : undefined;
+  const onCancel = modal ? dialogActions?.cancel : undefined;
   const editors = useContext(Editing);
   const fetcher = useFetcher<{
     saved?: boolean;
@@ -142,11 +157,17 @@ export function EditForm({
       baseline.current = snapshot(ref.current!);
       setDirty(snapshot(ref.current!) !== baseline.current);
       setSaved(true);
+      onSaved?.();
     }
     submitted.current = "";
     resolveSave.current?.(ok);
     resolveSave.current = null;
-  }, [fetcher.state, fetcher.data, resetOnSave]);
+  }, [fetcher.state, fetcher.data, resetOnSave, onSaved]);
+  const parts = Children.toArray(children);
+  const submit = (child: ReactNode) =>
+    isValidElement<{ type?: string }>(child) &&
+    child.type === "button" &&
+    child.props.type !== "button";
   const refresh = () =>
     queueMicrotask(() => {
       if (!ref.current) return;
@@ -158,6 +179,11 @@ export function EditForm({
       {...props}
       ref={ref}
       method="post"
+      onInvalidCapture={(event) => {
+        const field = event.target as HTMLElement;
+        const details = field.closest("details");
+        if (details) details.open = true;
+      }}
       onInput={refresh}
       onChange={refresh}
       onSubmit={(event) => {
@@ -173,7 +199,19 @@ export function EditForm({
       <input type="hidden" name="_inline" value="1" />
       <fieldset disabled={busy} className="edit-fields">
         <legend className="sr-only">{label}</legend>
-        {children}
+        {onCancel ? (
+          <>
+            {parts.filter((child) => !submit(child))}
+            <div className="editor-footer">
+              <button type="button" onClick={onCancel}>
+                Cancel
+              </button>
+              {parts.filter(submit)}
+            </div>
+          </>
+        ) : (
+          children
+        )}
       </fieldset>
       <p className="save-status" role="status">
         {busy
@@ -282,5 +320,96 @@ export function PreviewLink({
         </div>
       </dialog>
     </>
+  );
+}
+
+/** Mount editors only while open, so Cancel also discards controlled fields. */
+export function EditorDialog({
+  title,
+  trigger,
+  id,
+  children,
+}: {
+  title: string;
+  trigger: string;
+  id?: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+  const editors = useContext(Editing);
+  useEffect(() => {
+    if (open) dialog.current?.showModal();
+    else if (wasOpen.current) button.current?.focus();
+    wasOpen.current = open;
+  }, [open]);
+  const complete = () => setOpen(false);
+  const cancel = () => {
+    if (dialog.current?.querySelector("fieldset:disabled")) return;
+    const dirty = [...(editors?.entries() || [])].some(
+      ([form, editor]) => dialog.current?.contains(form) && editor.dirty(),
+    );
+    if (dirty && !window.confirm("Discard your unsaved changes?")) return;
+    complete();
+  };
+  return (
+    <>
+      <button
+        type="button"
+        className="editor-trigger"
+        id={id}
+        ref={button}
+        onClick={() => setOpen(true)}
+      >
+        {trigger}
+      </button>
+      {open && (
+        <dialog
+          ref={dialog}
+          className="comment-dialog editor-dialog"
+          aria-label={title}
+          onCancel={(event) => {
+            event.preventDefault();
+            cancel();
+          }}
+        >
+          <div className="dialog-heading">
+            <h2>{title}</h2>
+            <button type="button" aria-label="Close editor" onClick={cancel}>
+              ×
+            </button>
+          </div>
+          <DialogActions.Provider value={{ cancel, complete }}>
+            {children}
+          </DialogActions.Provider>
+        </dialog>
+      )}
+    </>
+  );
+}
+export function EditForm({
+  trigger,
+  id,
+  ...props
+}: FormProps & { label: string; resetOnSave?: boolean; trigger?: string }) {
+  return trigger ? (
+    <EditorDialog title={props.label} trigger={trigger} id={id}>
+      <FormContents {...props} modal />
+    </EditorDialog>
+  ) : (
+    <FormContents {...props} id={id} />
+  );
+}
+
+export function CloseEditor() {
+  const actions = useContext(DialogActions);
+  return (
+    <div className="editor-footer">
+      <button type="button" onClick={actions?.cancel}>
+        Close
+      </button>
+    </div>
   );
 }

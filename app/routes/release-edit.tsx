@@ -8,6 +8,7 @@ import {
   useActionData,
   useLoaderData,
   useRevalidator,
+  useSearchParams,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "react-router";
@@ -337,6 +338,8 @@ function Fields({
 export default function ReleaseEditor() {
   const d = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
+  const [search] = useSearchParams();
+  const activity = search.get("view") === "activity" || search.has("page");
   const revalidator = useRevalidator();
   const pending = d.tracks.some((t) => t.pendingOriginal);
   useEffect(() => {
@@ -353,320 +356,391 @@ export default function ReleaseEditor() {
           {d.release.published ? "View public page" : "Preview draft"}
         </PreviewLink>
       </div>
-      <p className="eyebrow">
-        {d.release.published ? "PUBLISHED" : "PRIVATE DRAFT"} ·{" "}
-        <a href={`/artist-profiles/${d.artist.id}`}>{d.artist.name}</a>
-      </p>
-      <h1>{d.release.title}</h1>
-      {result?.error && <p role="alert">{result.error}</p>}
-      {!d.release.published && (
-        <section
-          className="panel publish-checklist"
-          aria-label="Publication checklist"
-        >
-          <h2>Ready to publish?</h2>
-          <ul>
-            <li>
-              {d.release.cover ? (
-                "✓ Artwork added"
-              ) : (
-                <a href="#release-artwork">Add artwork</a>
-              )}
-            </li>
-            <li>
-              {d.tracks.length ? (
-                "✓ Track list added"
-              ) : (
-                <a href="#release-tracks">Add at least one track</a>
-              )}
-            </li>
-          </ul>
-          <p>
-            Audio and additional metadata are optional. A draft is only visible
-            to you.
-          </p>
-          <Form method="post">
-            <button
-              name="intent"
-              value="publish"
-              disabled={!d.release.cover || !d.tracks.length}
-            >
-              Publish release
-            </button>
-          </Form>
-        </section>
-      )}
-      <details className="release-actions">
-        <summary>Release actions</summary>
-        {d.release.published ? (
-          <Form
-            method="post"
-            onSubmit={(event) => {
-              if (
-                !confirm(
-                  "Unpublish this release? Its public page and downloads will become unavailable until you publish again.",
-                )
-              )
-                event.preventDefault();
-            }}
-          >
-            <button name="intent" value="unpublish">
-              Unpublish
-            </button>
-          </Form>
-        ) : (
-          <Form
-            method="post"
-            onSubmit={(event) => {
-              if (
-                !confirm(
-                  `Permanently delete “${d.release.title}” and all its tracks, artwork, audio and activity? This cannot be undone.`,
-                )
-              )
-                event.preventDefault();
-            }}
-          >
-            <button name="intent" value="delete">
-              Delete draft
-            </button>
-          </Form>
-        )}
-      </details>
-      <p className="muted">
-        {d.release.published
-          ? "Saved changes are immediately visible on the public page."
-          : "Save each section as you work. Preview opens your saved draft in a new tab."}{" "}
-        Each Save button saves only its own section.
-      </p>
-      <nav className="section-nav" aria-label="Release sections">
-        <a href="#release-details">Details</a>
-        <a href="#release-artwork">Artwork</a>
-        <a href="#release-tracks">Tracks</a>
-        <a href="#release-activity">Activity</a>
-      </nav>
-      <EditForm
-        label="Release details"
-        className="panel"
-        key={d.release.id}
-        id="release-details"
-      >
-        <input type="hidden" name="intent" value="metadata" />
-        <h2>Release details</h2>
-        <label>
-          Title
-          <input
-            name="title"
-            required
-            defaultValue={d.release.title}
-            maxLength={200}
-          />
-        </label>
-        <label>
-          Type
-          <select name="kind" defaultValue={d.release.kind}>
-            <option value="single">Single</option>
-            <option value="ep">EP</option>
-            <option value="album">Album</option>
-          </select>
-        </label>
-        <label>
-          Description
-          <textarea
-            name="description"
-            defaultValue={d.release.description}
-            maxLength={5000}
-          />
-        </label>
-        <Fields fields={releaseFields} values={d.release.metadata} />
-        <LinkFields links={d.release.links} label="Streaming and shop links" />
-        <label className="check">
-          <input
-            type="checkbox"
-            name="audioEnabled"
-            defaultChecked={d.release.audioEnabled}
-          />
-          Enable playback and email-gated downloads together
-        </label>
-        <button>Save release</button>
-      </EditForm>
-      <EditForm
-        label="Artwork"
-        encType="multipart/form-data"
-        className="panel"
-        id="release-artwork"
-      >
-        <input type="hidden" name="intent" value="cover" />
-        <h2>Artwork</h2>
-        {d.release.cover && (
+      <header className="music-editor-hero">
+        {d.release.cover ? (
           <img
-            className="release-thumb"
+            className="editor-cover"
             src={`/release-assets/${d.release.id}/cover`}
             alt="Release artwork"
           />
-        )}
-        <label>
-          PNG, JPG or WebP, up to 10 MB
-          <input
-            name="cover"
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            required
-          />
-        </label>
-        <button>Upload artwork</button>
-      </EditForm>
-      <h2 id="release-tracks" tabIndex={-1}>
-        Track list
-      </h2>
-      {d.tracks.map((t) => (
-        <details className="panel release-track-editor" key={t.id}>
-          <summary>
-            <strong>
-              {t.position}. {t.title}
-            </strong>
-            <span className="muted">
-              {t.pendingOriginal
-                ? "Processing audio…"
-                : t.original
-                  ? "Audio ready"
-                  : "No audio"}
-            </span>
-          </summary>
-          <EditForm label={`Track ${t.position}: ${t.title}`}>
-            <input type="hidden" name="intent" value="track" />
-            <input type="hidden" name="track" value={t.id} />
-            <label>
-              Track number
-              <input
-                type="number"
-                name="position"
-                min={1}
-                max={999}
-                required
-                defaultValue={t.position}
-              />
-            </label>
-            <label>
-              Title
-              <input
-                name="title"
-                required
-                maxLength={200}
-                defaultValue={t.title}
-              />
-            </label>
-            <Fields fields={trackFields} values={t.metadata} />
-            <label className="check">
-              <input
-                type="checkbox"
-                name="explicit"
-                defaultChecked={t.metadata.explicit}
-              />
-              Explicit
-            </label>
-            <button>Save track</button>
-          </EditForm>
-          <p>
-            {t.original
-              ? `WAV · ${t.bitDepth} bit · ${t.sampleRate} Hz`
-              : "No audio uploaded"}
-            {t.pendingOriginal && " · Processing upload…"}
-          </p>
-          {t.original && (t.bitDepth !== 24 || t.sampleRate !== 48000) && (
-            <p className="muted">
-              24-bit / 48 kHz is preferred. This master will be downloaded
-              unchanged.
-            </p>
-          )}
-          {t.error && <p role="alert">{t.error}</p>}
-          <EditForm label={`Audio: ${t.title}`} encType="multipart/form-data">
-            <input type="hidden" name="intent" value="audio" />
-            <input type="hidden" name="track" value={t.id} />
-            <label>
-              Master WAV (24-bit / 48 kHz preferred)
-              <input
-                name="audio"
-                type="file"
-                accept=".wav,audio/wav"
-                required
-                disabled={!!t.pendingOriginal}
-              />
-            </label>
-            <button disabled={!!t.pendingOriginal}>
-              {t.original ? "Replace master" : "Upload master"}
-            </button>
-          </EditForm>
-          {(t.original || t.pendingOriginal) && (
-            <Form method="post">
-              <input type="hidden" name="track" value={t.id} />
-              <button name="intent" value="remove-audio">
-                Remove audio
-              </button>
-            </Form>
-          )}
-        </details>
-      ))}
-      <EditForm label="New track" resetOnSave className="panel">
-        <input type="hidden" name="intent" value="add-track" />
-        <label>
-          New track title
-          <input name="title" required maxLength={200} />
-        </label>
-        <button>Add track</button>
-        <p>
-          Audio is optional. Add all tracks, including those without
-          downloadable audio.
-        </p>
-      </EditForm>
-      <section className="panel">
-        <h2 id="release-activity" tabIndex={-1}>
-          Release activity
-        </h2>
-        {d.stats.length ? (
-          <ul>
-            {d.stats.map((s, i) => (
-              <li key={i}>
-                {s.kind}
-                {s.trackId
-                  ? ` · ${d.tracks.find((t) => t.id === s.trackId)?.title}`
-                  : ""}
-                {s.detail ? ` · ${s.detail}` : ""}: {s.count}
-              </li>
-            ))}
-          </ul>
         ) : (
-          <p>No visits, plays or link clicks yet.</p>
+          <div className="editor-cover artwork-placeholder">Add artwork</div>
         )}
-        <h3>Download requests</h3>
-        <p>
-          Addresses are self-reported. A request does not confirm transfer
-          completion.
-        </p>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Email</th>
-                <th>Package contents</th>
-              </tr>
-            </thead>
-            <tbody>
-              {d.downloads.map((e) => (
-                <tr key={e.id}>
-                  <td>{new Date(e.createdAt).toISOString()}</td>
-                  <td>{e.email}</td>
-                  <td>{e.detail}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div>
+          <p className="eyebrow">
+            {d.release.published ? "PUBLISHED" : "PRIVATE DRAFT"} ·{" "}
+            <a href={`/artist-profiles/${d.artist.id}`}>{d.artist.name}</a>
+          </p>
+          <h1>{d.release.title}</h1>
+          <p>
+            {d.release.kind} ·{" "}
+            {d.release.metadata.releaseDate || "Release date not set"}
+          </p>
         </div>
-        {d.page > 0 && <a href={`?page=${d.page - 1}`}>Newer requests</a>}
-        {d.downloads.length === 50 && (
-          <a href={`?page=${d.page + 1}`}>Older requests</a>
-        )}
-      </section>
+      </header>
+      <nav className="section-nav" aria-label="Release views">
+        <a href="?" aria-current={!activity ? "page" : undefined}>
+          Release page
+        </a>
+        <a href="?view=activity" aria-current={activity ? "page" : undefined}>
+          Activity
+        </a>
+      </nav>
+      {!activity && (
+        <>
+          {result?.error && <p role="alert">{result.error}</p>}
+          {!d.release.published && (
+            <section
+              className="panel publish-checklist"
+              aria-label="Publication checklist"
+            >
+              <h2>Ready to publish?</h2>
+              <ul>
+                <li>
+                  {d.release.cover ? (
+                    "✓ Artwork added"
+                  ) : (
+                    <a href="#release-artwork">Add artwork</a>
+                  )}
+                </li>
+                <li>
+                  {d.tracks.length ? (
+                    "✓ Track list added"
+                  ) : (
+                    <a href="#release-tracks">Add at least one track</a>
+                  )}
+                </li>
+              </ul>
+              <p>
+                Audio and additional metadata are optional. A draft is only
+                visible to you.
+              </p>
+              <Form method="post">
+                <button
+                  name="intent"
+                  value="publish"
+                  disabled={!d.release.cover || !d.tracks.length}
+                >
+                  Publish release
+                </button>
+              </Form>
+            </section>
+          )}
+          <details className="release-actions">
+            <summary>Release actions</summary>
+            {d.release.published ? (
+              <Form
+                method="post"
+                onSubmit={(event) => {
+                  if (
+                    !confirm(
+                      "Unpublish this release? Its public page and downloads will become unavailable until you publish again.",
+                    )
+                  )
+                    event.preventDefault();
+                }}
+              >
+                <button name="intent" value="unpublish">
+                  Unpublish
+                </button>
+              </Form>
+            ) : (
+              <Form
+                method="post"
+                onSubmit={(event) => {
+                  if (
+                    !confirm(
+                      `Permanently delete “${d.release.title}” and all its tracks, artwork, audio and activity? This cannot be undone.`,
+                    )
+                  )
+                    event.preventDefault();
+                }}
+              >
+                <button className="danger" name="intent" value="delete">
+                  Delete draft
+                </button>
+              </Form>
+            )}
+          </details>
+          <p className="muted">
+            {d.release.published
+              ? "Saved changes are immediately visible on the public page."
+              : "Save each section as you work. Preview opens your saved draft in a new tab."}{" "}
+            Each Save button saves only its own section.
+          </p>
+          <div className="editor-controls">
+            <EditForm
+              label="Release details"
+              trigger="Edit release details"
+              className="panel"
+              key={d.release.id}
+              id="release-details"
+            >
+              <input type="hidden" name="intent" value="metadata" />
+              <h2>Release details</h2>
+              <label>
+                Title
+                <input
+                  name="title"
+                  required
+                  defaultValue={d.release.title}
+                  maxLength={200}
+                />
+              </label>
+              <label>
+                Type
+                <select name="kind" defaultValue={d.release.kind}>
+                  <option value="single">Single</option>
+                  <option value="ep">EP</option>
+                  <option value="album">Album</option>
+                </select>
+              </label>
+              <label>
+                Description
+                <textarea
+                  name="description"
+                  defaultValue={d.release.description}
+                  maxLength={5000}
+                />
+              </label>
+              <Fields
+                fields={["releaseDate", "genre"]}
+                values={d.release.metadata}
+              />
+              <details>
+                <summary>Credits and release identifiers</summary>
+                <Fields
+                  fields={releaseFields.filter(
+                    (field) => field !== "releaseDate" && field !== "genre",
+                  )}
+                  values={d.release.metadata}
+                />
+              </details>
+              <LinkFields
+                links={d.release.links}
+                label="Streaming and shop links"
+              />
+              <label className="check">
+                <input
+                  type="checkbox"
+                  name="audioEnabled"
+                  defaultChecked={d.release.audioEnabled}
+                />
+                Enable playback and email-gated downloads together
+              </label>
+              <button>Save release</button>
+            </EditForm>
+            <EditForm
+              label="Artwork"
+              trigger="Change artwork"
+              encType="multipart/form-data"
+              className="panel"
+              id="release-artwork"
+            >
+              <input type="hidden" name="intent" value="cover" />
+              <h2>Artwork</h2>
+              {d.release.cover && (
+                <img
+                  className="release-thumb"
+                  src={`/release-assets/${d.release.id}/cover`}
+                  alt="Release artwork"
+                />
+              )}
+              <label>
+                PNG, JPG or WebP, up to 10 MB
+                <input
+                  name="cover"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  required
+                />
+              </label>
+              <button>Upload artwork</button>
+            </EditForm>
+          </div>
+          <h2 id="release-tracks" tabIndex={-1}>
+            Track list
+          </h2>
+          {d.tracks.map((t) => (
+            <details className="panel release-track-editor" key={t.id}>
+              <summary>
+                <strong>
+                  {t.position}. {t.title}
+                </strong>
+                <span className="muted">
+                  {t.pendingOriginal
+                    ? "Processing audio…"
+                    : t.original
+                      ? "Audio ready"
+                      : "No audio"}
+                </span>
+              </summary>
+              <EditForm
+                label={`Track ${t.position}: ${t.title}`}
+                trigger="Edit track"
+              >
+                <input type="hidden" name="intent" value="track" />
+                <input type="hidden" name="track" value={t.id} />
+                <label>
+                  Track number
+                  <input
+                    type="number"
+                    name="position"
+                    min={1}
+                    max={999}
+                    required
+                    defaultValue={t.position}
+                  />
+                </label>
+                <label>
+                  Title
+                  <input
+                    name="title"
+                    required
+                    maxLength={200}
+                    defaultValue={t.title}
+                  />
+                </label>
+                <Fields
+                  fields={["artist", "guests", "version"]}
+                  values={t.metadata}
+                />
+                <details>
+                  <summary>Credits and track identifiers</summary>
+                  <Fields
+                    fields={trackFields.filter(
+                      (field) =>
+                        !["artist", "guests", "version"].includes(field),
+                    )}
+                    values={t.metadata}
+                  />
+                </details>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    name="explicit"
+                    defaultChecked={t.metadata.explicit}
+                  />
+                  Explicit
+                </label>
+                <button>Save track</button>
+              </EditForm>
+              <p>
+                {t.original
+                  ? `WAV · ${t.bitDepth} bit · ${t.sampleRate} Hz`
+                  : "No audio uploaded"}
+                {t.pendingOriginal && " · Processing upload…"}
+              </p>
+              {t.original && (t.bitDepth !== 24 || t.sampleRate !== 48000) && (
+                <p className="muted">
+                  24-bit / 48 kHz is preferred. This master will be downloaded
+                  unchanged.
+                </p>
+              )}
+              {t.error && <p role="alert">{t.error}</p>}
+              <EditForm
+                label={`Audio: ${t.title}`}
+                trigger={t.original ? "Replace master" : "Upload master"}
+                encType="multipart/form-data"
+              >
+                <input type="hidden" name="intent" value="audio" />
+                <input type="hidden" name="track" value={t.id} />
+                <label>
+                  Master WAV (24-bit / 48 kHz preferred)
+                  <input
+                    name="audio"
+                    type="file"
+                    accept=".wav,audio/wav"
+                    required
+                    disabled={!!t.pendingOriginal}
+                  />
+                </label>
+                <button disabled={!!t.pendingOriginal}>
+                  {t.original ? "Replace master" : "Upload master"}
+                </button>
+              </EditForm>
+              {(t.original || t.pendingOriginal) && (
+                <Form method="post">
+                  <input type="hidden" name="track" value={t.id} />
+                  <button name="intent" value="remove-audio">
+                    Remove audio
+                  </button>
+                </Form>
+              )}
+            </details>
+          ))}
+          <EditForm
+            label="New track"
+            trigger="＋ Add track"
+            resetOnSave
+            className="panel"
+          >
+            <input type="hidden" name="intent" value="add-track" />
+            <label>
+              New track title
+              <input name="title" required maxLength={200} />
+            </label>
+            <button>Add track</button>
+            <p>
+              Audio is optional. Add all tracks, including those without
+              downloadable audio.
+            </p>
+          </EditForm>
+        </>
+      )}
+      {activity && (
+        <section className="panel">
+          <h2 id="release-activity" tabIndex={-1}>
+            Release activity
+          </h2>
+          {d.stats.length ? (
+            <ul>
+              {d.stats.map((s, i) => (
+                <li key={i}>
+                  {s.kind}
+                  {s.trackId
+                    ? ` · ${d.tracks.find((t) => t.id === s.trackId)?.title}`
+                    : ""}
+                  {s.detail ? ` · ${s.detail}` : ""}: {s.count}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No visits, plays or link clicks yet.</p>
+          )}
+          <h3>Download requests</h3>
+          <p>
+            Addresses are self-reported. A request does not confirm transfer
+            completion.
+          </p>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Email</th>
+                  <th>Package contents</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.downloads.map((e) => (
+                  <tr key={e.id}>
+                    <td>{new Date(e.createdAt).toISOString()}</td>
+                    <td>{e.email}</td>
+                    <td>{e.detail}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {d.page > 0 && (
+            <a href={`?view=activity&page=${d.page - 1}`}>Newer requests</a>
+          )}
+          {d.downloads.length === 50 && (
+            <a href={`?view=activity&page=${d.page + 1}`}>Older requests</a>
+          )}
+        </section>
+      )}
     </>
   );
 }

@@ -1,5 +1,7 @@
 import {
   EditForm,
+  EditorDialog,
+  CloseEditor,
   PreviewLink,
   useConfirmDiscard,
 } from "../components/editing";
@@ -245,8 +247,168 @@ export default function Track() {
       </div>
       {data.owner && (
         <nav className="section-nav" aria-label="Track actions">
-          <a href="#upload-version">Upload version</a>
-          <a href="#share-links">Share</a>
+          <EditForm
+            label="New version"
+            trigger="Upload version"
+            resetOnSave
+            encType="multipart/form-data"
+            className="panel"
+          >
+            <h2 id="upload-version" tabIndex={-1}>
+              Upload a version
+            </h2>
+            <label>
+              Audio file
+              <input
+                type="file"
+                name="audio"
+                required
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  const field = e.target.form?.elements.namedItem("name");
+                  if (file && field instanceof HTMLInputElement)
+                    field.value =
+                      file.name.match(/(?:^|[ _-])(v\d+(?:\.\d+)*)/i)?.[1] ||
+                      "v1";
+                }}
+              />
+            </label>
+            <label>
+              Version name
+              <input name="name" required defaultValue="v1" />
+            </label>
+            <label>
+              Status
+              <select name="status" defaultValue="work in progress">
+                {versionStatuses.map((status) => (
+                  <option key={status}>{status}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Description
+              <textarea name="description" />
+            </label>
+            <label className="check">
+              <input type="checkbox" name="download" />
+              Allow downloads
+            </label>
+            <button>Upload version</button>
+          </EditForm>
+          <EditorDialog title="Share links" trigger="Share">
+            <>
+              <section className="panel">
+                {data.links.map((link) => (
+                  <details key={link.id}>
+                    <summary>
+                      {link.label} · {link.active ? "Active" : "Disabled"}
+                      <small className="track-summary">
+                        {link.fromOrder
+                          ? `From ${data.versions.find((v) => v.position === link.fromOrder)?.name || "selected version"} onward`
+                          : "All versions"}
+                        {" · "}
+                        {link.download ? "Downloads allowed" : "Listening only"}
+                      </small>
+                    </summary>
+                    <p>
+                      <PreviewLink href={"/s/" + link.id + "?preview=1"}>
+                        Preview as listener
+                      </PreviewLink>
+                    </p>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() =>
+                        void navigator.clipboard.writeText(
+                          window.location.origin + "/s/" + link.id,
+                        )
+                      }
+                    >
+                      Copy link
+                    </button>
+                    <EditForm
+                      label={`Share link: ${link.label}`}
+                      action={"/tracks/" + data.track.id + "/manage"}
+                    >
+                      <input type="hidden" name="intent" value="link" />
+                      <input type="hidden" name="link" value={link.id} />
+                      <label>
+                        Private label
+                        <input
+                          name="label"
+                          defaultValue={link.label}
+                          required
+                        />
+                      </label>
+                      <label className="check">
+                        <input
+                          type="checkbox"
+                          name="active"
+                          defaultChecked={link.active}
+                        />
+                        Active
+                      </label>
+                      <label className="check">
+                        <input
+                          type="checkbox"
+                          name="download"
+                          defaultChecked={link.download}
+                        />
+                        Allow downloads
+                      </label>
+                      <label>
+                        Visible versions
+                        <select
+                          name="from"
+                          defaultValue={
+                            link.fromOrder
+                              ? data.versions.find(
+                                  (v) => v.position === link.fromOrder,
+                                )?.id || ""
+                              : ""
+                          }
+                        >
+                          <option value="">All versions</option>
+                          {data.versions.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              From {v.name} onward
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button name="intent" value="link">
+                        Save link
+                      </button>
+                    </EditForm>
+                  </details>
+                ))}
+                <EditForm
+                  label="New share link"
+                  trigger="＋ Create link"
+                  resetOnSave
+                >
+                  <input type="hidden" name="intent" value="link" />
+                  <label>
+                    Private label
+                    <input name="label" required />
+                  </label>
+                  <label>
+                    Versions
+                    <select name="visibility" defaultValue="onward">
+                      <option value="all">All versions</option>
+                      <option value="onward">Latest and future versions</option>
+                    </select>
+                  </label>
+                  <label className="check">
+                    <input type="checkbox" name="download" />
+                    Allow downloads
+                  </label>
+                  <button>Create link</button>
+                </EditForm>
+              </section>
+              <CloseEditor />
+            </>
+          </EditorDialog>
           <a href="#feedback">Feedback</a>
           <a href="#track-details">Track details</a>
         </nav>
@@ -570,154 +732,6 @@ export default function Track() {
             </button>
           </EditForm>
         </details>
-      )}
-      {data.owner && (
-        <div className="grid">
-          <EditForm
-            label="New version"
-            resetOnSave
-            encType="multipart/form-data"
-            className="panel"
-          >
-            <h2 id="upload-version" tabIndex={-1}>
-              Upload a version
-            </h2>
-            <label>
-              Status
-              <select name="status" defaultValue="work in progress">
-                {versionStatuses.map((status) => (
-                  <option key={status}>{status}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Audio file
-              <input
-                type="file"
-                name="audio"
-                required
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  const field = e.target.form?.elements.namedItem("name");
-                  if (file && field instanceof HTMLInputElement)
-                    field.value =
-                      file.name.match(/(?:^|[ _-])(v\d+(?:\.\d+)*)/i)?.[1] ||
-                      "v1";
-                }}
-              />
-            </label>
-            <label>
-              Version name
-              <input name="name" required defaultValue="v1" />
-            </label>
-            <label>
-              Description
-              <textarea name="description" />
-            </label>
-            <label className="check">
-              <input type="checkbox" name="download" />
-              Allow downloads
-            </label>
-            <button>Upload version</button>
-          </EditForm>
-          <section className="panel">
-            <h2 id="share-links" tabIndex={-1}>
-              Share links
-            </h2>
-            {data.links.map((link) => (
-              <details key={link.id}>
-                <summary>
-                  {link.label} · {link.active ? "Active" : "Disabled"}
-                </summary>
-                <p>
-                  <PreviewLink href={"/s/" + link.id + "?preview=1"}>
-                    Preview as listener
-                  </PreviewLink>
-                </p>
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() =>
-                    void navigator.clipboard.writeText(
-                      window.location.origin + "/s/" + link.id,
-                    )
-                  }
-                >
-                  Copy link
-                </button>
-                <EditForm
-                  label={`Share link: ${link.label}`}
-                  action={"/tracks/" + data.track.id + "/manage"}
-                >
-                  <input type="hidden" name="intent" value="link" />
-                  <input type="hidden" name="link" value={link.id} />
-                  <label>
-                    Private label
-                    <input name="label" defaultValue={link.label} required />
-                  </label>
-                  <label className="check">
-                    <input
-                      type="checkbox"
-                      name="active"
-                      defaultChecked={link.active}
-                    />
-                    Active
-                  </label>
-                  <label className="check">
-                    <input
-                      type="checkbox"
-                      name="download"
-                      defaultChecked={link.download}
-                    />
-                    Allow downloads
-                  </label>
-                  <label>
-                    Visible versions
-                    <select
-                      name="from"
-                      defaultValue={
-                        link.fromOrder
-                          ? data.versions.find(
-                              (v) => v.position === link.fromOrder,
-                            )?.id || ""
-                          : ""
-                      }
-                    >
-                      <option value="">All versions</option>
-                      {data.versions.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          From {v.name} onward
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button name="intent" value="link">
-                    Save link
-                  </button>
-                </EditForm>
-              </details>
-            ))}
-            <EditForm label="New share link" resetOnSave>
-              <input type="hidden" name="intent" value="link" />
-              <label>
-                Private label
-                <input name="label" required />
-              </label>
-              <label>
-                Versions
-                <select name="visibility" defaultValue="onward">
-                  <option value="all">All versions</option>
-                  <option value="onward">Latest and future versions</option>
-                </select>
-              </label>
-              <label className="check">
-                <input type="checkbox" name="download" />
-                Allow downloads
-              </label>
-              <button>Create link</button>
-            </EditForm>
-          </section>
-        </div>
       )}
     </>
   );

@@ -160,10 +160,13 @@ export default function Analytics() {
     <>
       <a href={"/tracks/" + data.track.id}>← {data.track.title}</a>
       <h1>Listening activity</h1>
-      <p className="muted">
-        Times shown in UTC. Names and browser identifiers do not verify people
-        or physical devices. Location is approximate.
-      </p>
+      <details className="analytics-explanation">
+        <summary>About these statistics</summary>
+        <p className="muted">
+          Times shown in UTC. Names and browser identifiers do not verify people
+          or physical devices. Location is approximate.
+        </p>
+      </details>
       <div className="grid">
         <label>
           Share link

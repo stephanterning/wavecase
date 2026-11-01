@@ -61,16 +61,20 @@ export default function ArtistPage() {
           Back to editing
         </PublicLink>
       )}
-      {d.artist.image && (
-        <img
-          className="artist-image"
-          src={`/artist-images/${d.artist.id}`}
-          alt={d.artist.name}
-        />
-      )}
-      <p className="eyebrow">ARTIST</p>
-      <h1>{d.artist.name}</h1>
-      <p className="preserve-lines">{d.artist.bio}</p>
+      <header className="music-editor-hero">
+        {d.artist.image && (
+          <img
+            className="artist-image"
+            src={`/artist-images/${d.artist.id}`}
+            alt={d.artist.name}
+          />
+        )}
+        <div>
+          <p className="eyebrow">ARTIST</p>
+          <h1>{d.artist.name}</h1>
+          <p className="preserve-lines">{d.artist.bio}</p>
+        </div>
+      </header>
       <div className="service-links">
         {d.artist.links.map((l, i) => (
           <a key={i} href={l.url} target="_blank" rel="noopener noreferrer">
@@ -79,7 +83,7 @@ export default function ArtistPage() {
         ))}
       </div>
       <h2>Releases</h2>
-      <div className="grid">
+      <div className="catalog-grid">
         {d.releases.map((r) => (
           <PublicLink
             className="release-card"
