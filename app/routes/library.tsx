@@ -10,6 +10,7 @@ import {
   useLoaderData,
   useActionData,
   useNavigation,
+  useSearchParams,
 } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { eq } from "drizzle-orm";
@@ -61,10 +62,16 @@ export default function Library() {
   );
   const [ascending, setAscending] = useState(false);
   const navigation = useNavigation();
+  const [search] = useSearchParams();
   const dialog = useRef<HTMLDialogElement>(null);
+  const createTrigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (result?.error && !dialog.current?.open) dialog.current?.showModal();
-  }, [result]);
+    if (
+      (result?.error || search.get("create") === "1") &&
+      !dialog.current?.open
+    )
+      dialog.current?.showModal();
+  }, [result, search]);
   const rows = data.tracks
     .map((track) => ({
       ...track,
@@ -91,7 +98,6 @@ export default function Library() {
     <>
       <div className="heading">
         <div>
-          <a href="/releases">Artists & releases</a>
           <p className="eyebrow">YOUR LIBRARY</p>
           <h1>Music in progress.</h1>
         </div>
@@ -121,7 +127,11 @@ export default function Library() {
             )}
           </div>
         </div>
-        <button type="button" onClick={() => dialog.current?.showModal()}>
+        <button
+          ref={createTrigger}
+          type="button"
+          onClick={() => dialog.current?.showModal()}
+        >
           Add new track
         </button>
       </div>
@@ -198,6 +208,7 @@ export default function Library() {
       )}
       <dialog
         ref={dialog}
+        onClose={() => createTrigger.current?.focus()}
         className="comment-dialog"
         aria-labelledby="new-track-title"
       >

@@ -763,3 +763,132 @@ body:has(.release-mini) {
     align-self: flex-end;
   }
 }
+
+.workspace {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 36px;
+}
+.workspace-sidebar {
+  border-right: 1px solid #303637;
+  padding-right: 20px;
+}
+.workspace nav {
+  display: grid;
+  gap: 8px;
+}
+.workspace nav a {
+  padding: 12px;
+  text-decoration: none;
+  border-radius: 8px;
+}
+.workspace nav a[aria-current] {
+  background: #182b23;
+  color: #b2e0cd;
+  font-weight: 600;
+}
+.workspace-content {
+  min-width: 0;
+}
+.workspace-menu {
+  display: none;
+}
+.workspace-drawer {
+  margin: 0;
+  height: 100dvh;
+  max-height: 100dvh;
+  width: min(320px, 90vw);
+  background: #090b0a;
+  color: inherit;
+  border: 1px solid #39413d;
+  padding: 24px;
+}
+.workspace-drawer::backdrop {
+  background: #000a;
+}
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.stat-card {
+  padding: 20px;
+  border: 1px solid #39413d;
+  border-radius: 12px;
+  background: #090b0a;
+}
+.stat-card strong {
+  display: block;
+  font-size: 36px;
+  font-weight: 500;
+  margin-top: 16px;
+}
+.dashboard-section {
+  margin: 32px 0;
+}
+.dashboard-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.overview-list {
+  padding: 0;
+  list-style: none;
+}
+.overview-list li {
+  display: grid;
+  gap: 6px;
+  padding: 16px 0;
+  border-bottom: 1px solid #303637;
+  overflow-wrap: anywhere;
+}
+.overview-list li p {
+  margin: 0;
+}
+.artist-list-name {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.artist-list-name img {
+  object-fit: cover;
+  border-radius: 50%;
+}
+.period-form,
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: center;
+}
+.period-form label {
+  margin: 0;
+}
+.period-form button {
+  align-self: end;
+}
+@media (max-width: 1100px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 899px) {
+  .workspace {
+    display: block;
+  }
+  .workspace-sidebar {
+    display: none;
+  }
+  .workspace-menu {
+    display: inline-block;
+  }
+}
+@media (max-width: 600px) {
+  .dashboard-columns {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .stat-card {
+    padding: 14px;
+  }
+}

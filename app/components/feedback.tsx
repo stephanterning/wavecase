@@ -147,7 +147,7 @@ export function Feedback({
   }
   return (
     <section className="panel">
-      <h2>Feedback</h2>
+      <h2 id="feedback">Feedback</h2>
       {owner && (
         <label>
           Versions
