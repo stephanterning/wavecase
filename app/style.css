@@ -707,7 +707,7 @@ body:has(.release-mini) {
   align-items: end;
   justify-content: space-between;
   gap: 24px;
-  margin: 24px 0;
+  margin: 0 0 24px;
 }
 .library-filter {
   width: min(100%, 560px);
