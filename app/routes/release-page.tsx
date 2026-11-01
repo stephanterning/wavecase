@@ -96,6 +96,9 @@ export default function ReleasePage() {
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [downloadTrack, setDownloadTrack] = useState("");
   const available = d.tracks.filter((t) => t.available);
+  const downloadTracks = available.filter(
+    (t) => !downloadTrack || t.id === downloadTrack,
+  );
   const playable = available.filter((t) => t.audioMeasurements);
   const waitingForMeasurements = available.some((t) => !t.audioMeasurements);
   const revalidator = useRevalidator();
@@ -305,8 +308,8 @@ export default function ReleasePage() {
                   onClose={() => setDownloadOpen(false)}
                 >
                   <p>
-                    {available.length} of {d.tracks.length} tracks included:{" "}
-                    {available.map((t) => t.title).join(", ")}.
+                    {downloadTracks.length} of {d.tracks.length} tracks
+                    included: {downloadTracks.map((t) => t.title).join(", ")}.
                   </p>
                   <p className="muted">
                     Every ZIP includes audio in the selected format, artwork and
