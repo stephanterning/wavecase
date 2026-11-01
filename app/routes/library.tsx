@@ -120,15 +120,6 @@ export default function Library() {
               onChange={(event) => setFilter(event.target.value)}
               placeholder="Search your music…"
             />
-            {filter && (
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setFilter("")}
-              >
-                Clear filter
-              </button>
-            )}
           </div>
         </div>
       </div>
