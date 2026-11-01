@@ -104,15 +104,20 @@ def capture():
 
 def reset():
     manifest = json.loads((BASE / 'manifest.json').read_text())
-    for name, expected in manifest['files'].items():
+    for name in ['database.dump', 'audio.tar']:
+        expected = manifest['files'][name]
         with (BASE / name).open('rb') as handle:
             if checksum(handle) != expected:
                 raise SystemExit('Baseline checksum mismatch; refusing reset.')
     user = sql(DB, 'wavecase', 'SELECT id FROM users;')
-    uuid.UUID(user)  # Exactly one existing local account, never a guessed owner.
+    try:
+        uuid.UUID(user)
+    except ValueError:
+        raise SystemExit('Reset requires exactly one existing local account.') from None
     run('docker', 'stop', WEB, WORKER, stdout=subprocess.DEVNULL)
     backup = DATA / ('before-reset-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
     backup.mkdir(mode=0o700)
+    backup_complete = False
     try:
         (backup / 'database.dump').write_bytes(dump(DB, 'wavecase', '-Fc'))
         auth = dump(DB, 'wavecase', '--data-only', '-t', 'users', '-t', 'passkeys', '-t', 'sessions')
@@ -120,6 +125,7 @@ def reset():
             run('docker', 'run', '--rm', '--network', 'none', '-v',
                 'wavecase-ui-preview_preview-audio:/data/audio:ro', '--entrypoint', 'tar',
                 'wavecase-ui-preview-web', '-cf', '-', '-C', '/data/audio', '.', stdout=out)
+        backup_complete = True
         sql(DB, 'wavecase', 'SET client_min_messages=warning; DROP SCHEMA public CASCADE; DROP SCHEMA IF EXISTS drizzle CASCADE; DROP SCHEMA IF EXISTS pgboss CASCADE;')
         restore('wavecase', (BASE / 'database.dump').read_bytes())
         run('docker', 'exec', '-i', DB, 'psql', '-X', '-U', 'wavecase', '-d', 'wavecase',
@@ -135,7 +141,10 @@ COMMIT;''')
                 'wavecase-ui-preview-web', '-c',
                 'find /data/audio -mindepth 1 -delete && tar -xf - -C /data/audio', stdin=inp)
     except BaseException:
-        print(f'Reset failed. Preview stays stopped; previous complete data is saved at {backup}.')
+        if backup_complete:
+            print(f'Reset failed. Preview stays stopped; previous complete data is saved at {backup}.')
+        else:
+            print(f'Backup failed before replacement. Existing preview data is unchanged; services stay stopped. Partial backup: {backup}')
         raise
     run('docker', 'start', WEB, stdout=subprocess.DEVNULL)
     for _ in range(45):

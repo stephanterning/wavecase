@@ -1,9 +1,5 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { viewer } from "./server/security";
-export async function loader({ request }: LoaderFunctionArgs) {
-  const user = await viewer(request);
-  return { user: user ? { name: user.name, admin: user.admin } : null };
-}
 import {
   Links,
   useRouteLoaderData,
@@ -15,6 +11,10 @@ import {
   useRouteError,
 } from "react-router";
 import "./style.css";
+export async function loader({ request }: LoaderFunctionArgs) {
+  const user = await viewer(request);
+  return { user: user ? { name: user.name, admin: user.admin } : null };
+}
 export const meta = () => [{ title: "Wavecase" }];
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root");
