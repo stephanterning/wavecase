@@ -18,7 +18,7 @@ Authenticated users start at `/dashboard`. A shared sidebar links Dashboard, Wor
 
 The dashboard shows current demo, artist, published release, and draft counts. Activity uses a URL-selected rolling 7-day, 30-day (default), or all-time period. Its selector sits beside the welcome heading and applies changes immediately. Demo cards count plays, nondeleted listener feedback, download requests, and currently active links. Separate release cards count visits, plays, download requests, and external clicks. Existing owner exclusions apply; release download requests include owners. Counts describe recorded activity, not verified people or completed transfers. Show up to five received feedback entries in the selected period and five newest demos/releases across all time. Feedback links open the relevant version. All queries are owner-scoped, including for administrators.
 
-Artist administration has a name-sorted list and individual profile editors, preserving stable public addresses. New artists and releases use creation modals, with dashboard shortcuts also opening these and the existing new-track modal. Release cards show artwork, with a placeholder for drafts without it. Releases require an owned artist. Public artist URLs remain `/artists/:artist`.
+Artist administration has a name-sorted list and individual profile editors, preserving stable public addresses. New artists and releases use creation modals, with dashboard shortcuts also opening these and the existing new-track modal. Release cards show artwork, with a placeholder for drafts without it; the entire card links to release editing, without a separate public-page link. Releases require an owned artist. Public artist URLs remain `/artists/:artist`.
 
 ## Private demos
 

@@ -1,4 +1,3 @@
-import { releasePath } from "../domain/releases";
 import {
   Form,
   redirect,
@@ -107,7 +106,11 @@ export default function Releases() {
       </CreateDialog>
       <div className="grid">
         {data.releases.map(({ release, artist }) => (
-          <article className="panel" key={release.id}>
+          <a
+            className="panel release-card"
+            href={`/releases/${release.id}`}
+            key={release.id}
+          >
             {release.cover ? (
               <img
                 className="management-artwork"
@@ -125,12 +128,9 @@ export default function Releases() {
             <p className="eyebrow">
               {release.published ? "PUBLISHED" : "DRAFT"} · {release.kind}
             </p>
-            <h2>
-              <a href={`/releases/${release.id}`}>{release.title}</a>
-            </h2>
+            <h2>{release.title}</h2>
             <p>{artist.name}</p>
-            <a href={releasePath(artist, release)}>View page</a>
-          </article>
+          </a>
         ))}
       </div>
     </>
