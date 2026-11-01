@@ -91,7 +91,42 @@ export async function action({ request, params }: ActionFunctionArgs) {
             .parse(f.get(key) || ""),
         ]),
       );
-    if (intent === "metadata") {
+    if (intent === "delete") {
+      const files = await db.transaction(async (tx) => {
+        const [release] = await tx
+          .select()
+          .from(releases)
+          .where(eq(releases.id, data.release.id))
+          .for("update");
+        if (!release) throw new Response("Release not found", { status: 404 });
+        if (release.published)
+          throw new Response("Unpublish this release before deleting it.", {
+            status: 409,
+          });
+        const tracks = await tx
+          .select()
+          .from(releaseTracks)
+          .where(eq(releaseTracks.releaseId, release.id))
+          .for("update");
+        await tx
+          .delete(releaseEvents)
+          .where(eq(releaseEvents.releaseId, release.id));
+        await tx
+          .delete(releaseTracks)
+          .where(eq(releaseTracks.releaseId, release.id));
+        await tx.delete(releases).where(eq(releases.id, release.id));
+        return [
+          release.cover,
+          ...tracks.flatMap((track) => [
+            track.original,
+            track.playback,
+            track.pendingOriginal,
+          ]),
+        ];
+      });
+      await removeAudioFiles(directory(), files);
+      return redirect("/releases");
+    } else if (intent === "metadata") {
       const meta = metadata(releaseFields);
       if (meta.releaseDate && !z.iso.date().safeParse(meta.releaseDate).success)
         throw new Response("Enter a valid release date.", { status: 400 });
@@ -311,7 +346,6 @@ export default function ReleaseEditor() {
   return (
     <>
       <nav>
-        <a href="/releases">Artists & releases</a> ·{" "}
         <a href={releasePath(d.artist, d.release)}>Preview public page</a>
       </nav>
       <p className="eyebrow">
@@ -327,6 +361,23 @@ export default function ReleaseEditor() {
           {d.release.published ? "Unpublish" : "Publish release"}
         </button>
       </Form>
+      {!d.release.published && (
+        <Form
+          method="post"
+          onSubmit={(event) => {
+            if (
+              !confirm(
+                `Permanently delete “${d.release.title}” and all its tracks, artwork, audio and activity? This cannot be undone.`,
+              )
+            )
+              event.preventDefault();
+          }}
+        >
+          <button name="intent" value="delete">
+            Delete draft
+          </button>
+        </Form>
+      )}
       <p className="muted">
         Published edits become visible when saved. The public address stays the
         same.

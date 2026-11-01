@@ -86,7 +86,6 @@ export default function Admin() {
   const result = useActionData<typeof action>();
   return (
     <>
-      <a href="/library">← Your library</a>
       <h1>Installation settings</h1>
       <Form method="post" className="panel">
         <input type="hidden" name="intent" value="settings" />

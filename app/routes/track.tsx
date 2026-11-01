@@ -54,7 +54,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       artist: artist?.name || access.track.artist,
       cover: !!access.track.cover,
     },
-    artistUrl: artist ? `/artists/${artist.slug}` : null,
+    artistUrl: artist
+      ? access.owner
+        ? `/artist-profiles/${artist.id}`
+        : `/artists/${artist.slug}`
+      : null,
     artistImageUrl: artist?.hasImage ? `/artist-images/${artist.id}` : null,
     artists: access.owner ? await artistChoices(access.track.ownerId) : [],
     requests: access.owner
@@ -175,32 +179,32 @@ export default function Track() {
   }, [data.versions, data.owner, revalidator]);
   return (
     <>
-      <a href="/library" hidden={!data.owner}>
-        ← Your library
-      </a>
-      {data.owner && (
-        <p>
-          <a href={"/tracks/" + data.track.id + "/analytics"}>
-            Listening activity
-          </a>
-        </p>
-      )}
-      <p className="eyebrow">
-        {data.artistUrl ? (
-          <a className="demo-artist" href={data.artistUrl} rel="noreferrer">
-            {data.artistImageUrl && (
-              <img src={data.artistImageUrl} alt="" width={32} height={32} />
-            )}
-            <span>{data.track.artist}</span>
-          </a>
-        ) : (
-          data.track.artist || "MUSIC IN PROGRESS"
-        )}
-      </p>
       {data.track.cover && (
         <img className="cover" alt="Track cover" src={artwork} />
       )}
-      <h1>{data.track.title}</h1>
+      <div className="demo-heading">
+        <h1>{data.track.title}</h1>
+        <p className="eyebrow">
+          {data.artistUrl ? (
+            <a className="demo-artist" href={data.artistUrl} rel="noreferrer">
+              {data.artistImageUrl && (
+                <img src={data.artistImageUrl} alt="" width={32} height={32} />
+              )}
+              <span>{data.track.artist}</span>
+            </a>
+          ) : (
+            data.track.artist || "MUSIC IN PROGRESS"
+          )}
+        </p>
+        {data.owner && (
+          <a
+            className="demo-activity-link"
+            href={"/tracks/" + data.track.id + "/analytics"}
+          >
+            Listening activity
+          </a>
+        )}
+      </div>
       <p className="muted">{data.track.description}</p>
       {result?.error && <p role="alert">{result.error}</p>}
       {!data.owner && !data.versions.some((v) => v.state === "ready") && (

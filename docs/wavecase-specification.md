@@ -28,7 +28,7 @@ The private library lists one track per fully clickable, keyboard-accessible row
 
 Version order follows new-upload order, not labels, processing completion, or replacements. Successful processing publishes a new version automatically; existing links keep their previous playable audio while processing is pending. There is no demo draft/publish step.
 
-The artist may be free text or an owned artist profile. Explicit selection checks ownership. Free text links automatically only when exactly one owned profile matches, ignoring case and surrounding whitespace; the migration applies the same rule without reassigning existing links. Ambiguous/unmatched names remain free text. Linked demos display the profile's current name and optional thumbnail, linking to its stable public page even without published releases. Renaming preserves the relationship. This never publishes or lists the demo on the artist page, and listeners do not receive the owner's profile choices.
+The artist may be free text or an owned artist profile. Explicit selection checks ownership. Free text links automatically only when exactly one owned profile matches, ignoring case and surrounding whitespace; the migration applies the same rule without reassigning existing links. Ambiguous/unmatched names remain free text. Linked demos display the profile's current name and optional thumbnail, linking to the artist editor for the owner and its stable public page for listeners, even without published releases. Renaming preserves the relationship. This never publishes or lists the demo on the artist page, and listeners do not receive the owner's profile choices.
 
 ### Audio policy
 
@@ -115,6 +115,8 @@ Artist profiles are public, including before any release is published. They show
 Artist slugs are unique across the installation; release slugs are unique within the artist. Suggest lowercase hyphenated addresses such as `/artists/martin-dice/pressure`, validate collisions, and require a meaningful alternative. Slugs are set at creation; display-name/title edits do not change URLs. Explicit slug edits/redirects are deferred. Release pages include descriptive metadata, cover previews, canonical URLs, and structured music data; draft previews use `noindex`.
 
 Songwriter credits link to generated `/songwriter/:songwriter` pages. Split complete names on comma, semicolon, or newline; normalize whitespace/case/diacritics/punctuation for matching. List each matching published release once across artists, headed `Artist - Release title`. Credit edits/unpublishing update listings immediately; no published matches returns 404. Songwriters have no separate administration or verified identity; normalized name collisions can combine credits.
+
+Owners can permanently delete a draft from its editor after confirmation. Published releases must be unpublished first. Deletion removes the release, tracks, artwork, audio, cached exports, and activity records; the artist profile remains.
 
 ### Metadata and layout
 

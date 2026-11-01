@@ -65,7 +65,6 @@ export default function ArtistEdit() {
   const result = useActionData<typeof action>();
   return (
     <>
-      <a href="/artist-profiles">← Artists</a>
       <h1>{a.name}</h1>
       <a href={`/artists/${a.slug}`}>View public page</a>
       {result?.error && <p role="alert">{result.error}</p>}

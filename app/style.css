@@ -60,6 +60,21 @@ p {
   letter-spacing: 2px;
   color: #b2e0cd;
 }
+.demo-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: 12px 0 24px;
+}
+.demo-heading h1,
+.demo-heading .eyebrow {
+  margin: 0;
+  min-width: 0;
+}
+.demo-activity-link {
+  margin-left: auto;
+}
 .demo-artist {
   display: inline-flex;
   align-items: center;

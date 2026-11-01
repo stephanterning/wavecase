@@ -586,6 +586,12 @@ test(
       await assert.rejects(stat(join(dir, "master.wav.mp3")), {
         code: "ENOENT",
       });
+      const publishedDelete = await editAction(
+        args(post({ intent: "delete" }, session), ""),
+      );
+      assert.deepEqual(publishedDelete, {
+        error: "Unpublish this release before deleting it.",
+      });
       await editAction({
         request: post({ intent: "unpublish" }, session),
         params: { id: release },
@@ -611,6 +617,53 @@ test(
         denied(404),
       );
       assert.equal((await page(session)).mediaArtwork, null);
+      await db
+        .update(releases)
+        .set({ cover: "artwork.png" })
+        .where(eq(releases.id, release));
+      await db
+        .update(releaseTracks)
+        .set({ pendingOriginal: "pending.wav" })
+        .where(eq(releaseTracks.id, track));
+      await writeFile(join(dir, "pending.wav"), "pending upload");
+      for (const cookie of [undefined, outsiderSession]) {
+        await assert.rejects(
+          editAction(args(post({ intent: "delete" }, cookie), "")),
+          denied(404),
+        );
+      }
+      const deleted = await editAction(
+        args(post({ intent: "delete" }, session), ""),
+      );
+      assert.ok(deleted instanceof Response);
+      assert.equal(deleted.headers.get("Location"), "/releases");
+      assert.equal(
+        (await db.select().from(releases).where(eq(releases.id, release)))
+          .length,
+        0,
+      );
+      assert.equal(
+        (
+          await db
+            .select()
+            .from(releaseTracks)
+            .where(eq(releaseTracks.releaseId, release))
+        ).length,
+        0,
+      );
+      assert.equal(
+        (
+          await db
+            .select()
+            .from(releaseEvents)
+            .where(eq(releaseEvents.releaseId, release))
+        ).length,
+        0,
+      );
+      for (const file of ["artwork.png", "pending.wav"]) {
+        await assert.rejects(stat(join(dir, file)), { code: "ENOENT" });
+      }
+      await assert.rejects(page(session), denied(404));
     } finally {
       if (previous === undefined) delete process.env.DATA_DIR;
       else process.env.DATA_DIR = previous;
