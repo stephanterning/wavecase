@@ -396,7 +396,12 @@ export function EditForm({
   trigger,
   id,
   ...props
-}: FormProps & { label: string; resetOnSave?: boolean; trigger?: ReactNode }) {
+}: FormProps & {
+  label: string;
+  resetOnSave?: boolean;
+  trigger?: ReactNode;
+  modal?: boolean;
+}) {
   return trigger ? (
     <EditorDialog title={props.label} trigger={trigger} id={id}>
       <FormContents {...props} modal />

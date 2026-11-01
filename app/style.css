@@ -1547,28 +1547,30 @@ button:has(svg) {
   min-width: 0;
   flex: 1;
 }
-.inline-edit {
+.demo-title-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-bottom: 12px;
 }
-.inline-edit > h1,
-.inline-edit > p {
+.demo-title-row > h1,
+.demo-title-row > p {
+  margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.title-edit > h1 {
-  margin: 0;
-}
-.inline-edit > .editor-trigger {
+.track-edit-control {
+  margin-left: auto;
   flex-shrink: 0;
-  padding: 8px;
-  min-width: 44px;
-  min-height: 44px;
-  background: transparent;
 }
-.inline-edit > .editor-trigger > span {
-  display: inline-flex;
+.track-delete-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #344038;
+}
+.track-delete-section > .editor-trigger {
+  color: #ff9696;
 }
 .demo-description {
   white-space: pre-wrap;
@@ -1588,32 +1590,59 @@ button:has(svg) {
   width: 100%;
   padding: 6px;
 }
-.track-menu {
-  position: relative;
-  margin-left: auto;
-}
-.track-menu > summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 8px;
-  font-size: 24px;
-}
-.track-menu > summary::-webkit-details-marker {
-  display: none;
-}
-.track-menu > .editor-trigger {
-  position: absolute;
-  z-index: 2;
-  right: 0;
-  width: 160px;
-}
 .version-heading {
-  align-items: end;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.version-heading > .editor-trigger {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .version-heading .version-picker {
-  flex: 1;
-  max-width: 320px;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
   margin: 0;
+}
+.version-select-size {
+  display: inline-block;
+  position: relative;
+  max-width: 100%;
+  vertical-align: middle;
+  font-size: 24px;
+  line-height: 1.4;
+}
+.version-select-size > span {
+  display: block;
+  visibility: hidden;
+  overflow: hidden;
+  white-space: pre;
+  padding: 8px 40px 8px 12px;
+}
+.version-select-size::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: calc(50% - 5px);
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+.version-select-size > select {
+  appearance: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 8px 32px 8px 12px;
+  font: inherit;
 }
 .demo-waveform {
   position: relative;
@@ -1662,9 +1691,6 @@ button:has(svg) {
   }
   .demo-artwork {
     width: 120px;
-  }
-  .title-edit {
-    flex-wrap: wrap;
   }
 }
 @container share-links (max-width: 400px) {

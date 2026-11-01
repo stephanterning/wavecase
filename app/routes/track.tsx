@@ -198,15 +198,7 @@ export default function Track() {
   const [search] = useSearchParams();
   const confirmDiscard = useConfirmDiscard();
   const selectVersion = (id: string) => {
-    if (
-      !confirmDiscard([
-        "Edit version name",
-        "Edit version description",
-        "Edit version settings",
-        "Replace audio",
-      ])
-    )
-      return false;
+    if (!confirmDiscard(["Edit version", "Replace audio"])) return false;
     setSelection(id);
     return true;
   };
@@ -256,7 +248,7 @@ export default function Track() {
         <nav className="section-nav" aria-label="Track actions">
           <EditForm
             label="New version"
-            trigger="Upload version"
+            trigger="Upload new version"
             resetOnSave
             encType="multipart/form-data"
             className="panel"
@@ -300,10 +292,8 @@ export default function Track() {
               <input type="checkbox" name="download" />
               Allow downloads
             </label>
-            <button>Upload version</button>
+            <button>Upload new version</button>
           </EditForm>
-          <a href="#share-links">Share</a>
-          <a href="#feedback">Feedback</a>
         </nav>
       )}
       {result?.error && <p role="alert">{result.error}</p>}
@@ -344,58 +334,37 @@ export default function Track() {
         ))}
       {current && (
         <section className="panel player-panel">
-          <div className="inline-edit version-heading">
+          <div className="version-heading">
             <label className="version-picker">
-              Version
-              <select
-                value={current.id}
-                onChange={(e) => {
-                  if (selectVersion(e.target.value)) setDraft(null);
-                }}
-              >
-                {data.versions.map((v) => (
-                  <option value={v.id} key={v.id}>
-                    {v.name}
-                  </option>
-                ))}
-              </select>
+              <span className="sr-only">Version</span>
+              <span className="version-select-size">
+                <span aria-hidden="true">{current.name}</span>
+                <select
+                  value={current.id}
+                  onChange={(e) => {
+                    if (selectVersion(e.target.value)) setDraft(null);
+                  }}
+                >
+                  {data.versions.map((v) => (
+                    <option value={v.id} key={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+              </span>
             </label>
             {data.owner && (
-              <VersionEditor
-                trackId={data.track.id}
-                version={current}
-                field="name"
-              />
+              <VersionEditor trackId={data.track.id} version={current} />
             )}
           </div>
-          <div className="inline-edit">
-            <p>
-              {current.status}
-              {data.owner &&
-                ` · ${current.download ? "Downloads allowed" : "Downloads disabled"}`}
-            </p>
-            {data.owner && (
-              <VersionEditor
-                trackId={data.track.id}
-                version={current}
-                field="settings"
-              />
-            )}
-          </div>
-          <div className="inline-edit">
-            {(current.description || data.owner) && (
-              <p className="demo-description">
-                {current.description || "Add version description"}
-              </p>
-            )}
-            {data.owner && (
-              <VersionEditor
-                trackId={data.track.id}
-                version={current}
-                field="description"
-              />
-            )}
-          </div>
+          <p>
+            {current.status}
+            {data.owner &&
+              ` · ${current.download ? "Downloads allowed" : "Downloads disabled"}`}
+          </p>
+          {current.description && (
+            <p className="demo-description">{current.description}</p>
+          )}
           {data.owner && current.processing && (
             <p role="status">Processing replacement audio…</p>
           )}
