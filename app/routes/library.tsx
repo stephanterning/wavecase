@@ -13,9 +13,9 @@ import {
   useSearchParams,
 } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { eq, getTableColumns, sql } from "drizzle-orm";
+import { desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { db } from "../server/db";
-import { tracks } from "../server/schema";
+import { tracks, versions } from "../server/schema";
 import { requireUser, sameOrigin } from "../server/security";
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
@@ -25,12 +25,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
     tracks: await db
       .select({
         ...getTableColumns(tracks),
-        latestVersion: sql<
-          string | null
-        >`(select name from versions where "trackId" = ${tracks.id} order by position desc limit 1)`,
-        latestStatus: sql<
-          string | null
-        >`(select status from versions where "trackId" = ${tracks.id} order by position desc limit 1)`,
+        latestVersion: sql<string | null>`(${db
+          .select({ name: versions.name })
+          .from(versions)
+          .where(eq(versions.trackId, tracks.id))
+          .orderBy(desc(versions.position))
+          .limit(1)})`,
+        latestStatus: sql<string | null>`(${db
+          .select({ status: versions.status })
+          .from(versions)
+          .where(eq(versions.trackId, tracks.id))
+          .orderBy(desc(versions.position))
+          .limit(1)})`,
       })
       .from(tracks)
       .where(eq(tracks.ownerId, user.id)),
