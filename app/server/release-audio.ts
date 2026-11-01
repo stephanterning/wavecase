@@ -1,8 +1,9 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
+import { encodeMp3 } from "./audio-exports";
 const exec = promisify(execFile);
-// Analyze decoded AAC playback, not the WAV download. This writes no audio.
+// Analyze decoded playback, not the WAV download. This writes no audio.
 export async function measureReleasePlayback(directory: string, key: string) {
   const { stderr } = await exec(
     "ffmpeg",
@@ -12,7 +13,7 @@ export async function measureReleasePlayback(directory: string, key: string) {
       "-protocol_whitelist",
       "file,pipe",
       "-format_whitelist",
-      "mov",
+      "mov,mp3",
       "-i",
       join(directory, key),
       "-map",
@@ -81,31 +82,7 @@ export async function processReleaseAudio(directory: string, key: string) {
     throw new Error(
       "Upload a mono or stereo PCM WAV within the duration limit.",
     );
-  const playback = key + ".m4a";
-  await exec(
-    "ffmpeg",
-    [
-      "-nostdin",
-      "-y",
-      "-v",
-      "error",
-      ...input,
-      "-i",
-      source,
-      "-map",
-      "0:a:0",
-      "-map_metadata",
-      "-1",
-      "-c:a",
-      "aac",
-      "-b:a",
-      "256k",
-      "-movflags",
-      "+faststart",
-      join(directory, playback),
-    ],
-    { timeout: 600000 },
-  );
+  const playback = await encodeMp3(directory, key);
   return {
     playback,
     audioMeasurements: await measureReleasePlayback(directory, playback),

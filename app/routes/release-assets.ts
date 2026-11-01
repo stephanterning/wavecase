@@ -102,7 +102,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     end = size - 1,
     status = 200;
   const headers = new Headers({
-    "Content-Type": "audio/mp4",
+    "Content-Type": track.playback.endsWith(".mp3")
+      ? "audio/mpeg"
+      : "audio/mp4",
     "Accept-Ranges": "bytes",
     "Cache-Control": "private, no-store",
     "X-Content-Type-Options": "nosniff",

@@ -224,7 +224,7 @@ export default function ReleasePage() {
                     {t.metadata.explicit && <small> · Explicit</small>}
                     <small>
                       {t.available
-                        ? `${t.bitDepth}-bit / ${t.sampleRate! / 1000} kHz WAV`
+                        ? `Original: ${t.bitDepth}-bit / ${t.sampleRate! / 1000} kHz WAV`
                         : "Audio not available here"}
                     </small>
                   </div>

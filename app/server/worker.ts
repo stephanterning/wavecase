@@ -43,10 +43,7 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
           .update(versions)
           .set({
             ...result,
-            filename:
-              result.metadata.mime === "audio/wav"
-                ? current.pendingFilename!.replace(/\.[^.]+$/, "") + ".wav"
-                : current.pendingFilename!,
+            filename: current.pendingFilename!,
             pendingOriginal: null,
             pendingFilename: null,
             state: "ready",
@@ -57,10 +54,10 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
       });
       // The upload remains intact until validation and the database commit succeed.
       const cleanup = changed
-        ? [version.original, version.playback, key].filter(
-            (p) => p !== result.original,
+        ? [version.original, version.playback].filter(
+            (p) => p !== result.original && p !== result.playback,
           )
-        : [key, result.original];
+        : [key, result.playback];
       await removeAudioFiles(directory, cleanup);
     } catch (error) {
       if (

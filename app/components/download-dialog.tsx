@@ -147,7 +147,20 @@ export function DownloadFormats({
           <label className="check">
             <input type="radio" name="format" value="wav" defaultChecked />
             <span>
-              WAV{data?.wav && <small>{formatDownloadDetails(data.wav)}</small>}
+              WAV · 16 bit / 44.1 kHz
+              {data?.wav && <small>{formatDownloadDetails(data.wav)}</small>}
+            </span>
+          </label>
+        )}
+        {wav && (
+          <label className="check">
+            <input type="radio" name="format" value="flac" />
+            <span>
+              FLAC · 16 bit / 44.1 kHz
+              {data?.flac && <small>{formatDownloadDetails(data.flac)}</small>}
+              <small>
+                Lossless compression. Requires a player that supports FLAC.
+              </small>
             </span>
           </label>
         )}
@@ -158,7 +171,24 @@ export function DownloadFormats({
             {data && <small>{formatDownloadDetails(data.mp3)}</small>}
           </span>
         </label>
+        <label className="check">
+          <input type="radio" name="format" value="original" />
+          <span>
+            {data
+              ? data.originalPreserved
+                ? "Original upload"
+                : "Stored master"
+              : "Original / stored master"}
+            {data && <small>{formatDownloadDetails(data.original)}</small>}
+          </span>
+        </label>
       </fieldset>
+      {data && !data.originalPreserved && (
+        <p className="muted">
+          This older upload uses the stored master. Its resolution may differ
+          from the original upload.
+        </p>
+      )}
       {!data && (
         <p className="muted" role="status">
           {result.url === detailsUrl
@@ -168,13 +198,14 @@ export function DownloadFormats({
       )}
       {data && (
         <p className="muted">
-          Estimated total ZIP size, including artwork and metadata. WAV uses
-          measured file sizes when available; MP3 is estimated until prepared.
+          ZIP sizes include artwork and metadata. WAV and MP3 sizes are
+          estimated until prepared; FLAC size is shown after preparation.
         </p>
       )}
       {!wav && (
         <p className="muted">
-          WAV is unavailable because the upload uses lossy compression.
+          WAV and FLAC are unavailable because the upload uses lossy
+          compression.
         </p>
       )}
       <p className="muted">

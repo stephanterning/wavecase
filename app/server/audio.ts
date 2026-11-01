@@ -158,12 +158,12 @@ export async function processAudio(directory: string, key: string) {
     const finite = (v: string) =>
       Number.isFinite(Number(v)) ? Number(v) : null;
     return {
-      original: playback,
+      original: key,
       playback,
       duration: total / (audio.channels * plan.sampleRate),
       peaks,
       metadata: {
-        audioPolicy: 2,
+        audioPolicy: 3,
         wavDownload: plan.wavDownload,
         samples,
         sampleRate: Number(audio.sample_rate),

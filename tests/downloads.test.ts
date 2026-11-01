@@ -180,7 +180,7 @@ test(
         .update(versions)
         .set({ download: true })
         .where(eq(versions.id, version));
-      await assert.rejects(get("flac"), status(400));
+      await assert.rejects(get("invalid"), status(400));
       await assert.rejects(get("mp3", { email: "" }), status(400));
       await assert.rejects(
         get("mp3", { email: "bad", owner: "true" }),
@@ -215,7 +215,7 @@ test(
       );
       assert.deepEqual(
         wavFiles.get(`${folder}/${folder}.wav`),
-        await readFile(join(directory, "master.wav")),
+        await readFile(join(directory, "master.wav.16-44100.wav")),
       );
       assert.equal(
         wavFiles.get(`${folder}/artwork.jpg`)!.toString(),
@@ -235,6 +235,16 @@ test(
         assert.ok(info.includes(text), text);
       for (const text of [link, owner, "@test", "@example", "Old artist"])
         assert.ok(!info.includes(text), text);
+      const originalZip = unzip(await (await get("original")).arrayBuffer());
+      assert.deepEqual(
+        originalZip.get(`${folder}/${folder}.wav`),
+        await readFile(join(directory, "master.wav")),
+      );
+      const flacZip = unzip(await (await get("flac")).arrayBuffer());
+      assert.deepEqual(
+        flacZip.get(`${folder}/${folder}.flac`),
+        await readFile(join(directory, "master.wav.16-44100.flac")),
+      );
       const simultaneous = await Promise.all([get("mp3"), get("mp3")]);
       const bytes = await Promise.all(
         simultaneous.map(async (r) =>
@@ -273,7 +283,7 @@ test(
         .select()
         .from(events)
         .where(eq(events.versionId, version));
-      assert.equal(recorded.length, 3);
+      assert.equal(recorded.length, 5);
       assert.ok(
         recorded.every(
           (e) =>
@@ -327,6 +337,7 @@ test(
         .set({ metadata: { ...result.metadata, wavDownload: false } })
         .where(eq(versions.id, version));
       await assert.rejects(get("wav"), status(400));
+      await assert.rejects(get("flac"), status(400));
       await db.update(links).set({ active: false }).where(eq(links.id, link));
       await assert.rejects(get("mp3"), status(404));
       await db.update(links).set({ active: true }).where(eq(links.id, link));
@@ -339,7 +350,7 @@ test(
       const legacyWav = unzip(await (await get("wav")).arrayBuffer());
       assert.deepEqual(
         legacyWav.get(`${folder}/${folder}.wav`),
-        await readFile(join(directory, "master.wav")),
+        await readFile(join(directory, "master.wav.16-44100.wav")),
       );
       const legacyMp3 = unzip(await (await get("mp3")).arrayBuffer());
       assert.deepEqual(legacyMp3.get(`${folder}/${folder}.mp3`), bytes[0]);
@@ -357,6 +368,7 @@ test(
         .set({ original: "master.wav.mp3", metadata: {} })
         .where(eq(versions.id, version));
       await assert.rejects(get("wav"), status(400));
+      await assert.rejects(get("flac"), status(400));
       await (await get("mp3")).arrayBuffer();
       // Restore the original so the existing removal flow can be exercised.
       const { removeAudioFiles } = await import("../app/server/audio-files");
@@ -381,7 +393,7 @@ test(
           headers: { cookie: "session=" + session },
         }),
       });
-      assert.equal(stats.events.length, 7);
+      assert.equal(stats.events.length, 9);
       const form = new FormData();
       form.set("intent", "remove");
       form.set("version", version);
@@ -466,7 +478,7 @@ test("legacy formats use the actual codec and cache lossless WAV exports", async
   }
 });
 
-test("legacy 32-bit AIFF WAV exports dither at 24 bits", async () => {
+test("legacy 32-bit AIFF WAV exports dither at 16 bits", async () => {
   const { encodeWav } = await import("../app/server/download");
   const directory = await mkdtemp(join(tmpdir(), "wavecase-legacy-dither-"));
   try {
@@ -494,7 +506,7 @@ test("legacy 32-bit AIFF WAV exports dither at 24 bits", async () => {
     );
     assert.ok(samples.some((v) => v === 0));
     assert.ok(samples.some((v) => v < 0));
-    assert.ok(samples.every((v) => Math.abs(v) <= 256 && v % 256 === 0));
+    assert.ok(samples.every((v) => Math.abs(v) <= 65536 && v % 65536 === 0));
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

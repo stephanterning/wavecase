@@ -15,6 +15,10 @@ export async function removeAudioFiles(
         key + ".mp3.tmp",
         key + ".export.wav",
         key + ".export.wav.tmp",
+        key + ".16-44100.wav",
+        key + ".16-44100.wav.tmp",
+        key + ".16-44100.flac",
+        key + ".16-44100.flac.tmp",
       ]),
   );
   await Promise.all(

@@ -1,3 +1,7 @@
+import {
+  downloadFormats,
+  type DownloadFormat,
+} from "../domain/download-details";
 import { randomUUID } from "node:crypto";
 import { stat } from "node:fs/promises";
 import { extname, join } from "node:path";
@@ -36,16 +40,13 @@ export async function downloadDemo(
   const format = String(
     form.get("format") ||
       ((await demoWavAvailable(version, directory)) ? "wav" : "mp3"),
-  );
-  if (
-    !["wav", "mp3", "original"].includes(format) ||
-    (format === "original" && version.metadata?.audioPolicy === 2)
-  )
+  ) as DownloadFormat;
+  if (!downloadFormats.includes(format))
     throw new Response("Download format unavailable", { status: 400 });
   let file = version.original;
   if (!file || version.state !== "ready")
     throw new Response("Audio file missing", { status: 404 });
-  if (format === "mp3" || format === "wav") {
+  if (format !== "original") {
     try {
       file = await demoAudioDownload(version.id, file, directory, format);
     } catch (error) {
@@ -103,7 +104,7 @@ export async function downloadDemo(
     `Version: ${current.name}`,
     `Status: ${current.status}`,
     `Uploaded: ${current.createdAt.toISOString()}`,
-    `Format: ${format.toUpperCase()}`,
+    `Format: ${format === "original" ? (version.metadata?.audioPolicy === 2 ? "Stored master (resolution may differ from original upload)" : "Original upload") : format === "mp3" ? "MP3: 320 kbps" : `${format.toUpperCase()}: 16 bit, 44100 Hz`}`,
     ...(track.description ? ["", "Track description:", track.description] : []),
     ...(current.description
       ? ["", "Version description:", current.description]

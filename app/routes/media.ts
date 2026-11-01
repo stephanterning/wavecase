@@ -1,3 +1,4 @@
+import { demoWavAvailable } from "../server/download";
 import { downloadDetails } from "../server/download-details";
 import { rejectPreviewMutation } from "../server/preview";
 import { createReadStream } from "node:fs";
@@ -26,6 +27,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         process.env.DATA_DIR || "data/audio",
         [version.original],
         track.cover,
+        version.metadata?.audioPolicy !== 2,
+        await demoWavAvailable(version, process.env.DATA_DIR || "data/audio"),
       ),
       { headers: { "Cache-Control": "private, no-store" } },
     );

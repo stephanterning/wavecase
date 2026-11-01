@@ -137,7 +137,7 @@ for (const fixture of [
     outRate: 48000,
   },
 ])
-  test(`one master for ${fixture.codec} at ${fixture.rate} Hz`, async () => {
+  test(`preserve upload and prepare playback for ${fixture.codec} at ${fixture.rate} Hz`, async () => {
     const directory = await mkdtemp(join(tmpdir(), "wavecase-master-"));
     try {
       const key = "input." + fixture.extension;
@@ -153,8 +153,8 @@ for (const fixture of [
         join(directory, key),
       ]);
       const result = await processAudio(directory, key);
-      const stream = await probe(join(directory, result.original));
-      assert.equal(result.original, result.playback);
+      const stream = await probe(join(directory, result.playback));
+      assert.equal(result.original, key);
       assert.equal(result.metadata.wavDownload, true);
       assert.equal(Number(stream.sample_rate), fixture.outRate);
       assert.equal(stream.bits_per_sample, fixture.bits);
@@ -190,7 +190,7 @@ test("triangular dither reaches the actual 24-bit quantizer", async () => {
         "-v",
         "error",
         "-i",
-        join(directory, result.original),
+        join(directory, result.playback),
         "-f",
         "s32le",
         "-",

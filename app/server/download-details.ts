@@ -4,26 +4,33 @@ import type {
   DownloadDetails,
   FormatDetails,
 } from "../domain/download-details";
-import { probeDownload } from "./download";
+import { probeDownload, losslessSuffix, unchangedWav } from "./audio-exports";
 
 /** Inspect only when the download dialog opens; never encode audio for an estimate. */
 export async function downloadDetails(
   directory: string,
   originals: string[],
   cover: string | null,
+  originalPreserved = true,
+  losslessAllowed = true,
 ): Promise<DownloadDetails> {
   if (!originals.length)
     throw new Response("Audio unavailable", { status: 404 });
-  // Audio and artwork are stored uncompressed in the ZIP. Allow for info text,
-  // filenames and ZIP headers without building a second package just to size it.
   const extra =
     (cover ? (await stat(join(directory, cover))).size : 0) +
     4096 * (originals.length + 1);
-  const wav: FormatDetails = { bytes: extra, bitDepths: [], sampleRates: [] };
-  const mp3: FormatDetails = { bytes: extra, bitDepths: [], sampleRates: [] };
-  let wavAvailable = true;
-  for (const original of originals) {
-    const { probe, plan } = await probeDownload(directory, original);
+  const details = (): FormatDetails => ({
+    bytes: extra,
+    bitDepths: [],
+    sampleRates: [],
+  });
+  const wav = details(),
+    flac = details(),
+    mp3 = details(),
+    original = details();
+  let lossless = losslessAllowed;
+  for (const key of originals) {
+    const { probe, plan } = await probeDownload(directory, key);
     const audio = probe.streams[0];
     const duration = Number(probe.format.duration || audio.duration);
     const rate = Number(audio.sample_rate);
@@ -33,36 +40,40 @@ export async function downloadDetails(
       throw new Error("Invalid audio duration");
     const cachedSize = async (suffix: string) => {
       try {
-        return (await stat(join(directory, original + suffix))).size;
+        return (await stat(join(directory, key + suffix))).size;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
         throw error;
       }
     };
-    mp3.bytes += (await cachedSize(".mp3")) || (duration * 320_000) / 8;
+    const sourceBytes = (await stat(join(directory, key))).size;
+    original.bytes! += sourceBytes;
+    original.sampleRates.push(rate);
+    if (bits) original.bitDepths.push(bits);
+    mp3.bytes! += (await cachedSize(".mp3")) || (duration * 320_000) / 8;
     mp3.sampleRates.push(rate >= 48000 ? 48000 : rate >= 44100 ? 44100 : 32000);
     if (!plan.wavDownload) {
-      wavAvailable = false;
+      lossless = false;
       continue;
     }
-    const unchanged =
-      probe.format.format_name === "wav" &&
-      /^pcm_[suf]\d/.test(audio.codec_name);
-    const outputBits = unchanged
-      ? bits
-      : plan.codec === "pcm_s24le"
-        ? 24
-        : plan.codec === "pcm_s16le"
-          ? 16
-          : 8;
-    const outputRate = unchanged ? rate : plan.sampleRate;
-    wav.bytes += unchanged
-      ? (await stat(join(directory, original))).size
-      : (await cachedSize(".export.wav")) ||
-        ((duration * outputRate * outputBits) / 8) * Number(audio.channels) +
-          44;
-    wav.bitDepths.push(outputBits);
-    wav.sampleRates.push(outputRate);
+    wav.bytes! += unchangedWav(probe)
+      ? sourceBytes
+      : (await cachedSize(losslessSuffix("wav"))) ||
+        duration * 44100 * 2 * Number(audio.channels) + 44;
+    const flacBytes = await cachedSize(losslessSuffix("flac"));
+    // FLAC size depends strongly on the signal; do not invent a compression ratio.
+    flac.bytes =
+      flac.bytes === null || flacBytes === null ? null : flac.bytes + flacBytes;
+    for (const format of [wav, flac]) {
+      format.bitDepths.push(16);
+      format.sampleRates.push(44100);
+    }
   }
-  return { wav: wavAvailable ? wav : null, mp3 };
+  return {
+    wav: lossless ? wav : null,
+    flac: lossless ? flac : null,
+    mp3,
+    original,
+    originalPreserved,
+  };
 }

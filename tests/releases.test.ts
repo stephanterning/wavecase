@@ -65,7 +65,7 @@ test("release addresses, external URLs and package metadata", () => {
     /Included tracks: 0 of 2/,
   );
 });
-test("release processing preserves original PCM WAV and produces AAC playback", async () => {
+test("release processing preserves original PCM WAV and produces reusable 320 kbps MP3 playback", async () => {
   const dir = await mkdtemp(join(tmpdir(), "release-audio-"));
   try {
     await exec("ffmpeg", [
@@ -103,7 +103,9 @@ test("release processing preserves original PCM WAV and produces AAC playback", 
       "json",
       join(dir, result.playback),
     ]);
-    assert.equal(JSON.parse(stdout).streams[0].codec_name, "aac");
+    assert.equal(JSON.parse(stdout).streams[0].codec_name, "mp3");
+    assert.equal(Number(JSON.parse(stdout).streams[0].bit_rate), 320000);
+    assert.equal(result.playback, "master.wav.mp3");
     await exec("ffmpeg", [
       "-v",
       "error",
@@ -408,13 +410,14 @@ test(
       await assert.rejects(
         assetAction(
           args(
-            post({ email: "valid@example.test", format: "flac" }),
+            post({ email: "valid@example.test", format: "invalid" }),
             "download",
           ),
         ),
         denied(400),
       );
-      for (const format of ["wav", "mp3"]) {
+      for (const format of ["wav", "flac", "mp3", "original"]) {
+        const extension = format === "original" ? "wav" : format;
         for (const selection of ["", track]) {
           const response = await assetAction(
             args(
@@ -465,7 +468,7 @@ test(
           assert.deepEqual(
             [...entries.keys()].sort(),
             [
-              `${folder}/03 - Åsa Öberg - Blå timmen.${format}`,
+              `${folder}/03 - Åsa Öberg - Blå timmen.${extension}`,
               `${folder}/artwork.png`,
               `${folder}/release-info.txt`,
             ].sort(),
@@ -475,9 +478,16 @@ test(
             await readFile(join(dir, "artwork.png")),
           );
           assert.deepEqual(
-            [...entries].find(([name]) => name.endsWith(`.${format}`))![1],
+            [...entries].find(([name]) => name.endsWith(`.${extension}`))![1],
             await readFile(
-              join(dir, format === "wav" ? "master.wav" : "master.wav.mp3"),
+              join(
+                dir,
+                format === "mp3"
+                  ? "master.wav.mp3"
+                  : format === "flac"
+                    ? "master.wav.16-44100.flac"
+                    : "master.wav",
+              ),
             ),
           );
           assert.match(
@@ -490,7 +500,7 @@ test(
           );
           assert.match(
             entries.get(`${folder}/release-info.txt`)!.toString(),
-            format === "wav" ? /16 bit, 44100 Hz/ : /MP3: 320 kbps/,
+            format === "mp3" ? /MP3: 320 kbps/ : /16 bit, 44100 Hz/,
           );
         }
       }
@@ -578,7 +588,7 @@ test(
             eq(releaseEvents.kind, "download-started"),
           ),
         );
-      assert.equal(downloads.length, 6);
+      assert.equal(downloads.length, 10);
       assert.equal(downloads[0].email, "not-verified@example.test");
       assert.equal(downloads[0].detail, "WAV\n3. Blå timmen");
       assert.equal(
