@@ -3,7 +3,14 @@ import assert from "node:assert/strict";
 import { spawn, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, writeFile, rm, stat } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile,
+  writeFile,
+  rm,
+  stat,
+  unlink,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
@@ -113,6 +120,9 @@ test(
       const releaseBytes = await readFile(
         join(directory, releaseResult.playback),
       );
+      // Force migration to encode from the WAV master, not reuse a cache or
+      // transcode the lossy AAC. Its bytes must match the direct WAV encode.
+      await unlink(join(directory, releaseResult.playback));
       await db.insert(releaseTracks).values({
         id: releaseTrack,
         releaseId: release,
