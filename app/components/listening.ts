@@ -3,6 +3,7 @@ export function observeListening(
   audio: HTMLAudioElement,
   versionId: string,
   share: string,
+  versionChanged = false,
 ) {
   let started = false,
     last = audio.currentTime,
@@ -45,7 +46,9 @@ export function observeListening(
   }
   function seeking() {
     flush();
-    send("seek", last, audio.currentTime);
+    // Restoring a version's position can dispatch a queued seeking event after
+    // observation starts. It is not a user seek from the restored baseline.
+    if (last !== audio.currentTime) send("seek", last, audio.currentTime);
     start = last = audio.currentTime;
     lastWall = performance.now();
   }
@@ -78,6 +81,7 @@ export function observeListening(
     ended,
     timeupdate: observe,
   };
+  if (versionChanged) send("version-changed");
   for (const [name, listener] of Object.entries(listeners))
     audio.addEventListener(name, listener);
   const timer = setInterval(tick, 2000);

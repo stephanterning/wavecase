@@ -102,6 +102,8 @@ Owner-only demo analytics group activity by named link, locally generated browse
 
 Record link visits independently of the player, including missing-audio pages. A play requires actual playback: first start, a whole-track repeat, or playback of another version. Pause/resume, seeks, visits, preloads, and switching versions while paused do not add plays. Exclude authenticated owner activity. Capture played intervals even from cached media.
 
+When a different playable version loads, record a version-change event at its restored position (or zero when the previous position does not fit). Restoring that position is not a seek. Actual playback records its own start at that position; a paused version change records no play. Explain that play counts include version playback starts and repeats, not complete listens.
+
 Views include link/browser summaries, names, first/latest activity, listening time, unique coverage, version heatmaps, session timelines, pauses/seeks/endings, and download requests. Playing the same minute twice is two minutes of listening but one minute of coverage. Replacement keeps one combined version history. Download events describe initiated transfers, not verified completion; older events may lack format/email.
 
 Sessions use a per-link browser-tab ID, renewed after 30 minutes without recorded activity. Temporary demo telemetry failures retry with stable event IDs while the page is alive; termination may lose pending events. Keep raw events so grouping does not redefine play counts. Retain analytics until explicitly cleared by the owner, including after audio removal.

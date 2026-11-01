@@ -219,6 +219,27 @@ test(
           { id: missing },
         ),
       );
+      const changeId = randomUUID();
+      for (let attempt = 0; attempt < 2; attempt++)
+        await modules!.activity.action(
+          args(
+            post("/events/" + missing + "?share=" + link.id, {
+              ...event,
+              id: changeId,
+              kind: "version-changed",
+              position: 30,
+            }),
+            { id: missing },
+          ),
+        );
+      const changes = await db.query.events.findMany({
+        where: eq(events.id, changeId),
+      });
+      assert.equal(changes.length, 1);
+      assert.equal(changes[0].kind, "version-changed");
+      assert.equal(changes[0].versionId, missing);
+      assert.equal(changes[0].linkId, link.id);
+      assert.equal(changes[0].position, 30);
       await modules!.feedback.action(
         args(
           post("/feedback/" + missing + "?share=" + link.id, {
@@ -284,7 +305,7 @@ test(
       assert.equal(
         (await db.query.events.findMany({ where: eq(events.linkId, link.id) }))
           .length,
-        1,
+        2,
       );
       await db
         .update(links)
