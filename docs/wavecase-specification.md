@@ -16,7 +16,7 @@ This is the product contract, reconciled with the implementation through PR #10 
 
 ### Library and versions
 
-The private library supports title search and sorting by title or newest track. A track has a required title, optional artist, cover, and shared description. Suggest title/version names from the upload filename. Versions have a user-defined name, description, upload timestamp, download permission, and one status: `early idea`, `work in progress`, `almost finished`, or `finished`.
+The private library lists one track per row with sortable Name, Created, and Artist columns, initially newest first. A live filter matches names and artists on each keystroke, with Clear filter shown when nonempty. Add new track opens the creation form in a modal. On narrow screens, the toolbar stacks and the table scrolls horizontally. The header provides an administrator settings gear beside the logo and an account initial linking to account settings. The footer sits at the bottom of short pages and follows the content on longer pages. A track has a required title, optional artist, cover, and shared description. Suggest title/version names from the upload filename. Versions have a user-defined name, description, upload timestamp, download permission, and one status: `early idea`, `work in progress`, `almost finished`, or `finished`.
 
 Version order follows new-upload order, not labels, processing completion, or replacements. Successful processing publishes a new version automatically; existing links keep their previous playable audio while processing is pending. There is no demo draft/publish step.
 
