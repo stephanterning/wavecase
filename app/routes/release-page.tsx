@@ -1,3 +1,5 @@
+import { isPreview } from "../server/preview";
+import { PublicLink } from "../components/public-links";
 import {
   DownloadDialog,
   DownloadEmail,
@@ -10,7 +12,6 @@ import { useReleasePlayer } from "../components/release-player";
 import { playbackGainDb } from "../components/playback-audio";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
-  Link,
   useLoaderData,
   useRevalidator,
   type LoaderFunctionArgs,
@@ -34,6 +35,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const data = publicRelease(d);
   return {
     ...data,
+    preview: isPreview(request),
     canonical: origin + releasePath(d.artist, d.release),
     image: d.release.cover
       ? `${origin}/release-assets/${d.release.id}/cover`
@@ -115,7 +117,7 @@ export default function ReleasePage() {
     );
   }, [playback, d.release.id, playable]);
   function event(kind: string, extra: Record<string, string> = {}) {
-    if (d.owner || !d.release.published) return;
+    if (d.owner || d.preview || !d.release.published) return;
     void fetch(`${endpoint}/events`, {
       method: "POST",
       body: new URLSearchParams({
@@ -127,7 +129,12 @@ export default function ReleasePage() {
     }).catch(() => {});
   }
   useEffect(() => {
-    if (visited.current === d.release.id || d.owner || !d.release.published)
+    if (
+      visited.current === d.release.id ||
+      d.owner ||
+      d.preview ||
+      !d.release.published
+    )
       return;
     visited.current = d.release.id;
     void fetch(`/release-assets/${d.release.id}/events`, {
@@ -138,15 +145,15 @@ export default function ReleasePage() {
       }),
       keepalive: true,
     }).catch(() => {});
-  }, [d.release.id, d.release.published, d.owner]);
+  }, [d.release.id, d.release.published, d.owner, d.preview]);
   function start(id: string) {
     playback.start(
       {
         releaseId: d.release.id,
-        url: releasePath(d.artist, d.release),
+        url: releasePath(d.artist, d.release) + (d.preview ? "?preview=1" : ""),
         title: d.release.title,
         artwork: d.mediaArtwork,
-        countPlays: !d.owner && d.release.published,
+        countPlays: !d.owner && !d.preview && d.release.published,
         tracks: playable.map((track) => ({
           id: track.id,
           title: track.title,
@@ -168,9 +175,11 @@ export default function ReleasePage() {
       }
     >
       <div className="release-backdrop" aria-hidden="true" />
-      {d.owner && (
+      {d.owner && !d.preview && (
         <p className="release-owner">
-          <Link to={`/releases/${d.release.id}`}>Edit release</Link>
+          <PublicLink to={`/releases/${d.release.id}`}>
+            Back to editing
+          </PublicLink>
           {!d.release.published && " · Private draft preview"}
         </p>
       )}
@@ -186,11 +195,15 @@ export default function ReleasePage() {
         </div>
         <div className="release-content">
           <p className="eyebrow">
-            {d.release.kind.toUpperCase()} · {d.release.metadata.releaseDate}
+            {d.release.kind.toUpperCase()}
+            {d.release.metadata.releaseDate &&
+              ` · ${d.release.metadata.releaseDate}`}
           </p>
           <h1>{d.release.title}</h1>
           <div className="release-artist">
-            <Link to={`/artists/${d.artist.slug}`}>{d.artist.name}</Link>
+            <PublicLink to={`/artists/${d.artist.slug}`}>
+              {d.artist.name}
+            </PublicLink>
             {releaseArtistSuffix(d.artist.name, d.tracks)}
           </div>
           <p className="preserve-lines">{d.release.description}</p>
@@ -280,7 +293,8 @@ export default function ReleasePage() {
               {downloadOpen && (
                 <DownloadDialog
                   title={d.release.title}
-                  action={`${endpoint}/download`}
+                  preview={d.preview}
+                  action={`${endpoint}/download${d.preview ? "?preview=1" : ""}`}
                   onClose={() => setDownloadOpen(false)}
                 >
                   <p>

@@ -1,12 +1,15 @@
+import { useState } from "react";
+import { AddressField } from "../components/address-field";
 import {
   Form,
   redirect,
   useActionData,
   useLoaderData,
+  useSearchParams,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "react-router";
-import { eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../server/db";
 import { artists, releases } from "../server/schema";
@@ -21,12 +24,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
     artists: await db
       .select()
       .from(artists)
-      .where(eq(artists.ownerId, user.id)),
+      .where(eq(artists.ownerId, user.id))
+      .orderBy(asc(artists.name)),
     releases: await db
       .select({ release: releases, artist: artists })
       .from(releases)
       .innerJoin(artists, eq(releases.artistId, artists.id))
-      .where(eq(artists.ownerId, user.id)),
+      .where(eq(artists.ownerId, user.id))
+      .orderBy(desc(releases.createdAt)),
   };
 }
 export async function action({ request }: ActionFunctionArgs) {
@@ -56,6 +61,32 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function Releases() {
   const data = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
+  const [search, setSearch] = useSearchParams();
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [artist, setArtist] = useState(() =>
+    data.artists.some((a) => a.id === search.get("artist"))
+      ? search.get("artist")!
+      : data.artists[0]?.id || "",
+  );
+  const filter = search.get("q") || "";
+  const artistFilter = search.get("artist") || "";
+  const status = search.get("status") || "all";
+  const updateFilter = (key: string, value: string) => {
+    const next = new URLSearchParams(search);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setSearch(next, { replace: true, preventScrollReset: true });
+  };
+  const visible = data.releases.filter(
+    ({ release, artist }) =>
+      (!artistFilter || artist.id === artistFilter) &&
+      (status === "all" ||
+        (status === "published" ? release.published : !release.published)) &&
+      `${release.title} ${artist.name}`
+        .toLowerCase()
+        .includes(filter.toLowerCase()),
+  );
   return (
     <>
       <p className="eyebrow">YOUR RELEASES</p>
@@ -66,7 +97,12 @@ export default function Releases() {
 
           <label>
             Artist
-            <select name="artist" required>
+            <select
+              name="artist"
+              required
+              value={artist}
+              onChange={(event) => setArtist(event.target.value)}
+            >
               {data.artists.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
@@ -76,16 +112,20 @@ export default function Releases() {
           </label>
           <label>
             Title
-            <input name="name" required maxLength={200} />
-          </label>
-          <label>
-            Address (optional; suggested from title)
             <input
-              name="slug"
-              pattern="[a-z0-9]+(-[a-z0-9]+)*"
-              maxLength={100}
+              name="name"
+              required
+              maxLength={200}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
             />
           </label>
+          <AddressField
+            name={name}
+            prefix={`/artists/${data.artists.find((a) => a.id === artist)?.slug || "…"}`}
+            value={slug}
+            onChange={setSlug}
+          />
           <label>
             Type
             <select name="kind">
@@ -104,8 +144,45 @@ export default function Releases() {
           )}
         </Form>
       </CreateDialog>
+      <div className="filter-toolbar">
+        <label>
+          Search releases
+          <input
+            type="search"
+            value={filter}
+            onChange={(event) => updateFilter("q", event.target.value)}
+            placeholder="Title or artist"
+          />
+        </label>
+        <label>
+          Artist
+          <select
+            value={artistFilter}
+            onChange={(event) => updateFilter("artist", event.target.value)}
+          >
+            <option value="">All artists</option>
+            {data.artists.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Status
+          <select
+            value={status}
+            onChange={(event) => updateFilter("status", event.target.value)}
+          >
+            <option value="all">All</option>
+            <option value="draft">Drafts</option>
+            <option value="published">Published</option>
+          </select>
+        </label>
+      </div>
+      {!visible.length && <p>No releases match these filters.</p>}
       <div className="grid">
-        {data.releases.map(({ release, artist }) => (
+        {visible.map(({ release, artist }) => (
           <a
             className="panel release-card"
             href={`/releases/${release.id}`}

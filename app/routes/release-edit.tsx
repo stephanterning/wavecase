@@ -1,3 +1,5 @@
+import { EditForm, PreviewLink } from "../components/editing";
+import { LinkFields } from "../components/link-fields";
 import { removeAudioFiles } from "../server/audio-files";
 import { releasePath } from "../domain/releases";
 import {
@@ -290,6 +292,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
       }
     }
     await removeAudioFiles(directory(), removedFiles);
+    if (f.has("_inline")) return { saved: true, error: undefined };
     return redirect(`/releases/${data.release.id}`);
   } catch (error) {
     return formError(error);
@@ -345,44 +348,108 @@ export default function ReleaseEditor() {
   }, [pending, revalidator]);
   return (
     <>
-      <nav>
-        <a href={releasePath(d.artist, d.release)}>Preview public page</a>
-      </nav>
+      <div className="editor-heading-actions">
+        <PreviewLink href={releasePath(d.artist, d.release) + "?preview=1"}>
+          {d.release.published ? "View public page" : "Preview draft"}
+        </PreviewLink>
+      </div>
       <p className="eyebrow">
-        {d.release.published ? "PUBLISHED" : "PRIVATE DRAFT"} · {d.artist.name}
+        {d.release.published ? "PUBLISHED" : "PRIVATE DRAFT"} ·{" "}
+        <a href={`/artist-profiles/${d.artist.id}`}>{d.artist.name}</a>
       </p>
       <h1>{d.release.title}</h1>
       {result?.error && <p role="alert">{result.error}</p>}
-      <Form method="post">
-        <button
-          name="intent"
-          value={d.release.published ? "unpublish" : "publish"}
-        >
-          {d.release.published ? "Unpublish" : "Publish release"}
-        </button>
-      </Form>
       {!d.release.published && (
-        <Form
-          method="post"
-          onSubmit={(event) => {
-            if (
-              !confirm(
-                `Permanently delete “${d.release.title}” and all its tracks, artwork, audio and activity? This cannot be undone.`,
-              )
-            )
-              event.preventDefault();
-          }}
+        <section
+          className="panel publish-checklist"
+          aria-label="Publication checklist"
         >
-          <button name="intent" value="delete">
-            Delete draft
-          </button>
-        </Form>
+          <h2>Ready to publish?</h2>
+          <ul>
+            <li>
+              {d.release.cover ? (
+                "✓ Artwork added"
+              ) : (
+                <a href="#release-artwork">Add artwork</a>
+              )}
+            </li>
+            <li>
+              {d.tracks.length ? (
+                "✓ Track list added"
+              ) : (
+                <a href="#release-tracks">Add at least one track</a>
+              )}
+            </li>
+          </ul>
+          <p>
+            Audio and additional metadata are optional. A draft is only visible
+            to you.
+          </p>
+          <Form method="post">
+            <button
+              name="intent"
+              value="publish"
+              disabled={!d.release.cover || !d.tracks.length}
+            >
+              Publish release
+            </button>
+          </Form>
+        </section>
       )}
+      <details className="release-actions">
+        <summary>Release actions</summary>
+        {d.release.published ? (
+          <Form
+            method="post"
+            onSubmit={(event) => {
+              if (
+                !confirm(
+                  "Unpublish this release? Its public page and downloads will become unavailable until you publish again.",
+                )
+              )
+                event.preventDefault();
+            }}
+          >
+            <button name="intent" value="unpublish">
+              Unpublish
+            </button>
+          </Form>
+        ) : (
+          <Form
+            method="post"
+            onSubmit={(event) => {
+              if (
+                !confirm(
+                  `Permanently delete “${d.release.title}” and all its tracks, artwork, audio and activity? This cannot be undone.`,
+                )
+              )
+                event.preventDefault();
+            }}
+          >
+            <button name="intent" value="delete">
+              Delete draft
+            </button>
+          </Form>
+        )}
+      </details>
       <p className="muted">
-        Published edits become visible when saved. The public address stays the
-        same.
+        {d.release.published
+          ? "Saved changes are immediately visible on the public page."
+          : "Save each section as you work. Preview opens your saved draft in a new tab."}{" "}
+        Each Save button saves only its own section.
       </p>
-      <Form method="post" className="panel" key={d.release.id}>
+      <nav className="section-nav" aria-label="Release sections">
+        <a href="#release-details">Details</a>
+        <a href="#release-artwork">Artwork</a>
+        <a href="#release-tracks">Tracks</a>
+        <a href="#release-activity">Activity</a>
+      </nav>
+      <EditForm
+        label="Release details"
+        className="panel"
+        key={d.release.id}
+        id="release-details"
+      >
         <input type="hidden" name="intent" value="metadata" />
         <h2>Release details</h2>
         <label>
@@ -411,15 +478,7 @@ export default function ReleaseEditor() {
           />
         </label>
         <Fields fields={releaseFields} values={d.release.metadata} />
-        <label>
-          Streaming and shop links (one per line: Label | https://...)
-          <textarea
-            name="links"
-            defaultValue={d.release.links
-              .map((l) => `${l.label} | ${l.url}`)
-              .join("\n")}
-          />
-        </label>
+        <LinkFields links={d.release.links} label="Streaming and shop links" />
         <label className="check">
           <input
             type="checkbox"
@@ -429,8 +488,13 @@ export default function ReleaseEditor() {
           Enable playback and email-gated downloads together
         </label>
         <button>Save release</button>
-      </Form>
-      <Form method="post" encType="multipart/form-data" className="panel">
+      </EditForm>
+      <EditForm
+        label="Artwork"
+        encType="multipart/form-data"
+        className="panel"
+        id="release-artwork"
+      >
         <input type="hidden" name="intent" value="cover" />
         <h2>Artwork</h2>
         {d.release.cover && (
@@ -450,11 +514,25 @@ export default function ReleaseEditor() {
           />
         </label>
         <button>Upload artwork</button>
-      </Form>
-      <h2>Track list</h2>
+      </EditForm>
+      <h2 id="release-tracks" tabIndex={-1}>
+        Track list
+      </h2>
       {d.tracks.map((t) => (
-        <section className="panel" key={t.id}>
-          <Form method="post">
+        <details className="panel release-track-editor" key={t.id}>
+          <summary>
+            <strong>
+              {t.position}. {t.title}
+            </strong>
+            <span className="muted">
+              {t.pendingOriginal
+                ? "Processing audio…"
+                : t.original
+                  ? "Audio ready"
+                  : "No audio"}
+            </span>
+          </summary>
+          <EditForm label={`Track ${t.position}: ${t.title}`}>
             <input type="hidden" name="intent" value="track" />
             <input type="hidden" name="track" value={t.id} />
             <label>
@@ -487,7 +565,7 @@ export default function ReleaseEditor() {
               Explicit
             </label>
             <button>Save track</button>
-          </Form>
+          </EditForm>
           <p>
             {t.original
               ? `WAV · ${t.bitDepth} bit · ${t.sampleRate} Hz`
@@ -501,7 +579,7 @@ export default function ReleaseEditor() {
             </p>
           )}
           {t.error && <p role="alert">{t.error}</p>}
-          <Form method="post" encType="multipart/form-data">
+          <EditForm label={`Audio: ${t.title}`} encType="multipart/form-data">
             <input type="hidden" name="intent" value="audio" />
             <input type="hidden" name="track" value={t.id} />
             <label>
@@ -517,7 +595,7 @@ export default function ReleaseEditor() {
             <button disabled={!!t.pendingOriginal}>
               {t.original ? "Replace master" : "Upload master"}
             </button>
-          </Form>
+          </EditForm>
           {(t.original || t.pendingOriginal) && (
             <Form method="post">
               <input type="hidden" name="track" value={t.id} />
@@ -526,9 +604,9 @@ export default function ReleaseEditor() {
               </button>
             </Form>
           )}
-        </section>
+        </details>
       ))}
-      <Form method="post" className="panel">
+      <EditForm label="New track" resetOnSave className="panel">
         <input type="hidden" name="intent" value="add-track" />
         <label>
           New track title
@@ -539,9 +617,11 @@ export default function ReleaseEditor() {
           Audio is optional. Add all tracks, including those without
           downloadable audio.
         </p>
-      </Form>
+      </EditForm>
       <section className="panel">
-        <h2>Release activity</h2>
+        <h2 id="release-activity" tabIndex={-1}>
+          Release activity
+        </h2>
         {d.stats.length ? (
           <ul>
             {d.stats.map((s, i) => (

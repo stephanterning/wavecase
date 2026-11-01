@@ -1,3 +1,4 @@
+import { rejectPreviewMutation } from "../server/preview";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { readFile, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
@@ -12,6 +13,7 @@ import { limitedBody } from "../server/request";
 import { downloadRelease } from "../server/release-download";
 export async function action({ request, params }: ActionFunctionArgs) {
   sameOrigin(request);
+  rejectPreviewMutation(request);
   const form = await (await limitedBody(request, 8192)).formData();
   if (params.kind === "download")
     return downloadRelease(request, params.id!, form);

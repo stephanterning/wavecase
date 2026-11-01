@@ -12,12 +12,17 @@ export function CreateDialog({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const [search] = useSearchParams();
+  const [search, setSearch] = useSearchParams();
   const id = useId();
   useEffect(() => {
     if ((search.get("create") === "1" || error) && !dialog.current?.open)
       dialog.current?.showModal();
-  }, [search, error]);
+    if (search.has("create")) {
+      const next = new URLSearchParams(search);
+      next.delete("create");
+      setSearch(next, { replace: true, preventScrollReset: true });
+    }
+  }, [search, error, setSearch]);
   return (
     <>
       <button ref={trigger} onClick={() => dialog.current?.showModal()}>

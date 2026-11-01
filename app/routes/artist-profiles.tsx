@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { AddressField } from "../components/address-field";
 import {
   Form,
   redirect,
@@ -54,6 +56,8 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function ArtistProfiles() {
   const data = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
   return (
     <>
       <p className="eyebrow">YOUR ARTISTS</p>
@@ -62,16 +66,20 @@ export default function ArtistProfiles() {
         <Form method="post" className="panel">
           <label>
             Artist name
-            <input name="name" required maxLength={200} />
-          </label>
-          <label>
-            Address (optional; suggested from name)
             <input
-              name="slug"
-              pattern="[a-z0-9]+(-[a-z0-9]+)*"
-              maxLength={100}
+              name="name"
+              required
+              maxLength={200}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
             />
           </label>
+          <AddressField
+            name={name}
+            prefix="/artists"
+            value={slug}
+            onChange={setSlug}
+          />
           <button>Create artist</button>
         </Form>
       </CreateDialog>

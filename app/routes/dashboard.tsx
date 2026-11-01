@@ -60,6 +60,14 @@ export default function Dashboard() {
         {d.inventory.artists} artists
       </p>
 
+      <section className="panel">
+        <h2>Quick actions</h2>
+        <div className="quick-actions">
+          <a href="/library?create=1">Add new track →</a>
+          <a href="/releases?create=1">Add release →</a>
+          <a href="/artist-profiles?create=1">Add artist →</a>
+        </div>
+      </section>
       <section className="dashboard-section">
         <h2>Work in progress</h2>
         <Cards
@@ -129,14 +137,6 @@ export default function Dashboard() {
           )}
         </section>
       </div>
-      <section className="panel">
-        <h2>Quick actions</h2>
-        <div className="quick-actions">
-          <a href="/library?create=1">Add new track →</a>
-          <a href="/releases?create=1">Add release →</a>
-          <a href="/artist-profiles?create=1">Add artist →</a>
-        </div>
-      </section>
     </>
   );
 }

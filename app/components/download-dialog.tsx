@@ -14,7 +14,9 @@ export function DownloadDialog({
   children,
   onClose,
   onSubmit,
+  preview = false,
 }: {
+  preview?: boolean;
   title: string;
   action: string;
   children: ReactNode;
@@ -62,13 +64,18 @@ export function DownloadDialog({
         action={action}
         method="post"
         onSubmit={(event) => {
-          onSubmit?.(event);
+          if (preview) event.preventDefault();
+          else onSubmit?.(event);
           setSubmitted(true);
         }}
       >
         {children}
         {submitted && (
-          <p role="status">Your download will start when the ZIP is ready.</p>
+          <p role="status">
+            {preview
+              ? "Preview only. No download was requested and no email was saved."
+              : "Your download will start when the ZIP is ready."}
+          </p>
         )}
         <div className="dialog-actions">
           <button type="button" className="secondary" onClick={onClose}>

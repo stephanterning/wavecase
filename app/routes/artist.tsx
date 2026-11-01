@@ -1,6 +1,7 @@
+import { isPreview } from "../server/preview";
+import { PublicLink } from "../components/public-links";
 import { releasePath } from "../domain/releases";
 import {
-  Link,
   useLoaderData,
   type LoaderFunctionArgs,
   type MetaFunction,
@@ -36,6 +37,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     },
     releases: rows,
     owner: user?.id === artist.ownerId,
+    preview: isPreview(request),
     canonical: `${origin}/artists/${artist.slug}`,
   };
 }
@@ -54,8 +56,10 @@ export default function ArtistPage() {
   const d = useLoaderData<typeof loader>();
   return (
     <section className="artist-page">
-      {d.owner && (
-        <Link to={`/artist-profiles/${d.artist.id}`}>Edit artist</Link>
+      {d.owner && !d.preview && (
+        <PublicLink to={`/artist-profiles/${d.artist.id}`}>
+          Back to editing
+        </PublicLink>
       )}
       {d.artist.image && (
         <img
@@ -77,7 +81,7 @@ export default function ArtistPage() {
       <h2>Releases</h2>
       <div className="grid">
         {d.releases.map((r) => (
-          <Link
+          <PublicLink
             className="release-card"
             to={releasePath(d.artist, r)}
             key={r.id}
@@ -90,7 +94,7 @@ export default function ArtistPage() {
             <p>
               {r.kind.toUpperCase()} · {r.metadata.releaseDate}
             </p>
-          </Link>
+          </PublicLink>
         ))}
       </div>
       {!d.releases.length && <p>No published releases yet.</p>}

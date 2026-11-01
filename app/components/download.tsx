@@ -13,12 +13,14 @@ export function Download({
   share,
   owner,
   wav,
+  preview = false,
 }: {
   versionId: string;
   versionName: string;
   share?: string;
   owner: boolean;
   wav: boolean;
+  preview?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -34,10 +36,11 @@ export function Download({
       {open && (
         <DownloadDialog
           title={versionName}
-          action={"/media/" + versionId}
+          preview={preview}
+          action={"/media/" + versionId + (preview ? "?preview=1" : "")}
           onClose={() => setOpen(false)}
           onSubmit={(event) => {
-            if (share && !owner) {
+            if (share && !owner && !preview) {
               const identity = listenerIdentity(share);
               for (const field of ["browser", "session"] as const)
                 (

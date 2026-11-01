@@ -1,3 +1,4 @@
+import { rejectPreviewMutation } from "../server/preview";
 import { limitedBody } from "../server/request";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { and, asc, eq, sql, isNull } from "drizzle-orm";
@@ -57,6 +58,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 }
 export async function action({ request, params }: ActionFunctionArgs) {
   sameOrigin(request);
+  rejectPreviewMutation(request);
   const query = new URL(request.url).searchParams;
   const access = await versionAccess(
     request,

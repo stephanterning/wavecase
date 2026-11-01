@@ -1,3 +1,9 @@
+import {
+  EditForm,
+  PreviewLink,
+  useConfirmDiscard,
+} from "../components/editing";
+import { PublicLink } from "../components/public-links";
 import { demoWavAvailable } from "../server/download";
 import { TrackArtistField } from "../components/track-artist-field";
 import { artistChoices, linkedArtist } from "../server/track-artist";
@@ -23,6 +29,7 @@ import { useEffect, useRef, useState } from "react";
 import { db } from "../server/db";
 import { versions, links, reuploadRequests } from "../server/schema";
 import { sameOrigin, token, hash, origin } from "../server/security";
+import { formError } from "../server/releases";
 import { trackAccess } from "../server/access";
 export const meta = () => [
   { title: "Wavecase" },
@@ -68,6 +75,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           .where(eq(reuploadRequests.trackId, id!))
       : [],
     owner: access.owner,
+    preview: access.preview,
     share,
     shareUrl: share ? `${origin}/s/${encodeURIComponent(share)}` : null,
     versions: await Promise.all(
@@ -134,7 +142,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
       fromOrder: form.get("visibility") === "onward" ? latest?.position : null,
     });
   } else {
-    await uploadVersion(track.id, form);
+    try {
+      await uploadVersion(track.id, form);
+    } catch (error) {
+      return formError(error);
+    }
   }
   return { ok: true };
 }
@@ -143,13 +155,30 @@ export default function Track() {
   const result = useActionData<{ error?: string; requested?: boolean }>();
   const visitedShare = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (data.share && !data.owner && visitedShare.current !== data.share) {
+    if (
+      data.share &&
+      !data.owner &&
+      !data.preview &&
+      visitedShare.current !== data.share
+    ) {
       visitedShare.current = data.share;
       recordVisit(data.share);
     }
-  }, [data.share, data.owner]);
+  }, [data.share, data.owner, data.preview]);
   const [search] = useSearchParams();
-  const [selection, setSelection] = useState(() => search.get("version") || "");
+  const confirmDiscard = useConfirmDiscard();
+  const selectVersion = (id: string) => {
+    if (!confirmDiscard(["Version settings", "Version audio"])) return false;
+    setSelection(id);
+    return true;
+  };
+  const [selection, setSelection] = useState(
+    () =>
+      search.get("version") ||
+      data.versions.find((v) => v.state === "ready")?.id ||
+      data.versions[0]?.id ||
+      "",
+  );
   const cursor = useRef<Playback>({
     position: 0,
     playing: false,
@@ -163,7 +192,7 @@ export default function Track() {
     data.versions[0];
   const revalidator = useRevalidator();
   const artwork = data.track.cover
-    ? `/cover/${data.track.id}${data.share ? "?share=" + data.share : ""}`
+    ? `/cover/${data.track.id}${data.share ? "?share=" + data.share : ""}${data.preview ? "&preview=1" : ""}`
     : undefined;
   useEffect(() => {
     if (
@@ -179,6 +208,11 @@ export default function Track() {
   }, [data.versions, data.owner, revalidator]);
   return (
     <>
+      {data.owner && data.share && (
+        <p>
+          <a href={`/tracks/${data.track.id}`}>Back to editing</a>
+        </p>
+      )}
       {data.track.cover && (
         <img className="cover" alt="Track cover" src={artwork} />
       )}
@@ -186,12 +220,16 @@ export default function Track() {
         <h1>{data.track.title}</h1>
         <p className="eyebrow">
           {data.artistUrl ? (
-            <a className="demo-artist" href={data.artistUrl} rel="noreferrer">
+            <PublicLink
+              className="demo-artist"
+              to={data.artistUrl}
+              rel="noreferrer"
+            >
               {data.artistImageUrl && (
                 <img src={data.artistImageUrl} alt="" width={32} height={32} />
               )}
               <span>{data.track.artist}</span>
-            </a>
+            </PublicLink>
           ) : (
             data.track.artist || "MUSIC IN PROGRESS"
           )}
@@ -205,12 +243,25 @@ export default function Track() {
           </a>
         )}
       </div>
+      {data.owner && (
+        <nav className="section-nav" aria-label="Track actions">
+          <a href="#upload-version">Upload version</a>
+          <a href="#share-links">Share</a>
+          <a href="#feedback">Feedback</a>
+          <a href="#track-details">Track details</a>
+        </nav>
+      )}
       <p className="muted">{data.track.description}</p>
       {result?.error && <p role="alert">{result.error}</p>}
       {!data.owner && !data.versions.some((v) => v.state === "ready") && (
         <Form
           method="post"
           onSubmit={(event) => {
+            if (data.preview) {
+              event.preventDefault();
+              alert("Preview only. No reupload request was sent.");
+              return;
+            }
             const field = event.currentTarget.elements.namedItem("name");
             if (field instanceof HTMLInputElement)
               field.value = localStorage.getItem("wavecase.name") || "";
@@ -245,8 +296,7 @@ export default function Track() {
             <select
               value={current.id}
               onChange={(e) => {
-                setDraft(null);
-                setSelection(e.target.value);
+                if (selectVersion(e.target.value)) setDraft(null);
               }}
             >
               {data.versions.map((v) => (
@@ -295,12 +345,13 @@ export default function Track() {
                   : (selection) =>
                       setDraft({ versionId: current.id, ...selection })
               }
-              share={data.share}
+              share={data.preview ? undefined : data.share}
               versionId={current.id}
               url={
                 "/media/" +
                 current.id +
-                (data.share ? "?share=" + data.share : "")
+                (data.share ? "?share=" + data.share : "") +
+                (data.preview ? "&preview=1" : "")
               }
               peaks={current.peaks || []}
               duration={current.duration || 0}
@@ -339,6 +390,7 @@ export default function Track() {
                   share={data.share}
                   owner={data.owner}
                   wav={current.wavDownload}
+                  preview={data.preview}
                 />
               ) : (
                 <button
@@ -358,13 +410,14 @@ export default function Track() {
           versionId={current.id}
           share={data.share}
           owner={data.owner}
+          preview={data.preview}
           draft={draft}
           onDraftChange={setDraft}
           onSeek={(id, time) => {
+            if (current.id !== id && !selectVersion(id)) return;
             cursor.current.position = time;
             if (current.id === id && audio.current)
               audio.current.currentTime = time;
-            else setSelection(id);
           }}
           links={data.links}
           versions={data.versions}
@@ -373,7 +426,11 @@ export default function Track() {
       {data.owner && current && (
         <details className="panel" key={current.id}>
           <summary>Version settings · {current.name}</summary>
-          <Form method="post" action={"/tracks/" + data.track.id + "/manage"}>
+          <EditForm
+            label="Version settings"
+            action={"/tracks/" + data.track.id + "/manage"}
+          >
+            <input type="hidden" name="intent" value="version" />
             <input type="hidden" name="version" value={current.id} />
             <label>
               Version name
@@ -402,12 +459,13 @@ export default function Track() {
             <button name="intent" value="version">
               Save version
             </button>
-          </Form>
-          <Form
-            method="post"
+          </EditForm>
+          <EditForm
+            label="Version audio"
             encType="multipart/form-data"
             action={"/tracks/" + data.track.id + "/manage"}
           >
+            <input type="hidden" name="intent" value="replace" />
             <input type="hidden" name="version" value={current.id} />
             <label>
               Replace or restore audio
@@ -428,7 +486,7 @@ export default function Track() {
             <button name="intent" value="replace" disabled={current.processing}>
               Upload replacement
             </button>
-          </Form>
+          </EditForm>
           <Form
             method="post"
             action={"/tracks/" + data.track.id + "/manage"}
@@ -448,7 +506,7 @@ export default function Track() {
         </details>
       )}
       {data.owner && (
-        <details className="panel">
+        <details className="panel" id="track-details">
           <summary>Track details</summary>
           <Form
             method="post"
@@ -466,11 +524,12 @@ export default function Track() {
               Remove all audio
             </button>
           </Form>
-          <Form
-            method="post"
+          <EditForm
+            label="Cover image"
             encType="multipart/form-data"
             action={"/tracks/" + data.track.id + "/manage"}
           >
+            <input type="hidden" name="intent" value="cover" />
             <label>
               Cover image
               <input
@@ -483,8 +542,12 @@ export default function Track() {
             <button name="intent" value="cover">
               Upload cover
             </button>
-          </Form>
-          <Form method="post" action={"/tracks/" + data.track.id + "/manage"}>
+          </EditForm>
+          <EditForm
+            label="Track details"
+            action={"/tracks/" + data.track.id + "/manage"}
+          >
+            <input type="hidden" name="intent" value="metadata" />
             <label>
               Title
               <input name="title" defaultValue={data.track.title} required />
@@ -505,13 +568,20 @@ export default function Track() {
             <button name="intent" value="metadata">
               Save details
             </button>
-          </Form>
+          </EditForm>
         </details>
       )}
       {data.owner && (
         <div className="grid">
-          <Form method="post" encType="multipart/form-data" className="panel">
-            <h2>Upload a version</h2>
+          <EditForm
+            label="New version"
+            resetOnSave
+            encType="multipart/form-data"
+            className="panel"
+          >
+            <h2 id="upload-version" tabIndex={-1}>
+              Upload a version
+            </h2>
             <label>
               Status
               <select name="status" defaultValue="work in progress">
@@ -549,16 +619,20 @@ export default function Track() {
               Allow downloads
             </label>
             <button>Upload version</button>
-          </Form>
+          </EditForm>
           <section className="panel">
-            <h2>Share links</h2>
+            <h2 id="share-links" tabIndex={-1}>
+              Share links
+            </h2>
             {data.links.map((link) => (
               <details key={link.id}>
                 <summary>
                   {link.label} · {link.active ? "Active" : "Disabled"}
                 </summary>
                 <p>
-                  <a href={"/s/" + link.id}>Open share page</a>
+                  <PreviewLink href={"/s/" + link.id + "?preview=1"}>
+                    Preview as listener
+                  </PreviewLink>
                 </p>
                 <button
                   type="button"
@@ -571,10 +645,11 @@ export default function Track() {
                 >
                   Copy link
                 </button>
-                <Form
-                  method="post"
+                <EditForm
+                  label={`Share link: ${link.label}`}
                   action={"/tracks/" + data.track.id + "/manage"}
                 >
+                  <input type="hidden" name="intent" value="link" />
                   <input type="hidden" name="link" value={link.id} />
                   <label>
                     Private label
@@ -619,10 +694,10 @@ export default function Track() {
                   <button name="intent" value="link">
                     Save link
                   </button>
-                </Form>
+                </EditForm>
               </details>
             ))}
-            <Form method="post">
+            <EditForm label="New share link" resetOnSave>
               <input type="hidden" name="intent" value="link" />
               <label>
                 Private label
@@ -640,7 +715,7 @@ export default function Track() {
                 Allow downloads
               </label>
               <button>Create link</button>
-            </Form>
+            </EditForm>
           </section>
         </div>
       )}

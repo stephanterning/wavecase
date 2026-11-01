@@ -1,3 +1,4 @@
+import { EditingProvider } from "../components/editing";
 import { useRef } from "react";
 import { Outlet, useLocation } from "react-router";
 
@@ -41,7 +42,9 @@ export default function Workspace() {
         >
           Menu
         </button>
-        <Outlet />
+        <EditingProvider>
+          <Outlet />
+        </EditingProvider>
       </div>
       <dialog
         className="workspace-drawer"

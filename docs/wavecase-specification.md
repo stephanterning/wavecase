@@ -20,6 +20,12 @@ The dashboard shows current demo, artist, published release, and draft counts. A
 
 Artist administration has a name-sorted grid of fully clickable cards with profile images (or placeholders), release counts, and individual profile editors, preserving stable public addresses. New artists and releases use creation modals, with dashboard shortcuts also opening these and the existing new-track modal. Release cards show artwork, with a placeholder for drafts without it; the entire card links to release editing, without a separate public-page link. Releases require an owned artist. Public artist URLs remain `/artists/:artist`.
 
+Management editors save each section independently, show unsaved/saved status, and warn before leaving with unsaved edits. Preview links open a new tab with saved content; when sections are dirty, offer Save and preview, Preview saved version, or Cancel. Saving one section preserves edits in other sections. There is no autosave.
+
+Release management supports title/artist search and artist/status filters. Artist editors show the current image and all owned releases, including drafts, with an artist-preselected Add release shortcut. Release editors provide Details, Artwork, Tracks, and Activity section navigation, collapsed track editors with audio status, a publication checklist, and a separate Release actions menu. Demo headers expose Upload version, Share, Feedback, and Track details shortcuts. Dashboard quick actions precede statistics. Link editors use separate name and URL fields, and creation forms display the proposed immutable public address. Explain why the last passkey cannot be removed.
+
+Owner previews use the listener interface without account controls, editing links, or return buttons. Demo preview requires ownership and an active share link and follows that link's version/download permissions. Preview navigation preserves this mode; playback is allowed but does not record analytics. Comment and download dialogs remain explorable, but submission reports that nothing was sent or saved. Draft release previews remain private, and drafts cannot download. Preview never publishes content. Normal published pages can offer owners a Back to editing link. Public branding does not lead listeners to account login, and unavailable share pages advise contacting the sender without revealing protected metadata.
+
 ## Private demos
 
 ### Library and versions
@@ -82,7 +88,7 @@ The 220-pixel waveform may normalize visual amplitude. Click/tap seeks, wheel zo
 - Right-click or touch hold: point comment; right-button drag or hold-then-drag: range, ordered in either direction.
 - Context-menu key or Shift+F10: point comment for keyboard users. Pinch/cancel must not trigger an accidental comment.
 
-Comment/reply/download dialogs trap focus, support Escape/close, and return focus to their trigger. A comment retains its selected version/thread while open and closes after successful submission.
+Comment time fields use minutes:seconds with optional hundredths, converted to numeric seconds on submission. Comment/reply/download dialogs trap focus, support Escape/close, and return focus to their trigger. A comment retains its selected version/thread while open and closes after successful submission.
 
 Media Session provides title, artist, available artwork, play/pause, and seek where supported. Private artwork keeps its access checks. Update metadata when tracks change; clear it on player exit, media failure, or learned revocation. Background/lock-screen behavior requires real-device verification; repeat remains a web control.
 

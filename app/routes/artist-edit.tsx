@@ -1,17 +1,18 @@
+import { EditForm, PreviewLink } from "../components/editing";
+import { LinkFields } from "../components/link-fields";
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  Form,
   redirect,
   useActionData,
   useLoaderData,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "react-router";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../server/db";
-import { artists } from "../server/schema";
+import { artists, releases } from "../server/schema";
 import { requireUser, sameOrigin } from "../server/security";
 import { limitedBody } from "../server/request";
 import {
@@ -22,7 +23,15 @@ import {
 } from "../server/releases";
 import { parseLinks } from "../domain/releases";
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  return { artist: await ownedArtist(request, params.id!) };
+  const artist = await ownedArtist(request, params.id!);
+  return {
+    artist,
+    releases: await db
+      .select()
+      .from(releases)
+      .where(eq(releases.artistId, artist.id))
+      .orderBy(desc(releases.createdAt)),
+  };
 }
 export async function action({ request, params }: ActionFunctionArgs) {
   sameOrigin(request);
@@ -55,21 +64,24 @@ export async function action({ request, params }: ActionFunctionArgs) {
       if (artist.image)
         await unlink(join(directory(), artist.image)).catch(() => {});
     } else throw new Response("Unknown action", { status: 400 });
+    if (f.has("_inline")) return { saved: true, error: undefined };
     return redirect(`/artist-profiles/${params.id}`);
   } catch (error) {
     return formError(error);
   }
 }
 export default function ArtistEdit() {
-  const { artist: a } = useLoaderData<typeof loader>();
+  const { artist: a, releases: rows } = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
   return (
     <>
       <h1>{a.name}</h1>
-      <a href={`/artists/${a.slug}`}>View public page</a>
+      <PreviewLink href={`/artists/${a.slug}?preview=1`}>
+        View public page
+      </PreviewLink>
       {result?.error && <p role="alert">{result.error}</p>}
       <section className="panel">
-        <Form method="post">
+        <EditForm label="Artist details">
           <input type="hidden" name="intent" value="edit-artist" />
           <input type="hidden" name="id" value={a.id} />
           <label>
@@ -80,21 +92,20 @@ export default function ArtistEdit() {
             Biography
             <textarea name="bio" defaultValue={a.bio} maxLength={5000} />
           </label>
-          <label>
-            Links (one per line: Label | https://...)
-            <textarea
-              name="links"
-              defaultValue={a.links
-                .map((l) => `${l.label} | ${l.url}`)
-                .join("\n")}
-            />
-          </label>
+          <LinkFields links={a.links} />
           <button>Save artist</button>
-        </Form>
-        <Form method="post" encType="multipart/form-data">
+        </EditForm>
+        <EditForm label="Profile image" encType="multipart/form-data">
           <input type="hidden" name="intent" value="artist-image" />
           <input type="hidden" name="id" value={a.id} />
           <input type="hidden" name="name" value={a.name} />
+          {a.image && (
+            <img
+              className="artist-image"
+              src={`/artist-images/${a.id}`}
+              alt={`${a.name} profile`}
+            />
+          )}
           <label>
             Profile image
             <input
@@ -105,7 +116,24 @@ export default function ArtistEdit() {
             />
           </label>
           <button>Upload image</button>
-        </Form>
+        </EditForm>
+      </section>
+      <section className="panel">
+        <h2>Releases</h2>
+        <a href={`/releases?create=1&artist=${a.id}`}>
+          Add release for {a.name}
+        </a>
+        <ul className="overview-list">
+          {rows.map((release) => (
+            <li key={release.id}>
+              <a href={`/releases/${release.id}`}>{release.title}</a>
+              <span>
+                {release.published ? "Published" : "Draft"} · {release.kind}
+              </span>
+            </li>
+          ))}
+        </ul>
+        {!rows.length && <p>No releases yet. Create a draft to get started.</p>}
       </section>
     </>
   );

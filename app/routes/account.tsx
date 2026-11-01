@@ -83,6 +83,12 @@ export default function Account() {
             </p>
           </Form>
         ))}
+        {keys.length <= 1 && (
+          <p className="muted">
+            Keep at least one passkey so you can sign in. Add another before
+            removing this one.
+          </p>
+        )}
         <button onClick={() => void add()}>Add passkey</button>
         {error && <p role="alert">{error}</p>}
       </section>
