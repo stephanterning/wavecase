@@ -65,7 +65,10 @@ export function Download({
             The ZIP includes this version’s audio, artwork if available, and
             demo-info.txt with track and version information.
           </p>
-          <DownloadFormats wav={wav} />
+          <DownloadFormats
+            wav={wav}
+            detailsUrl={`/media/${versionId}?${new URLSearchParams({ "download-info": "1", ...(share ? { share } : {}), ...(preview ? { preview: "1" } : {}) })}`}
+          />
           {!owner && <DownloadEmail ownerLabel="demo owner" />}
         </DownloadDialog>
       )}

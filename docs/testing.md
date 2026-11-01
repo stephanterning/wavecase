@@ -48,6 +48,7 @@ Create the database only once. Building the image also checks the production bui
 | --- | --- |
 | Passkeys, setup races, invitations, access boundaries, and regression cases | `auth`, `access`, `review-regressions` |
 | Demo masters, dither, exact duration, invalid input, ZIP/email permissions, and worker replacement | `audio-policy`, `audio`, `downloads`, `worker` |
+| Scoped demo editing, permanent track/link deletion, file cleanup, and aggregate exclusion | `demo-management`, `share-links`, `library` |
 | Playback counts, intervals, retries, normalization, gestures, and media sessions | `activity`, `listening`, `playback-events`, `telemetry`, `playback-audio`, `waveform-gestures`, `media-session` |
 | Release processing/publication/ZIPs, shared playback, credits, artist links, and previews | `releases`, `release-playback`, `release-artists`, `release-services`, `songwriters`, `track-artist`, `share-preview`, `preview` |
 

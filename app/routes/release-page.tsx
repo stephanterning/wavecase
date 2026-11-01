@@ -94,7 +94,11 @@ const time = (seconds: number) =>
 export default function ReleasePage() {
   const d = useLoaderData<typeof loader>();
   const [downloadOpen, setDownloadOpen] = useState(false);
+  const [downloadTrack, setDownloadTrack] = useState("");
   const available = d.tracks.filter((t) => t.available);
+  const downloadTracks = available.filter(
+    (t) => !downloadTrack || t.id === downloadTrack,
+  );
   const playable = available.filter((t) => t.audioMeasurements);
   const waitingForMeasurements = available.some((t) => !t.audioMeasurements);
   const revalidator = useRevalidator();
@@ -287,7 +291,13 @@ export default function ReleasePage() {
           )}
           {!!available.length && d.release.published && (
             <section className="release-download">
-              <button type="button" onClick={() => setDownloadOpen(true)}>
+              <button
+                type="button"
+                onClick={() => {
+                  setDownloadTrack("");
+                  setDownloadOpen(true);
+                }}
+              >
                 Download
               </button>
               {downloadOpen && (
@@ -298,8 +308,8 @@ export default function ReleasePage() {
                   onClose={() => setDownloadOpen(false)}
                 >
                   <p>
-                    {available.length} of {d.tracks.length} tracks included:{" "}
-                    {available.map((t) => t.title).join(", ")}.
+                    {downloadTracks.length} of {d.tracks.length} tracks
+                    included: {downloadTracks.map((t) => t.title).join(", ")}.
                   </p>
                   <p className="muted">
                     Every ZIP includes audio in the selected format, artwork and
@@ -307,7 +317,11 @@ export default function ReleasePage() {
                   </p>
                   <label>
                     Package
-                    <select name="track">
+                    <select
+                      name="track"
+                      value={downloadTrack}
+                      onChange={(e) => setDownloadTrack(e.target.value)}
+                    >
                       <option value="">
                         All available tracks ({available.length})
                       </option>
@@ -318,7 +332,9 @@ export default function ReleasePage() {
                       ))}
                     </select>
                   </label>
-                  <DownloadFormats />
+                  <DownloadFormats
+                    detailsUrl={`${endpoint}/download-info?${new URLSearchParams({ track: downloadTrack, ...(d.preview ? { preview: "1" } : {}) })}`}
+                  />
                   <DownloadEmail ownerLabel="release owner" />
                 </DownloadDialog>
               )}

@@ -42,7 +42,10 @@ export function Feedback({
   const [items, setItems] = useState<Comment[]>([]);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
-  const [filter, setFilter] = useState("all");
+  const [requestedFilter, setFilter] = useState("all");
+  const filter = links.some((link) => link.id === requestedFilter)
+    ? requestedFilter
+    : "all";
   const [allVersions, setAllVersions] = useState(false);
   const versionIds =
     allVersions && owner ? versions.map((v) => v.id).join(",") : versionId;
@@ -99,7 +102,9 @@ export function Feedback({
   const visibleItems = items.filter(
     (item) =>
       versionIds.split(",").includes(item.versionId) &&
-      (owner || item.linkId === share),
+      (owner
+        ? links.some((link) => link.id === item.linkId)
+        : item.linkId === share),
   );
   async function send(form: HTMLFormElement, draft: CommentDraft) {
     if (preview) {

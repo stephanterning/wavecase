@@ -230,9 +230,11 @@ function FormContents({
 export function PreviewLink({
   href,
   children,
+  iconOnly = false,
 }: {
   href: string;
   children: ReactNode;
+  iconOnly?: boolean;
 }) {
   const editors = useContext(Editing);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -259,7 +261,7 @@ export function PreviewLink({
           dialog.current?.showModal();
         }}
       >
-        {children} <span aria-hidden="true">↗</span>
+        {children} {!iconOnly && <span aria-hidden="true">↗</span>}
         <span className="sr-only"> (opens in a new tab)</span>
       </a>
       <dialog
@@ -331,7 +333,7 @@ export function EditorDialog({
   children,
 }: {
   title: string;
-  trigger: string;
+  trigger: ReactNode;
   id?: string;
   children: ReactNode;
 }) {
@@ -372,6 +374,7 @@ export function EditorDialog({
           aria-label={title}
           onCancel={(event) => {
             event.preventDefault();
+            event.stopPropagation();
             cancel();
           }}
         >
@@ -393,7 +396,12 @@ export function EditForm({
   trigger,
   id,
   ...props
-}: FormProps & { label: string; resetOnSave?: boolean; trigger?: string }) {
+}: FormProps & {
+  label: string;
+  resetOnSave?: boolean;
+  trigger?: ReactNode;
+  modal?: boolean;
+}) {
   return trigger ? (
     <EditorDialog title={props.label} trigger={trigger} id={id}>
       <FormContents {...props} modal />

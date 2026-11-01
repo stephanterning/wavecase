@@ -1,13 +1,11 @@
 import {
-  EditForm,
-  EditorDialog,
-  CloseEditor,
-  PreviewLink,
-  useConfirmDiscard,
-} from "../components/editing";
-import { PublicLink } from "../components/public-links";
+  DemoIdentity,
+  VersionEditor,
+  ReplaceAudio,
+} from "../components/demo-editors";
+import { ShareLinks } from "../components/share-links";
+import { EditForm, useConfirmDiscard } from "../components/editing";
 import { demoWavAvailable } from "../server/download";
-import { TrackArtistField } from "../components/track-artist-field";
 import { artistChoices, linkedArtist } from "../server/track-artist";
 import { uploadVersion } from "../server/upload";
 import { limitedBody } from "../server/request";
@@ -24,12 +22,20 @@ import {
   useSearchParams,
 } from "react-router";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  inArray,
+  sql,
+} from "drizzle-orm";
 import { versionStatuses } from "../domain/versions";
 import { recordVisit } from "../components/telemetry";
 import { useEffect, useRef, useState } from "react";
 import { db } from "../server/db";
-import { versions, links, reuploadRequests } from "../server/schema";
+import { versions, links, reuploadRequests, events } from "../server/schema";
 import { sameOrigin, token, hash, origin } from "../server/security";
 import { formError } from "../server/releases";
 import { trackAccess } from "../server/access";
@@ -62,6 +68,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       ...access.track,
       artist: artist?.name || access.track.artist,
       cover: !!access.track.cover,
+      coverRevision: access.track.cover ? hash(access.track.cover) : null,
     },
     artistUrl: artist
       ? access.owner
@@ -110,7 +117,28 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         ),
     ),
     links: access.owner
-      ? await db.select().from(links).where(eq(links.trackId, id!))
+      ? await db
+          .select({
+            ...getTableColumns(links),
+            plays: sql<number>`(${db
+              .select({ value: count() })
+              .from(events)
+              .where(
+                and(eq(events.linkId, links.id), eq(events.kind, "play")),
+              )})`.mapWith(Number),
+            downloads: sql<number>`(${db
+              .select({ value: count() })
+              .from(events)
+              .where(
+                and(
+                  eq(events.linkId, links.id),
+                  eq(events.kind, "download-started"),
+                ),
+              )})`.mapWith(Number),
+          })
+          .from(links)
+          .where(eq(links.trackId, id!))
+          .orderBy(desc(links.createdAt), links.id)
       : [],
   };
 }
@@ -170,7 +198,7 @@ export default function Track() {
   const [search] = useSearchParams();
   const confirmDiscard = useConfirmDiscard();
   const selectVersion = (id: string) => {
-    if (!confirmDiscard(["Version settings", "Version audio"])) return false;
+    if (!confirmDiscard(["Edit version", "Replace audio"])) return false;
     setSelection(id);
     return true;
   };
@@ -194,7 +222,7 @@ export default function Track() {
     data.versions[0];
   const revalidator = useRevalidator();
   const artwork = data.track.cover
-    ? `/cover/${data.track.id}${data.share ? "?share=" + data.share : ""}${data.preview ? "&preview=1" : ""}`
+    ? `/cover/${data.track.id}?v=${data.track.coverRevision}${data.share ? "&share=" + data.share : ""}${data.preview ? "&preview=1" : ""}`
     : undefined;
   useEffect(() => {
     if (
@@ -215,41 +243,12 @@ export default function Track() {
           <a href={`/tracks/${data.track.id}`}>Back to editing</a>
         </p>
       )}
-      {data.track.cover && (
-        <img className="cover" alt="Track cover" src={artwork} />
-      )}
-      <div className="demo-heading">
-        <h1>{data.track.title}</h1>
-        <p className="eyebrow">
-          {data.artistUrl ? (
-            <PublicLink
-              className="demo-artist"
-              to={data.artistUrl}
-              rel="noreferrer"
-            >
-              {data.artistImageUrl && (
-                <img src={data.artistImageUrl} alt="" width={32} height={32} />
-              )}
-              <span>{data.track.artist}</span>
-            </PublicLink>
-          ) : (
-            data.track.artist || "MUSIC IN PROGRESS"
-          )}
-        </p>
-        {data.owner && (
-          <a
-            className="demo-activity-link"
-            href={"/tracks/" + data.track.id + "/analytics"}
-          >
-            Listening activity
-          </a>
-        )}
-      </div>
+      <DemoIdentity data={data} artwork={artwork} />
       {data.owner && (
         <nav className="section-nav" aria-label="Track actions">
           <EditForm
             label="New version"
-            trigger="Upload version"
+            trigger="Upload new version"
             resetOnSave
             encType="multipart/form-data"
             className="panel"
@@ -293,127 +292,10 @@ export default function Track() {
               <input type="checkbox" name="download" />
               Allow downloads
             </label>
-            <button>Upload version</button>
+            <button>Upload new version</button>
           </EditForm>
-          <EditorDialog title="Share links" trigger="Share">
-            <>
-              <section className="panel">
-                {data.links.map((link) => (
-                  <details key={link.id}>
-                    <summary>
-                      {link.label} · {link.active ? "Active" : "Disabled"}
-                      <small className="track-summary">
-                        {link.fromOrder
-                          ? `From ${data.versions.find((v) => v.position === link.fromOrder)?.name || "selected version"} onward`
-                          : "All versions"}
-                        {" · "}
-                        {link.download ? "Downloads allowed" : "Listening only"}
-                      </small>
-                    </summary>
-                    <p>
-                      <PreviewLink href={"/s/" + link.id + "?preview=1"}>
-                        Preview as listener
-                      </PreviewLink>
-                    </p>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() =>
-                        void navigator.clipboard.writeText(
-                          window.location.origin + "/s/" + link.id,
-                        )
-                      }
-                    >
-                      Copy link
-                    </button>
-                    <EditForm
-                      label={`Share link: ${link.label}`}
-                      action={"/tracks/" + data.track.id + "/manage"}
-                    >
-                      <input type="hidden" name="intent" value="link" />
-                      <input type="hidden" name="link" value={link.id} />
-                      <label>
-                        Private label
-                        <input
-                          name="label"
-                          defaultValue={link.label}
-                          required
-                        />
-                      </label>
-                      <label className="check">
-                        <input
-                          type="checkbox"
-                          name="active"
-                          defaultChecked={link.active}
-                        />
-                        Active
-                      </label>
-                      <label className="check">
-                        <input
-                          type="checkbox"
-                          name="download"
-                          defaultChecked={link.download}
-                        />
-                        Allow downloads
-                      </label>
-                      <label>
-                        Visible versions
-                        <select
-                          name="from"
-                          defaultValue={
-                            link.fromOrder
-                              ? data.versions.find(
-                                  (v) => v.position === link.fromOrder,
-                                )?.id || ""
-                              : ""
-                          }
-                        >
-                          <option value="">All versions</option>
-                          {data.versions.map((v) => (
-                            <option key={v.id} value={v.id}>
-                              From {v.name} onward
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <button name="intent" value="link">
-                        Save link
-                      </button>
-                    </EditForm>
-                  </details>
-                ))}
-                <EditForm
-                  label="New share link"
-                  trigger="＋ Create link"
-                  resetOnSave
-                >
-                  <input type="hidden" name="intent" value="link" />
-                  <label>
-                    Private label
-                    <input name="label" required />
-                  </label>
-                  <label>
-                    Versions
-                    <select name="visibility" defaultValue="onward">
-                      <option value="all">All versions</option>
-                      <option value="onward">Latest and future versions</option>
-                    </select>
-                  </label>
-                  <label className="check">
-                    <input type="checkbox" name="download" />
-                    Allow downloads
-                  </label>
-                  <button>Create link</button>
-                </EditForm>
-              </section>
-              <CloseEditor />
-            </>
-          </EditorDialog>
-          <a href="#feedback">Feedback</a>
-          <a href="#track-details">Track details</a>
         </nav>
       )}
-      <p className="muted">{data.track.description}</p>
       {result?.error && <p role="alert">{result.error}</p>}
       {!data.owner && !data.versions.some((v) => v.state === "ready") && (
         <Form
@@ -430,7 +312,6 @@ export default function Track() {
           }}
         >
           <input type="hidden" name="name" />
-          <p>Audio file missing.</p>
           <button>Request reupload</button>
           {result?.requested && (
             <p role="status">Your reupload request has been sent.</p>
@@ -453,27 +334,41 @@ export default function Track() {
         ))}
       {current && (
         <section className="panel player-panel">
-          <label className="version-picker">
-            Version
-            <select
-              value={current.id}
-              onChange={(e) => {
-                if (selectVersion(e.target.value)) setDraft(null);
-              }}
-            >
-              {data.versions.map((v) => (
-                <option value={v.id} key={v.id}>
-                  {v.name} · {v.status}
-                  {v.state === "missing"
-                    ? " · Audio file missing"
-                    : v.state === "ready"
-                      ? ""
-                      : " · " + v.state}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p>{current.description}</p>
+          <div className="version-heading">
+            <label className="version-picker">
+              <span className="sr-only">Version</span>
+              <span className="version-select-size">
+                <span aria-hidden="true">{current.name}</span>
+                <select
+                  value={current.id}
+                  onChange={(e) => {
+                    if (selectVersion(e.target.value)) setDraft(null);
+                  }}
+                >
+                  {data.versions.map((v) => (
+                    <option value={v.id} key={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+              </span>
+            </label>
+            {data.owner && (
+              <VersionEditor trackId={data.track.id} version={current} />
+            )}
+          </div>
+          <p>
+            {current.status}
+            {data.owner &&
+              ` · ${current.download ? "Downloads allowed" : "Downloads disabled"}`}
+          </p>
+          {current.description && (
+            <p className="demo-description">{current.description}</p>
+          )}
+          {data.owner && current.processing && (
+            <p role="status">Processing replacement audio…</p>
+          )}
+          {data.owner && current.error && <p role="alert">{current.error}</p>}
           <div className="metrics">
             {[
               ["LUFS", "lufs"],
@@ -491,41 +386,56 @@ export default function Track() {
               </span>
             ))}
           </div>
-          {current.state === "ready" ? (
-            <Player
-              key={current.id + current.revision}
-              title={data.track.title}
-              artist={data.track.artist}
-              artwork={artwork}
-              playbackRef={cursor}
-              audioRef={audio}
-              repeat={repeat}
-              onRepeatChange={setRepeat}
-              onComment={
-                data.owner
-                  ? undefined
-                  : (selection) =>
-                      setDraft({ versionId: current.id, ...selection })
-              }
-              share={data.preview ? undefined : data.share}
-              versionId={current.id}
-              url={
-                "/media/" +
-                current.id +
-                (data.share ? "?share=" + data.share : "") +
-                (data.preview ? "&preview=1" : "")
-              }
-              peaks={current.peaks || []}
-              duration={current.duration || 0}
-              metadata={current.metadata}
-            />
-          ) : (
-            <p>
-              {current.state === "missing"
-                ? "Audio file missing"
-                : current.error || "Processing audio…"}
-            </p>
-          )}
+          <div className="demo-waveform">
+            {data.owner && (
+              <ReplaceAudio trackId={data.track.id} version={current} />
+            )}
+            {current.state === "ready" ? (
+              <Player
+                key={current.id + current.revision}
+                title={data.track.title}
+                artist={data.track.artist}
+                artwork={artwork}
+                playbackRef={cursor}
+                audioRef={audio}
+                repeat={repeat}
+                onRepeatChange={setRepeat}
+                onComment={
+                  data.owner
+                    ? undefined
+                    : (selection) =>
+                        setDraft({ versionId: current.id, ...selection })
+                }
+                share={data.preview ? undefined : data.share}
+                versionId={current.id}
+                url={
+                  "/media/" +
+                  current.id +
+                  (data.share ? "?share=" + data.share : "") +
+                  (data.preview ? "&preview=1" : "")
+                }
+                peaks={current.peaks || []}
+                duration={current.duration || 0}
+                metadata={current.metadata}
+              />
+            ) : (
+              <div className="audio-unavailable" role="status">
+                <strong>
+                  {current.state === "missing"
+                    ? "Audio unavailable"
+                    : current.state === "failed"
+                      ? "Audio could not be processed"
+                      : "Processing audio…"}
+                </strong>
+                {current.state === "missing" && (
+                  <p>
+                    The audio for this version is currently unavailable. Please
+                    check back later.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
           <div className="track-actions">
             {!data.owner && (
               <button
@@ -567,6 +477,13 @@ export default function Track() {
           </div>
         </section>
       )}
+      {data.owner && (
+        <ShareLinks
+          trackId={data.track.id}
+          links={data.links}
+          versions={data.versions}
+        />
+      )}
       {current && (
         <Feedback
           versionId={current.id}
@@ -585,154 +502,6 @@ export default function Track() {
           versions={data.versions}
         />
       )}{" "}
-      {data.owner && current && (
-        <details className="panel" key={current.id}>
-          <summary>Version settings · {current.name}</summary>
-          <EditForm
-            label="Version settings"
-            action={"/tracks/" + data.track.id + "/manage"}
-          >
-            <input type="hidden" name="intent" value="version" />
-            <input type="hidden" name="version" value={current.id} />
-            <label>
-              Version name
-              <input name="name" defaultValue={current.name} required />
-            </label>
-            <label>
-              Description
-              <textarea name="description" defaultValue={current.description} />
-            </label>
-            <label>
-              Status
-              <select name="status" defaultValue={current.status}>
-                {versionStatuses.map((status) => (
-                  <option key={status}>{status}</option>
-                ))}
-              </select>
-            </label>
-            <label className="check">
-              <input
-                type="checkbox"
-                name="download"
-                defaultChecked={current.download}
-              />
-              Allow downloads
-            </label>
-            <button name="intent" value="version">
-              Save version
-            </button>
-          </EditForm>
-          <EditForm
-            label="Version audio"
-            encType="multipart/form-data"
-            action={"/tracks/" + data.track.id + "/manage"}
-          >
-            <input type="hidden" name="intent" value="replace" />
-            <input type="hidden" name="version" value={current.id} />
-            <label>
-              Replace or restore audio
-              <input
-                type="file"
-                name="audio"
-                required
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  const field = e.target.form?.elements.namedItem("name");
-                  if (file && field instanceof HTMLInputElement)
-                    field.value =
-                      file.name.match(/(?:^|[ _-])(v\d+(?:\.\d+)*)/i)?.[1] ||
-                      "v1";
-                }}
-              />
-            </label>
-            <button name="intent" value="replace" disabled={current.processing}>
-              Upload replacement
-            </button>
-          </EditForm>
-          <Form
-            method="post"
-            action={"/tracks/" + data.track.id + "/manage"}
-            onSubmit={(e) => {
-              if (
-                !confirm("Remove this audio? Comments and history will remain.")
-              )
-                e.preventDefault();
-            }}
-          >
-            <input type="hidden" name="version" value={current.id} />
-            <button name="intent" value="remove" className="secondary">
-              Remove audio
-            </button>
-          </Form>
-          {current.error && <p role="alert">{current.error}</p>}
-        </details>
-      )}
-      {data.owner && (
-        <details className="panel" id="track-details">
-          <summary>Track details</summary>
-          <Form
-            method="post"
-            action={"/tracks/" + data.track.id + "/manage"}
-            onSubmit={(e) => {
-              if (
-                !confirm(
-                  "Remove all audio for this track? Metadata, links, comments and statistics will remain.",
-                )
-              )
-                e.preventDefault();
-            }}
-          >
-            <button name="intent" value="remove-track" className="secondary">
-              Remove all audio
-            </button>
-          </Form>
-          <EditForm
-            label="Cover image"
-            encType="multipart/form-data"
-            action={"/tracks/" + data.track.id + "/manage"}
-          >
-            <input type="hidden" name="intent" value="cover" />
-            <label>
-              Cover image
-              <input
-                type="file"
-                name="cover"
-                accept="image/png,image/jpeg,image/webp"
-                required
-              />
-            </label>
-            <button name="intent" value="cover">
-              Upload cover
-            </button>
-          </EditForm>
-          <EditForm
-            label="Track details"
-            action={"/tracks/" + data.track.id + "/manage"}
-          >
-            <input type="hidden" name="intent" value="metadata" />
-            <label>
-              Title
-              <input name="title" defaultValue={data.track.title} required />
-            </label>
-            <TrackArtistField
-              key={`${data.track.id}:${data.track.artistId}:${data.track.artist}`}
-              profiles={data.artists}
-              artistId={data.track.artistId}
-              name={data.track.artist}
-            />
-            <label>
-              Description
-              <textarea
-                name="description"
-                defaultValue={data.track.description}
-              />
-            </label>
-            <button name="intent" value="metadata">
-              Save details
-            </button>
-          </EditForm>
-        </details>
-      )}
     </>
   );
 }
