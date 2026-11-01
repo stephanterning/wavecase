@@ -101,15 +101,19 @@ export default function Library() {
           <p className="eyebrow">YOUR LIBRARY</p>
           <h1>Music in progress.</h1>
         </div>
-        <Form method="post" action="/logout">
-          <button className="secondary">Sign out</button>
-        </Form>
       </div>
       <div className="library-toolbar">
+        <button
+          ref={createTrigger}
+          type="button"
+          onClick={() => dialog.current?.showModal()}
+        >
+          Add new track
+        </button>
         <div className="library-filter">
-          <label htmlFor="track-filter">Find a track</label>
           <div className="library-filter-input">
             <input
+              aria-label="Search your music"
               id="track-filter"
               type="search"
               value={filter}
@@ -127,13 +131,6 @@ export default function Library() {
             )}
           </div>
         </div>
-        <button
-          ref={createTrigger}
-          type="button"
-          onClick={() => dialog.current?.showModal()}
-        >
-          Add new track
-        </button>
       </div>
       <div
         className="library-scroll"

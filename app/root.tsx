@@ -56,14 +56,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
             )}
           </div>
           {data?.user && (
-            <a
-              className="account-avatar"
-              href="/account"
-              aria-label={`Account: ${data.user.name}`}
-              title={data.user.name}
-            >
-              {Array.from(data.user.name.trim())[0]?.toLocaleUpperCase() || "?"}
-            </a>
+            <>
+              <button
+                type="button"
+                className="account-avatar"
+                popoverTarget="account-menu"
+                aria-label={`Account: ${data.user.name}`}
+                title={data.user.name}
+              >
+                {Array.from(data.user.name.trim())[0]?.toLocaleUpperCase() ||
+                  "?"}
+              </button>
+              <div id="account-menu" popover="auto" className="account-menu">
+                <nav aria-label="Account">
+                  <a href="/account">Your account</a>
+                  <form method="post" action="/logout">
+                    <button type="submit">Log out</button>
+                  </form>
+                </nav>
+              </div>
+            </>
           )}
         </header>
         <main>{children}</main>

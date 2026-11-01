@@ -1,4 +1,9 @@
-import { Form, useLoaderData, type LoaderFunctionArgs } from "react-router";
+import {
+  Form,
+  useSubmit,
+  useLoaderData,
+  type LoaderFunctionArgs,
+} from "react-router";
 import { requireUser } from "../server/security";
 import { dashboard } from "../server/dashboard";
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -27,26 +32,34 @@ const date = (value: Date | string) =>
   new Date(value).toISOString().slice(0, 16).replace("T", " ") + " UTC";
 export default function Dashboard() {
   const d = useLoaderData<typeof loader>();
+  const submit = useSubmit();
   return (
     <>
       <p className="eyebrow">DASHBOARD</p>
-      <h1>Welcome back, {d.name}.</h1>
+      <div className="dashboard-heading">
+        <h1>Welcome back, {d.name}.</h1>
+        <Form method="get" className="period-form">
+          <label>
+            Activity period
+            <select
+              name="period"
+              defaultValue={d.period}
+              key={d.period}
+              onChange={(event) => void submit(event.currentTarget.form)}
+            >
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="all">All time</option>
+            </select>
+          </label>
+        </Form>
+      </div>
       <p className="muted">
         Your library now: {d.inventory.demos} demos · {d.inventory.published}{" "}
         published releases · {d.inventory.drafts} release drafts ·{" "}
         {d.inventory.artists} artists
       </p>
-      <Form method="get" className="period-form">
-        <label>
-          Activity period
-          <select name="period" defaultValue={d.period} key={d.period}>
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="all">All time</option>
-          </select>
-        </label>
-        <button>Apply</button>
-      </Form>
+
       <section className="dashboard-section">
         <h2>Work in progress</h2>
         <Cards

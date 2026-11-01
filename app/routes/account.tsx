@@ -68,7 +68,6 @@ export default function Account() {
   }
   return (
     <>
-      <a href="/library">← Your library</a>
       <h1>Your account</h1>
       <p>
         {user.name} · {user.email}

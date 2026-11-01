@@ -108,6 +108,20 @@ export default function Releases() {
       <div className="grid">
         {data.releases.map(({ release, artist }) => (
           <article className="panel" key={release.id}>
+            {release.cover ? (
+              <img
+                className="management-artwork"
+                src={`/release-assets/${release.id}/cover`}
+                alt={`${release.title} artwork`}
+                loading="lazy"
+                width="400"
+                height="400"
+              />
+            ) : (
+              <div className="management-artwork artwork-placeholder">
+                No artwork yet
+              </div>
+            )}
             <p className="eyebrow">
               {release.published ? "PUBLISHED" : "DRAFT"} · {release.kind}
             </p>
