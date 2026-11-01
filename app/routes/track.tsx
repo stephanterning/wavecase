@@ -13,6 +13,7 @@ import {
   useLoaderData,
   useRevalidator,
   useActionData,
+  useSearchParams,
 } from "react-router";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -143,7 +144,8 @@ export default function Track() {
       recordVisit(data.share);
     }
   }, [data.share, data.owner]);
-  const [selection, setSelection] = useState("");
+  const [search] = useSearchParams();
+  const [selection, setSelection] = useState(() => search.get("version") || "");
   const cursor = useRef<Playback>({
     position: 0,
     playing: false,

@@ -8,7 +8,7 @@ import {
 import { db } from "../server/db";
 import { viewer } from "../server/security";
 export async function loader({ request }: LoaderFunctionArgs) {
-  if (await viewer(request)) return redirect("/library");
+  if (await viewer(request)) return redirect("/dashboard");
   const settings = await db.query.settings.findFirst();
   return {
     setup: !settings,
@@ -62,7 +62,7 @@ export default function Home() {
           await startAuthentication({ optionsJSON: options }),
         );
       }
-      window.location.assign("/library");
+      window.location.assign("/dashboard");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Please try again.");
     } finally {

@@ -12,11 +12,19 @@ This is the product contract, reconciled with the implementation through PR #10 
 - Administrators manage registration, invitations, account disablement, and recovery. This role grants no access to another owner's private music, comments, or analytics. Each demo and artist profile has one owner; there is no shared track administration.
 - After verifying identity, an administrator may issue a single-use, 15-minute recovery link for a non-administrator. Successful recovery replaces old passkeys and sessions. Administrator recovery requires the server command described in [operations](operations.md#accounts-and-recovery). Neither flow sends email or introduces password login.
 
+## Private workspace
+
+Authenticated users start at `/dashboard`. A shared sidebar links Dashboard, Work in progress (`/library`), Releases (`/releases`), and Artists (`/artist-profiles`), including on private detail, account, and admin pages. Below 900 pixels the navigation opens in a keyboard-accessible modal panel. Public music and share pages remain outside this workspace.
+
+The dashboard shows current demo, artist, published release, and draft counts. Activity uses a URL-selected rolling 7-day, 30-day (default), or all-time period. Its selector sits beside the welcome heading and applies changes immediately. Demo cards count plays, nondeleted listener feedback, download requests, and currently active links. Separate release cards count visits, plays, download requests, and external clicks. Existing owner exclusions apply; release download requests include owners. Counts describe recorded activity, not verified people or completed transfers. Show up to five received feedback entries in the selected period and five newest demos/releases across all time. Feedback links open the relevant version. All queries are owner-scoped, including for administrators.
+
+Artist administration has a name-sorted grid of fully clickable cards with profile images (or placeholders), release counts, and individual profile editors, preserving stable public addresses. New artists and releases use creation modals, with dashboard shortcuts also opening these and the existing new-track modal. Release cards show artwork, with a placeholder for drafts without it; the entire card links to release editing, without a separate public-page link. Releases require an owned artist. Public artist URLs remain `/artists/:artist`.
+
 ## Private demos
 
 ### Library and versions
 
-The private library supports title search and sorting by title or newest track. A track has a required title, optional artist, cover, and shared description. Suggest title/version names from the upload filename. Versions have a user-defined name, description, upload timestamp, download permission, and one status: `early idea`, `work in progress`, `almost finished`, or `finished`.
+The private library lists one track per fully clickable, keyboard-accessible row linking to its detail page, with sortable Name, Created, and Artist columns, initially newest first. A live filter on the right matches names and artists on each keystroke, with the search input’s built-in clear control and an accessible label instead of a visible heading. Add new track sits on the left. Add new track opens the creation form in a modal. On narrow screens, the toolbar stacks and the table scrolls horizontally. The header provides an administrator settings gear beside the logo and an account initial opening a dismissible menu with Your account and Log out. The footer sits at the bottom of short pages and follows the content on longer pages. A track has a required title, optional artist, cover, and shared description. Suggest title/version names from the upload filename. Versions have a user-defined name, description, upload timestamp, download permission, and one status: `early idea`, `work in progress`, `almost finished`, or `finished`.
 
 Version order follows new-upload order, not labels, processing completion, or replacements. Successful processing publishes a new version automatically; existing links keep their previous playable audio while processing is pending. There is no demo draft/publish step.
 

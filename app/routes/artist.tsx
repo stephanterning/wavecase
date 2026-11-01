@@ -54,7 +54,9 @@ export default function ArtistPage() {
   const d = useLoaderData<typeof loader>();
   return (
     <section className="artist-page">
-      {d.owner && <Link to="/releases">Manage artists & releases</Link>}
+      {d.owner && (
+        <Link to={`/artist-profiles/${d.artist.id}`}>Edit artist</Link>
+      )}
       {d.artist.image && (
         <img
           className="artist-image"
