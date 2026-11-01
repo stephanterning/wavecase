@@ -35,13 +35,11 @@ test(
       { id: other, name: "Other", email: `${other}@test.invalid` },
     ]);
     try {
-      await db
-        .insert(sessions)
-        .values({
-          id: hash(session),
-          userId: owner,
-          expires: new Date(Date.now() + 60000),
-        });
+      await db.insert(sessions).values({
+        id: hash(session),
+        userId: owner,
+        expires: new Date(Date.now() + 60000),
+      });
       await db.insert(tracks).values([
         { id: track, ownerId: owner, title: "Demo" },
         { id: foreign, ownerId: other, title: "Private" },
@@ -95,6 +93,10 @@ test(
       assert.deepEqual(
         Object.fromEntries(data.links.map((link) => [link.id, link.plays])),
         { [active]: 3, [disabled]: 1, [empty]: 0 },
+      );
+      assert.deepEqual(
+        Object.fromEntries(data.links.map((link) => [link.id, link.downloads])),
+        { [active]: 1, [disabled]: 0, [empty]: 0 },
       );
       const listener = await loader(
         args(`${origin}/s/${active}`, { share: active }),

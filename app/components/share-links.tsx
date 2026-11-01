@@ -9,6 +9,7 @@ type ShareLink = {
   download: boolean;
   fromOrder: number | null;
   plays: number;
+  downloads: number;
 };
 type Version = { id: string; name: string; position: number };
 
@@ -55,7 +56,8 @@ export function ShareLinks({
         </EditForm>
         <p className="muted" id="share-plays-help">
           Plays count listener playback starts across all versions, for all
-          time. Replays count; your own plays do not.
+          time. Replays count; your own plays do not. Downloads count listener
+          requests, not completed transfers.
         </p>
       </div>
       {links.length ? (
@@ -67,9 +69,10 @@ export function ShareLinks({
             <tr>
               <th scope="col">Private label</th>
               <th scope="col">Status</th>
-              <th scope="col">Downloads</th>
+              <th scope="col">Download access</th>
               <th scope="col">Versions</th>
               <th scope="col">Plays</th>
+              <th scope="col">Downloads</th>
               <th scope="col">
                 <span className="sr-only">Actions</span>
               </th>
@@ -84,7 +87,7 @@ export function ShareLinks({
                 <td data-label="Status">
                   {link.active ? "Active" : "Disabled"}
                 </td>
-                <td data-label="Downloads">
+                <td data-label="Download access">
                   <span
                     title={
                       link.download
@@ -107,6 +110,14 @@ export function ShareLinks({
                     aria-describedby="share-plays-help"
                   >
                     {link.plays}
+                  </a>
+                </td>
+                <td data-label="Downloads">
+                  <a
+                    href={`/tracks/${trackId}/analytics?link=${encodeURIComponent(link.id)}`}
+                    aria-label={`${link.downloads} download requests via ${link.label}. View activity`}
+                  >
+                    {link.downloads}
                   </a>
                 </td>
                 <td className="share-link-actions">

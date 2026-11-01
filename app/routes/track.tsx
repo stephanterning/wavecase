@@ -122,6 +122,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
               .where(
                 and(eq(events.linkId, links.id), eq(events.kind, "play")),
               )})`.mapWith(Number),
+            downloads: sql<number>`(${db
+              .select({ value: count() })
+              .from(events)
+              .where(
+                and(
+                  eq(events.linkId, links.id),
+                  eq(events.kind, "download-started"),
+                ),
+              )})`.mapWith(Number),
           })
           .from(links)
           .where(eq(links.trackId, id!))
