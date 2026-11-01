@@ -15,7 +15,15 @@ const event = z.object({
   browser: z.uuid(),
   session: z.uuid(),
   name: z.string().max(100).nullable(),
-  kind: z.enum(["visit", "play", "interval", "seek", "pause", "ended"]),
+  kind: z.enum([
+    "visit",
+    "play",
+    "interval",
+    "seek",
+    "pause",
+    "ended",
+    "version-changed",
+  ]),
   position: z.number().min(0),
   end: z.number().min(0).optional(),
 });

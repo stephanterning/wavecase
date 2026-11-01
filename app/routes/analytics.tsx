@@ -130,6 +130,8 @@ function eventDescription(event: Row["event"]) {
       return `${(event.end || 0) >= (event.position || 0) ? "Skipped forward" : "Sought back"} ${start} → ${end}`;
     case "play":
       return `Playback started at ${start}`;
+    case "version-changed":
+      return `Changed version at ${start}`;
     case "pause":
       return `Paused at ${start}`;
     case "ended":
@@ -166,6 +168,12 @@ export default function Analytics() {
       <h1>Listening activity</h1>
       <details className="analytics-explanation">
         <summary>About these statistics</summary>
+        <p className="muted">
+          Plays count playback starts, including playback of another version and
+          repeats after the end. Pausing and resuming or switching versions
+          while paused does not add a play. Plays do not measure complete
+          listens; listening time and version coverage show how much was heard.
+        </p>
         <p className="muted">
           Times shown in UTC. Names and browser identifiers do not verify people
           or physical devices. Location is approximate.

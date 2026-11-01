@@ -35,12 +35,12 @@ const data = {
     },
   })),
 };
-function render(search: string) {
+function render(search: string, loaderData: unknown = data) {
   const router = createMemoryRouter(
     [{ id: "analytics", path: "/", Component: Analytics }],
     {
       initialEntries: [`/${search}`],
-      hydrationData: { loaderData: { analytics: data } },
+      hydrationData: { loaderData: { analytics: loaderData } },
     },
   );
   try {
@@ -67,4 +67,26 @@ test("analytics ignores a browser outside the selected link and stale link IDs",
     render("?link=deleted&browser=gone"),
     /0 visits · 4 plays · 3 browsers/,
   );
+});
+
+test("version changes appear as position markers without adding plays or skipped coverage", () => {
+  const html = render("", {
+    ...data,
+    versions: [{ id: "v2", name: "Version 2", duration: 120 }],
+    events: [
+      {
+        ...data.events[0],
+        event: {
+          ...data.events[0].event,
+          kind: "version-changed",
+          versionId: "v2",
+          position: 94,
+        },
+      },
+    ],
+  });
+  assert.match(html, /Version 2 · Changed version at 1:34/);
+  assert.match(html, /class="marker"/);
+  assert.match(html, /0 visits · 0 plays/);
+  assert.doesNotMatch(html, /Skipped forward|class="skipped"/);
 });

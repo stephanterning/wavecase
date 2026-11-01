@@ -18,7 +18,11 @@ import {
   attachWaveformGestures,
   type CommentSelection,
 } from "./waveform-gestures";
-export type Playback = { position: number; playing: boolean };
+export type Playback = {
+  position: number;
+  playing: boolean;
+  versionId?: string;
+};
 const clock = (time: number) =>
   `${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, "0")}`;
 export function Player({
@@ -110,7 +114,8 @@ export function Player({
       duration,
       canComment ? (selection) => comment(selection) : undefined,
     );
-    const stop = share ? observeListening(media, versionId, share) : () => {};
+    let stop: (() => void) | undefined;
+    let restored = false;
     const remember = () => {
       playbackRef.current.position = media.currentTime;
       setPosition(media.currentTime);
@@ -125,10 +130,21 @@ export function Player({
       setPlaying(false);
     };
     const restore = () => {
+      if (restored) return;
+      restored = true;
+      const versionChanged =
+        playbackRef.current.versionId !== undefined &&
+        playbackRef.current.versionId !== versionId;
       media.currentTime =
         playbackRef.current.position < duration
           ? playbackRef.current.position
           : 0;
+      playbackRef.current.versionId = versionId;
+      // Observe from the restored position, not the new media element's zero.
+      if (share)
+        stop = observeListening(media, versionId, share, versionChanged);
+      // Record the completed version before repeat rewinds the media.
+      media.addEventListener("ended", finish);
       media.loop = false;
       if (playbackRef.current.playing)
         void playNormalized(media, gainDb).catch(() =>
@@ -165,7 +181,6 @@ export function Player({
       setError(
         "Audio could not be loaded. Please reload the page or try another version.",
       );
-    media.addEventListener("ended", finish);
     media.addEventListener("loadedmetadata", restore, { once: true });
     media.addEventListener("timeupdate", remember);
     media.addEventListener("play", play);
@@ -190,7 +205,7 @@ export function Player({
       media.removeEventListener("pause", pause);
       media.removeEventListener("error", fail);
       stopGestures();
-      stop();
+      stop?.();
       wave.destroy();
       media.pause();
       disconnectPlaybackAudio(media);

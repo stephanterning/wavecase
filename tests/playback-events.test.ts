@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { observeListening } from "../app/components/listening";
 class Storage {
@@ -16,7 +16,7 @@ class Media extends EventTarget {
   seeking = false;
   playbackRate = 1;
 }
-test("visits and seeks do not count as plays; resume and repeat follow the agreed rules", async (t) => {
+function captureEvents(t: TestContext) {
   const previous = new Map(
     ["window", "localStorage", "sessionStorage"].map((key) => [
       key,
@@ -37,6 +37,12 @@ test("visits and seeks do not count as plays; resume and repeat follow the agree
     configurable: true,
     value: new Storage(),
   });
+  t.after(() => {
+    for (const [key, descriptor] of previous) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    }
+  });
   const events: { kind: string; position: number; end?: number }[] = [];
   t.mock.method(
     globalThis,
@@ -46,6 +52,10 @@ test("visits and seeks do not count as plays; resume and repeat follow the agree
       return new Response(null, { status: 204 });
     },
   );
+  return events;
+}
+test("visits and seeks do not count as plays; resume and repeat follow the agreed rules", async (t) => {
+  const events = captureEvents(t);
   let now = 0;
   t.mock.method(performance, "now", () => now);
   t.mock.timers.enable({ apis: ["setInterval"] });
@@ -97,9 +107,75 @@ test("visits and seeks do not count as plays; resume and repeat follow the agree
     );
   } finally {
     stop();
-    for (const [key, descriptor] of previous) {
-      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
-      else Reflect.deleteProperty(globalThis, key);
+  }
+});
+
+test("version changes record the restored position without a seek or unplayed coverage", (t) => {
+  const events = captureEvents(t);
+  let now = 0;
+  t.mock.method(performance, "now", () => now);
+  t.mock.timers.enable({ apis: ["setInterval"] });
+
+  // A shorter destination starts at zero; a paused switch still records the
+  // version change but adds no play until the listener starts the audio.
+  for (const position of [94, 0]) {
+    for (const paused of [false, true]) {
+      events.length = 0;
+      const media = new Media();
+      media.currentTime = position;
+      media.seeking = true;
+      const stop = observeListening(
+        media as unknown as HTMLAudioElement,
+        "destination-version",
+        "share",
+        true,
+      );
+      try {
+        const emit = (name: string) => media.dispatchEvent(new Event(name));
+        // Native seeking events are queued after currentTime is restored.
+        emit("seeking");
+        media.seeking = false;
+        emit("seeked");
+        assert.deepEqual(
+          events.map((e) => [e.kind, e.position]),
+          [["version-changed", position]],
+        );
+        if (paused) {
+          t.mock.timers.tick(2000);
+          assert.equal(events.length, 1);
+        }
+        media.paused = false;
+        emit("playing");
+        emit("playing");
+        assert.deepEqual(
+          events.map((e) => [e.kind, e.position]),
+          [
+            ["version-changed", position],
+            ["play", position],
+          ],
+        );
+        now += 1000;
+        media.currentTime = position + 1;
+        emit("timeupdate");
+        t.mock.timers.tick(2000);
+        assert.deepEqual(
+          events
+            .filter((e) => e.kind === "interval")
+            .map((e) => [e.position, e.end]),
+          [[position, position + 1]],
+        );
+        media.currentTime = position + 10;
+        media.seeking = true;
+        emit("seeking");
+        assert.deepEqual(
+          events
+            .filter((e) => e.kind === "seek")
+            .map((e) => [e.position, e.end]),
+          [[position + 1, position + 10]],
+        );
+      } finally {
+        stop();
+      }
     }
   }
 });
