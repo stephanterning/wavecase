@@ -227,8 +227,10 @@ test(
         [releaseIds[1], releaseIds[0]],
       );
       const html = renderPage(SongwriterPage, data);
-      assert.match(html, /<h3>HUST - Space Intro<\/h3>/);
-      assert.match(html, /<h3>Martin Dice - Pressure<\/h3>/);
+      assert.match(html, />HUST - Space Intro</);
+      assert.match(html, />Martin Dice - Pressure</);
+      assert.match(html, />2026 · single</);
+      assert.match(html, />2025 · single</);
       assert.ok(
         html.includes(`/artists/songwriter-test-${artistIds[1]}/space-intro`),
       );
