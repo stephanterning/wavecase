@@ -329,11 +329,13 @@ export function PreviewLink({
 export function EditorDialog({
   title,
   trigger,
+  triggerLabel,
   id,
   children,
 }: {
   title: string;
   trigger: ReactNode;
+  triggerLabel?: string;
   id?: string;
   children: ReactNode;
 }) {
@@ -361,6 +363,8 @@ export function EditorDialog({
       <button
         type="button"
         className="editor-trigger"
+        aria-label={triggerLabel}
+        title={triggerLabel}
         id={id}
         ref={button}
         onClick={() => setOpen(true)}
@@ -394,16 +398,23 @@ export function EditorDialog({
 }
 export function EditForm({
   trigger,
+  triggerLabel,
   id,
   ...props
 }: FormProps & {
   label: string;
   resetOnSave?: boolean;
   trigger?: ReactNode;
+  triggerLabel?: string;
   modal?: boolean;
 }) {
   return trigger ? (
-    <EditorDialog title={props.label} trigger={trigger} id={id}>
+    <EditorDialog
+      title={props.label}
+      trigger={trigger}
+      triggerLabel={triggerLabel}
+      id={id}
+    >
       <FormContents {...props} modal />
     </EditorDialog>
   ) : (
