@@ -1,3 +1,4 @@
+import { ReleaseCardContent } from "../components/release-card-content";
 import { PublicLink } from "../components/public-links";
 import { asc, eq, sql } from "drizzle-orm";
 import {
@@ -75,24 +76,19 @@ export default function SongwriterPage() {
       <p className="eyebrow">SONGWRITER</p>
       <h1>{data.name}</h1>
       <h2>Releases</h2>
-      <div className="grid">
+      <div className="catalog-grid">
         {data.releases.map((release) => (
           <PublicLink
-            className="release-card"
+            className="catalog-item"
             to={releasePath(release.artist, release)}
             key={release.id}
           >
-            <img
-              src={`/release-assets/${release.id}/cover`}
-              alt={`${release.title} artwork`}
+            <ReleaseCardContent
+              releaseId={release.id}
+              title={`${release.artist.name} - ${release.title}`}
+              kind={release.kind}
+              releaseDate={release.releaseDate}
             />
-            <h3>
-              {release.artist.name} - {release.title}
-            </h3>
-            <p>
-              {release.kind.toUpperCase()}
-              {release.releaseDate && ` · ${release.releaseDate}`}
-            </p>
           </PublicLink>
         ))}
       </div>

@@ -1,3 +1,4 @@
+import { ReleaseCardContent } from "../components/release-card-content";
 import { Icon } from "../components/icons";
 import { EditForm, PreviewLink } from "../components/editing";
 import { LinkFields } from "../components/link-fields";
@@ -179,23 +180,13 @@ export default function ArtistEdit() {
                 href={`/releases/${release.id}`}
                 key={release.id}
               >
-                {release.cover ? (
-                  <img
-                    className="management-artwork"
-                    src={`/release-assets/${release.id}/cover`}
-                    alt=""
-                  />
-                ) : (
-                  <div className="management-artwork artwork-placeholder">
-                    Add artwork
-                  </div>
-                )}
-                <strong>{release.title}</strong>
-                <span>
-                  {release.metadata.releaseDate &&
-                    `${release.metadata.releaseDate.slice(0, 4)} · `}
-                  {release.kind}
-                </span>
+                <ReleaseCardContent
+                  releaseId={release.id}
+                  title={release.title}
+                  kind={release.kind}
+                  releaseDate={release.metadata.releaseDate}
+                  hasArtwork={!!release.cover}
+                />
                 <span
                   className={
                     release.published
