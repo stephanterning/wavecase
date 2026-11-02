@@ -86,18 +86,21 @@ export default function ArtistPage() {
       <div className="catalog-grid">
         {d.releases.map((r) => (
           <PublicLink
-            className="release-card"
+            className="catalog-item"
             to={releasePath(d.artist, r)}
             key={r.id}
           >
             <img
+              className="management-artwork"
               src={`/release-assets/${r.id}/cover`}
               alt={`${r.title} artwork`}
             />
-            <h3>{r.title}</h3>
-            <p>
-              {r.kind.toUpperCase()} · {r.metadata.releaseDate}
-            </p>
+            <strong>{r.title}</strong>
+            <span>
+              {r.metadata.releaseDate &&
+                `${r.metadata.releaseDate.slice(0, 4)} · `}
+              {r.kind}
+            </span>
           </PublicLink>
         ))}
       </div>
