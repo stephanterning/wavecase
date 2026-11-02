@@ -1,3 +1,4 @@
+import { ReleaseCardContent } from "../components/release-card-content";
 import { isPreview } from "../server/preview";
 import { PublicLink } from "../components/public-links";
 import { releasePath } from "../domain/releases";
@@ -90,17 +91,12 @@ export default function ArtistPage() {
             to={releasePath(d.artist, r)}
             key={r.id}
           >
-            <img
-              className="management-artwork"
-              src={`/release-assets/${r.id}/cover`}
-              alt={`${r.title} artwork`}
+            <ReleaseCardContent
+              releaseId={r.id}
+              title={r.title}
+              kind={r.kind}
+              releaseDate={r.metadata.releaseDate}
             />
-            <strong>{r.title}</strong>
-            <span>
-              {r.metadata.releaseDate &&
-                `${r.metadata.releaseDate.slice(0, 4)} · `}
-              {r.kind}
-            </span>
           </PublicLink>
         ))}
       </div>
