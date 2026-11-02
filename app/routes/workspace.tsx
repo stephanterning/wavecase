@@ -1,3 +1,4 @@
+import { Icon } from "../components/icons";
 import { EditingProvider } from "../components/editing";
 import { useRef } from "react";
 import { Outlet, useLocation } from "react-router";
@@ -7,14 +8,14 @@ export default function Workspace() {
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const items = [
-    ["/dashboard", "Dashboard"],
-    ["/library", "Work in progress"],
-    ["/releases", "Releases"],
-    ["/artist-profiles", "Artists"],
-  ];
+    ["/dashboard", "Dashboard", "dashboard"],
+    ["/library", "Work in progress", "waveform"],
+    ["/releases", "Releases", "disc"],
+    ["/artist-profiles", "Artists", "artists"],
+  ] as const;
   const navigation = (
     <nav aria-label="Workspace">
-      {items.map(([href, label]) => (
+      {items.map(([href, label, icon]) => (
         <a
           key={href}
           href={href}
@@ -26,6 +27,7 @@ export default function Workspace() {
               : undefined
           }
         >
+          <Icon name={icon} />
           {label}
         </a>
       ))}

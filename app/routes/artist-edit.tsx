@@ -1,3 +1,4 @@
+import { Icon } from "../components/icons";
 import { EditForm, PreviewLink } from "../components/editing";
 import { LinkFields } from "../components/link-fields";
 import { unlink } from "node:fs/promises";
@@ -88,12 +89,41 @@ export default function ArtistEdit() {
         </PreviewLink>
       </div>
       <header className="music-editor-hero">
-        <div className="artist-portrait">
-          {a.image ? (
-            <img src={`/artist-images/${a.id}`} alt={a.name} />
-          ) : (
-            <span>{a.name.slice(0, 1)}</span>
-          )}
+        <div className="artist-portrait-control">
+          <div className="artist-portrait">
+            {a.image ? (
+              <img src={`/artist-images/${a.id}`} alt={a.name} />
+            ) : (
+              <span>{a.name.slice(0, 1)}</span>
+            )}
+          </div>
+          <EditForm
+            label="Artist image"
+            trigger={<Icon name="image-plus" />}
+            triggerLabel="Change image"
+            encType="multipart/form-data"
+          >
+            <input type="hidden" name="intent" value="artist-image" />
+            <input type="hidden" name="id" value={a.id} />
+            <input type="hidden" name="name" value={a.name} />
+            {a.image && (
+              <img
+                className="artist-image"
+                src={`/artist-images/${a.id}`}
+                alt={`${a.name} profile`}
+              />
+            )}
+            <label>
+              Profile image
+              <input
+                type="file"
+                name="image"
+                accept="image/png,image/jpeg,image/webp"
+                required
+              />
+            </label>
+            <button>Save image</button>
+          </EditForm>
         </div>
         <div>
           <p className="eyebrow">ARTIST</p>
@@ -123,42 +153,25 @@ export default function ArtistEdit() {
               </p>
               <button>Save profile</button>
             </EditForm>
-            <EditForm
-              label="Artist image"
-              trigger="Change image"
-              encType="multipart/form-data"
-            >
-              <input type="hidden" name="intent" value="artist-image" />
-              <input type="hidden" name="id" value={a.id} />
-              <input type="hidden" name="name" value={a.name} />
-              {a.image && (
-                <img
-                  className="artist-image"
-                  src={`/artist-images/${a.id}`}
-                  alt={`${a.name} profile`}
-                />
-              )}
-              <label>
-                Profile image
-                <input
-                  type="file"
-                  name="image"
-                  accept="image/png,image/jpeg,image/webp"
-                  required
-                />
-              </label>
-              <button>Save image</button>
-            </EditForm>
           </div>
         </div>
       </header>
       {result?.error && <p role="alert">{result.error}</p>}
       <div className="artist-editor-columns">
         <section>
-          <h2>Releases</h2>
-          <a href={`/releases?create=1&artist=${a.id}`}>
-            Add release for {a.name}
-          </a>
+          <div className="artist-section-heading">
+            <h2>
+              Releases <span className="section-count">{rows.length}</span>
+            </h2>
+            <a
+              className="artist-icon-action"
+              href={`/releases?create=1&artist=${a.id}`}
+              aria-label={`Add release for ${a.name}`}
+              title={`Add release for ${a.name}`}
+            >
+              <Icon name="plus" />
+            </a>
+          </div>
           <div className="catalog-grid">
             {rows.map((release) => (
               <a
@@ -179,7 +192,19 @@ export default function ArtistEdit() {
                 )}
                 <strong>{release.title}</strong>
                 <span>
-                  {release.published ? "Published" : "Draft"} · {release.kind}
+                  {release.metadata.releaseDate &&
+                    `${release.metadata.releaseDate.slice(0, 4)} · `}
+                  {release.kind}
+                </span>
+                <span
+                  className={
+                    release.published
+                      ? "release-status published"
+                      : "release-status"
+                  }
+                >
+                  {release.published && <Icon name="check-circle" />}
+                  {release.published ? "Published" : "Draft"}
                 </span>
               </a>
             ))}
@@ -189,20 +214,35 @@ export default function ArtistEdit() {
           )}
         </section>
         <aside>
-          <h2>Links</h2>
-          {a.links.map((link) => (
-            <p key={link.url}>
-              <a href={link.url} target="_blank" rel="noopener noreferrer">
-                {link.label} ↗
-              </a>
-            </p>
-          ))}
-          <EditForm label="Artist links" trigger="Edit links">
-            <input type="hidden" name="intent" value="artist-links" />
-            <input type="hidden" name="name" value={a.name} />
-            <LinkFields links={a.links} />
-            <button>Save links</button>
-          </EditForm>
+          <div className="artist-section-heading">
+            <h2>Links</h2>
+            <EditForm
+              label="Artist links"
+              trigger={<Icon name="edit" />}
+              triggerLabel="Edit links"
+            >
+              <input type="hidden" name="intent" value="artist-links" />
+              <input type="hidden" name="name" value={a.name} />
+              <LinkFields links={a.links} />
+              <button>Save links</button>
+            </EditForm>
+          </div>
+          <ul className="artist-service-links">
+            {a.links.map((link) => (
+              <li key={link.url}>
+                <a href={link.url} target="_blank" rel="noopener noreferrer">
+                  <span className="artist-link-icon">
+                    <Icon name="link" />
+                  </span>
+                  <span className="artist-link-details">
+                    <span>{link.label}</span>
+                    <span className="muted">{new URL(link.url).hostname}</span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+          <p className="artist-links-note muted">Shown on your artist page.</p>
         </aside>
       </div>
     </>

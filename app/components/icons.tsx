@@ -13,7 +13,13 @@ export function Icon({
     | "link"
     | "copy"
     | "eye"
-    | "upload";
+    | "upload"
+    | "dashboard"
+    | "waveform"
+    | "disc"
+    | "artists"
+    | "image-plus"
+    | "check-circle";
 }) {
   return (
     <svg
@@ -27,6 +33,37 @@ export function Icon({
       strokeLinejoin="round"
       aria-hidden="true"
     >
+      {name === "dashboard" && (
+        <path d="M3 3h7v7H3ZM14 3h7v7h-7ZM3 14h7v7H3ZM14 14h7v7h-7Z" />
+      )}
+      {name === "waveform" && (
+        <path d="M2 10v4M6 6v12M10 3v18M14 7v10M18 5v14M22 10v4" />
+      )}
+      {name === "disc" && (
+        <>
+          <circle cx="12" cy="12" r="10" />
+          <circle cx="12" cy="12" r="2" />
+          <path d="M6 9a7 7 0 0 1 2-3M18 15a7 7 0 0 1-2 3" />
+        </>
+      )}
+      {name === "artists" && (
+        <>
+          <circle cx="10" cy="8" r="5" />
+          <path d="M2 21v-2a8 8 0 0 1 16 0v2M17 3a5 5 0 0 1 0 10M22 21v-2a8 8 0 0 0-4-7" />
+        </>
+      )}
+      {name === "image-plus" && (
+        <>
+          <path d="M14 3H3v18h18V10M16 4h6M19 1v6M3 17l6-6 5 5 3-3 4 4" />
+          <circle cx="8" cy="7" r="1.5" />
+        </>
+      )}
+      {name === "check-circle" && (
+        <>
+          <circle cx="12" cy="12" r="10" />
+          <path d="m8 12 3 3 5-6" />
+        </>
+      )}
       {name === "play" && (
         <path d="m8 5 11 7-11 7Z" fill="currentColor" stroke="none" />
       )}
@@ -52,7 +89,7 @@ export function Icon({
       )}
       {name === "edit" && <path d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z" />}
       {name === "link" && (
-        <path d="m10 14 4-4M8 16l-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0M16 8l2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0" />
+        <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2" />
       )}
       {name === "copy" && <path d="M9 9h12v12H9ZM15 5V3H3v12h2" />}
       {name === "eye" && (
