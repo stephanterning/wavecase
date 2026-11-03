@@ -278,7 +278,10 @@ export default function Track() {
             </label>
             <label>
               Status
-              <select name="status" defaultValue="work in progress">
+              <select
+                name="status"
+                defaultValue={data.versions[0]?.status ?? "early idea"}
+              >
                 {versionStatuses.map((status) => (
                   <option key={status}>{status}</option>
                 ))}
