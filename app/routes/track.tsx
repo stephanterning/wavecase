@@ -325,24 +325,28 @@ export default function Track() {
       {current && (
         <section className="panel player-panel">
           <div className="version-heading">
-            <label className="version-picker">
-              <span className="sr-only">Version</span>
-              <span className="version-select-size">
-                <span aria-hidden="true">{current.name}</span>
-                <select
-                  value={current.id}
-                  onChange={(e) => {
-                    if (selectVersion(e.target.value)) setDraft(null);
-                  }}
-                >
-                  {data.versions.map((v) => (
-                    <option value={v.id} key={v.id}>
-                      {v.name}
-                    </option>
-                  ))}
-                </select>
-              </span>
-            </label>
+            {data.versions.length > 1 ? (
+              <label className="version-picker">
+                <span className="sr-only">Version</span>
+                <span className="version-select-size">
+                  <span aria-hidden="true">{current.name}</span>
+                  <select
+                    value={current.id}
+                    onChange={(e) => {
+                      if (selectVersion(e.target.value)) setDraft(null);
+                    }}
+                  >
+                    {data.versions.map((v) => (
+                      <option value={v.id} key={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
+                </span>
+              </label>
+            ) : (
+              <span className="version-name">{current.name}</span>
+            )}
             {data.owner && (
               <VersionEditor trackId={data.track.id} version={current} />
             )}
