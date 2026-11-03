@@ -8,10 +8,81 @@ type ShareLink = {
   active: boolean;
   download: boolean;
   fromOrder: number | null;
+  pinnedOrder: number | null;
   plays: number;
   downloads: number;
 };
-type Version = { id: string; name: string; position: number };
+type Version = { id: string; name: string; position: number; state: string };
+
+function ShareVersionFields({
+  versions,
+  link,
+}: {
+  versions: Version[];
+  link?: ShareLink;
+}) {
+  const [visibility, setVisibility] = useState(
+    link?.pinnedOrder != null
+      ? "single"
+      : !link || link.fromOrder != null
+        ? "onward"
+        : "all",
+  );
+  const published = versions.filter(
+    (v) => v.state === "ready" || v.state === "missing",
+  );
+  return (
+    <>
+      <label>
+        Versions
+        <select
+          name="visibility"
+          value={visibility}
+          onChange={(event) => setVisibility(event.target.value)}
+        >
+          <option value="all">All versions</option>
+          <option value="onward">
+            {link
+              ? "Starting version and future versions"
+              : "Latest and future versions"}
+          </option>
+          <option value="single">Specific version only</option>
+        </select>
+      </label>
+      {(visibility === "single" || (link && visibility === "onward")) && (
+        <label>
+          {visibility === "single" ? "Version to share" : "Starting version"}
+          <select
+            name="from"
+            required
+            defaultValue={
+              published.find(
+                (v) => v.position === (link?.pinnedOrder ?? link?.fromOrder),
+              )?.id ||
+              published[0]?.id ||
+              ""
+            }
+          >
+            {!published.length && (
+              <option value="">No published versions</option>
+            )}
+            {published.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {visibility === "single" && (
+        <p className="muted">
+          Only this version is shared. New versions will not be available
+          through this link.
+        </p>
+      )}
+    </>
+  );
+}
 
 export function ShareLinks({
   trackId,
@@ -41,13 +112,7 @@ export function ShareLinks({
             Private label
             <input name="label" required maxLength={200} />
           </label>
-          <label>
-            Versions
-            <select name="visibility" defaultValue="onward">
-              <option value="all">All versions</option>
-              <option value="onward">Latest and future versions</option>
-            </select>
-          </label>
+          <ShareVersionFields versions={versions} />
           <label className="check">
             <input type="checkbox" name="download" />
             Allow downloads
@@ -99,9 +164,11 @@ export function ShareLinks({
                   </span>
                 </td>
                 <td data-label="Versions">
-                  {link.fromOrder
-                    ? `From ${versions.find((v) => v.position === link.fromOrder)?.name || "selected version"} onward`
-                    : "All versions"}
+                  {link.pinnedOrder != null
+                    ? `Only ${versions.find((v) => v.position === link.pinnedOrder)?.name || "selected version"}`
+                    : link.fromOrder != null
+                      ? `From ${versions.find((v) => v.position === link.fromOrder)?.name || "selected version"} onward`
+                      : "All versions"}
                 </td>
                 <td data-label="Plays">
                   <a
@@ -196,26 +263,7 @@ export function ShareLinks({
                       />
                       Allow downloads
                     </label>
-                    <label>
-                      Visible versions
-                      <select
-                        name="from"
-                        defaultValue={
-                          link.fromOrder
-                            ? versions.find(
-                                (v) => v.position === link.fromOrder,
-                              )?.id || ""
-                            : ""
-                        }
-                      >
-                        <option value="">All versions</option>
-                        {versions.map((v) => (
-                          <option key={v.id} value={v.id}>
-                            From {v.name} onward
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    <ShareVersionFields versions={versions} link={link} />
                     <button>Save link</button>
                   </EditForm>
                   <EditForm

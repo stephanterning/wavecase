@@ -4,6 +4,8 @@ import {
   ReplaceAudio,
 } from "../components/demo-editors";
 import { ShareLinks } from "../components/share-links";
+import { visibleThroughLink } from "../domain/share-links";
+import { shareVersionScope } from "../server/share-links";
 import { EditForm, useConfirmDiscard } from "../components/editing";
 import { demoWavAvailable } from "../server/download";
 import { artistChoices, linkedArtist } from "../server/track-artist";
@@ -22,15 +24,7 @@ import {
   useSearchParams,
 } from "react-router";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
-import {
-  and,
-  count,
-  desc,
-  eq,
-  getTableColumns,
-  inArray,
-  sql,
-} from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { versionStatuses } from "../domain/versions";
 import { recordVisit } from "../components/telemetry";
 import { useEffect, useRef, useState } from "react";
@@ -89,12 +83,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     shareUrl: share ? `${origin}/s/${encodeURIComponent(share)}` : null,
     versions: await Promise.all(
       all
-        .filter(
-          (v) =>
-            access.owner ||
-            ((v.state === "ready" || v.state === "missing") &&
-              (!access.link?.fromOrder || v.position >= access.link.fromOrder)),
-        )
+        .filter((v) => access.owner || visibleThroughLink(v, access.link!))
         .map(
           async ({
             original,
@@ -153,24 +142,22 @@ export async function action({ request, params }: ActionFunctionArgs) {
     )
   ).formData();
   if (form.get("intent") === "link") {
-    const latest = await db.query.versions.findFirst({
-      where: and(
-        eq(versions.trackId, track.id),
-        inArray(versions.state, ["ready", "missing"]),
-      ),
-      orderBy: desc(versions.position),
-    });
-    if (form.get("visibility") === "onward" && !latest)
-      return {
-        error: "Publish a version before creating a latest-and-future link.",
-      };
-    await db.insert(links).values({
-      id: token(),
-      trackId: track.id,
-      label: String(form.get("label") || "Shared link").slice(0, 200),
-      download: form.has("download"),
-      fromOrder: form.get("visibility") === "onward" ? latest?.position : null,
-    });
+    try {
+      const scope = await shareVersionScope(
+        track.id,
+        form.get("visibility") || "onward",
+        form.get("from"),
+      );
+      await db.insert(links).values({
+        id: token(),
+        trackId: track.id,
+        label: String(form.get("label") || "Shared link").slice(0, 200),
+        download: form.has("download"),
+        ...scope,
+      });
+    } catch (error) {
+      return formError(error);
+    }
   } else {
     try {
       await uploadVersion(track.id, form);

@@ -1,4 +1,5 @@
 import { ownerPreview } from "./preview";
+import { visibleThroughLink } from "../domain/share-links";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
@@ -35,12 +36,7 @@ export async function versionAccess(
   });
   if (!version) throw new Response("Not found", { status: 404 });
   const access = await trackAccess(request, version.trackId, share);
-  if (
-    !access.owner &&
-    (version.state === "processing" ||
-      version.state === "failed" ||
-      (access.link?.fromOrder && version.position < access.link.fromOrder))
-  )
+  if (!access.owner && !visibleThroughLink(version, access.link!))
     throw new Response("Not found", { status: 404 });
   return { ...access, version };
 }
