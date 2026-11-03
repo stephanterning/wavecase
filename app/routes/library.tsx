@@ -249,7 +249,7 @@ export default function Library() {
           </label>
           <label>
             First version status
-            <select name="status" defaultValue="work in progress">
+            <select name="status" defaultValue="early idea">
               {versionStatuses.map((status) => (
                 <option key={status}>{status}</option>
               ))}
