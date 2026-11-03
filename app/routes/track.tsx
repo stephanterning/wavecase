@@ -201,6 +201,10 @@ export default function Track() {
     playing: false,
   });
   const audio = useRef<HTMLAudioElement>(null);
+  const [seekRequest, setSeekRequest] = useState<{
+    versionId: string;
+    position: number;
+  } | null>(null);
   const [draft, setDraft] = useState<CommentDraft | null>(null);
   const [repeat, setRepeat] = useState(false);
   const current =
@@ -382,7 +386,13 @@ export default function Track() {
             )}
             {current.state === "ready" ? (
               <Player
-                key={current.id + current.revision}
+                key={`${data.track.id}:${data.share || ""}:${data.preview}`}
+                revision={current.revision}
+                seekRequest={seekRequest}
+                availableSources={data.versions
+                  .filter((v) => v.state === "ready")
+                  .map((v) => v.id + v.revision)
+                  .join(",")}
                 title={data.track.title}
                 artist={data.track.artist}
                 artwork={artwork}
@@ -485,8 +495,7 @@ export default function Track() {
           onSeek={(id, time) => {
             if (current.id !== id && !selectVersion(id)) return;
             cursor.current.position = time;
-            if (current.id === id && audio.current)
-              audio.current.currentTime = time;
+            setSeekRequest({ versionId: id, position: time });
           }}
           links={data.links}
           versions={data.versions}

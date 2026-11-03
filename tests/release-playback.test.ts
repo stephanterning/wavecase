@@ -11,6 +11,7 @@ class Media extends EventTarget {
   duration = 60;
   paused = true;
   ended = false;
+  loop = false;
   error: { code: number } | null = null;
   async play() {
     this.paused = false;
@@ -52,6 +53,30 @@ const release = (id = "a", countPlays = true): ReleaseQueue => ({
     duration: 60,
     gainDb: -n,
   })),
+});
+
+test("repeat stays on the selected release track and counts loops but not seeks", () => {
+  const { playback, media, state, plays } = setup();
+  playback.start(release(), "a2");
+  media.playing();
+  playback.setRepeat(true);
+  assert.equal(media.loop, true);
+  media.currentTime = 59.9;
+  media.dispatchEvent(new Event("timeupdate"));
+  media.currentTime = 0;
+  media.dispatchEvent(new Event("seeking"));
+  media.dispatchEvent(new Event("seeked"));
+  media.playing();
+  assert.equal(state().queue?.tracks[state().index].id, "a2");
+  assert.deepEqual(plays, ["a/a2", "a/a2"]);
+  playback.seek(40);
+  playback.seek(0);
+  media.playing();
+  assert.deepEqual(plays, ["a/a2", "a/a2"]);
+  playback.setRepeat(false);
+  media.finish();
+  media.playing();
+  assert.equal(state().queue?.tracks[state().index].id, "a3");
 });
 function setup(
   playAudio?: (media: HTMLAudioElement, gainDb: number) => Promise<void>,
@@ -210,4 +235,17 @@ test("seeking after the queue ends allows a new counted play of the last track",
   await playback.play();
   media.playing();
   assert.deepEqual(plays, ["a/a3", "a/a3"]);
+});
+
+test("enabling repeat after the queue ends replays the displayed track", async () => {
+  const { playback, media, state } = setup();
+  playback.start(release(), "a2");
+  media.playing();
+  media.finish();
+  media.playing();
+  media.finish();
+  playback.setRepeat(true);
+  await playback.play();
+  media.playing();
+  assert.equal(state().queue?.tracks[state().index].id, "a3");
 });

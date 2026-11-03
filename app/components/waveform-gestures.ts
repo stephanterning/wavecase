@@ -1,3 +1,4 @@
+import { seekPlayback } from "./playback-audio";
 export type CommentSelection = { start: number | null; end: number | null };
 export function selectedTimes(
   start: number,
@@ -180,7 +181,7 @@ export function attachWaveformGestures(
         ),
       );
     else if (finished.kind === "tap" && event.button !== 2)
-      media.currentTime = timeAt(event.clientX);
+      seekPlayback(media, timeAt(event.clientX));
   };
   const cancel = () => {
     cancelHold();
@@ -201,7 +202,8 @@ export function attachWaveformGestures(
       }
     } else if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
       event.preventDefault();
-      media.currentTime =
+      seekPlayback(
+        media,
         event.key === "Home"
           ? 0
           : event.key === "End"
@@ -212,7 +214,8 @@ export function attachWaveformGestures(
                   duration,
                   media.currentTime + (event.key === "ArrowRight" ? 5 : -5),
                 ),
-              );
+              ),
+      );
     } else if (["+", "=", "-"].includes(event.key)) {
       event.preventDefault();
       const bounds = element.getBoundingClientRect();

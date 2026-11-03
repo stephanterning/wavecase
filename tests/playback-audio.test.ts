@@ -4,6 +4,9 @@ import {
   playbackGainDb,
   playNormalized,
   disconnectPlaybackAudio,
+  crossfadePlayback,
+  seekPlayback,
+  transitionSeconds,
 } from "../app/components/playback-audio";
 
 test("playback targets -16 LUFS with sample and true peak ceilings", () => {
@@ -54,6 +57,14 @@ test("playback applies gain before playing, reuses sources, and resumes the cont
   }
   const gains: number[] = [];
   const sources: Node[] = [];
+  const envelopes: {
+    value: number;
+    ramps: [number, number][];
+    cancelScheduledValues: () => void;
+    setValueAtTime: (value: number) => void;
+    linearRampToValueAtTime: (value: number, time: number) => void;
+  }[] = [];
+  let nodes = 0;
   let contexts = 0;
   let resumes = 0;
   let rejectResume = false;
@@ -72,8 +83,23 @@ test("playback applies gain before playing, reuses sources, and resumes the cont
       return source;
     }
     createGain() {
+      const envelope = nodes++ % 2 === 1;
+      const param = {
+        value: 1,
+        ramps: [] as [number, number][],
+        cancelScheduledValues() {},
+        setValueAtTime(value: number) {
+          this.value = value;
+          if (!envelope) gains.push(value);
+        },
+        linearRampToValueAtTime(value: number, time: number) {
+          this.value = value;
+          this.ramps.push([value, time]);
+        },
+      };
+      if (envelope) envelopes.push(param);
       return Object.assign(new Node(), {
-        gain: { setValueAtTime: (value: number) => gains.push(value) },
+        gain: param,
       });
     }
     async resume() {
@@ -128,6 +154,38 @@ test("playback applies gain before playing, reuses sources, and resumes the cont
   await playNormalized(next, 3);
   assert.equal(contexts, 1, "version changes reuse the unlocked context");
   assert.equal(sources.length, 2);
+  await playNormalized(next, 3, true);
+  assert.equal(envelopes[1].value, 0, "preparing another version is inaudible");
+  crossfadePlayback(media, next);
+  assert.deepEqual(envelopes[0].ramps.at(-1), [0, transitionSeconds]);
+  assert.deepEqual(envelopes[1].ramps.at(-1), [1, transitionSeconds]);
+  assert.ok(transitionSeconds <= 0.005);
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const seekMedia = Object.assign(new EventTarget(), {
+    currentTime: 10,
+    duration: 60,
+    seeking: true,
+    paused: false,
+    play: async () => {},
+    pause: () => {},
+  });
+  const seekAudio = seekMedia as unknown as HTMLAudioElement;
+  await playNormalized(seekAudio, 0);
+  let completed = 0;
+  seekMedia.addEventListener("wavecase-user-seeked", () => completed++);
+  seekPlayback(seekAudio, 40);
+  seekMedia.seeking = false;
+  seekMedia.dispatchEvent(new Event("seeked"));
+  assert.equal(completed, 0, "an old seek cannot finish a pending new seek");
+  t.mock.timers.tick(transitionSeconds * 1000);
+  assert.equal(
+    seekMedia.currentTime,
+    40,
+    "the latest seek survives the old event",
+  );
+  assert.equal(completed, 1);
+  disconnectPlaybackAudio(seekAudio);
+  t.mock.timers.reset();
   instances[0].state = "suspended";
   await playNormalized(media, 0);
   assert.equal(resumes, 2);
@@ -164,4 +222,22 @@ test("playback applies gain before playing, reuses sources, and resumes the cont
   );
   disconnectPlaybackAudio(media);
   disconnectPlaybackAudio(next);
+});
+
+test("rapid seeks keep only the latest position and do not count as native loops", () => {
+  const fake = Object.assign(new EventTarget(), {
+    currentTime: 1,
+    duration: 60,
+    seeking: true,
+    paused: false,
+  });
+  const media = fake as unknown as HTMLAudioElement;
+  let completed = 0;
+  media.addEventListener("wavecase-user-seeked", () => completed++);
+  seekPlayback(media, 20);
+  seekPlayback(media, 40);
+  assert.equal(media.currentTime, 40);
+  fake.seeking = false;
+  media.dispatchEvent(new Event("seeked"));
+  assert.equal(completed, 1);
 });

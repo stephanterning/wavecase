@@ -1,10 +1,12 @@
 import { useEffect, useEffectEvent, type RefObject } from "react";
+import { seekPlayback } from "./playback-audio";
 
 export function attachMediaSession(
   media: HTMLAudioElement,
   metadata: MediaMetadataInit,
   onError: () => void,
   onPlay: () => Promise<void> = () => media.play(),
+  onPause: () => void = () => media.pause(),
 ) {
   if (!("mediaSession" in navigator)) return () => {};
   const session = navigator.mediaSession;
@@ -12,9 +14,9 @@ export function attachMediaSession(
     typeof MediaMetadata !== "undefined" ? new MediaMetadata(metadata) : null;
   const handlers = {
     play: () => void onPlay().catch(onError),
-    pause: () => media.pause(),
+    pause: onPause,
     seekto: (details: MediaSessionActionDetails) => {
-      if (details.seekTime !== undefined) media.currentTime = details.seekTime;
+      if (details.seekTime !== undefined) seekPlayback(media, details.seekTime);
     },
   };
   for (const action of Object.keys(handlers) as (keyof typeof handlers)[]) {
@@ -68,9 +70,14 @@ export function useMediaSession(
   },
   onError: () => void,
   onPlay: () => Promise<void>,
+  onPause?: () => void,
+  sourceKey?: string,
 ) {
   const fail = useEffectEvent(onError);
   const play = useEffectEvent(onPlay);
+  const pause = useEffectEvent(() =>
+    onPause ? onPause() : audioRef.current?.pause(),
+  );
   const { src, sizes, type } = artwork ?? {};
   useEffect(() => {
     const media = audioRef.current;
@@ -80,6 +87,7 @@ export function useMediaSession(
       { title, artist, album, artwork: src ? [{ src, sizes, type }] : [] },
       () => fail(),
       () => play(),
+      () => pause(),
     );
-  }, [audioRef, title, artist, album, src, sizes, type]);
+  }, [audioRef, title, artist, album, src, sizes, type, sourceKey]);
 }

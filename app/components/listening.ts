@@ -67,6 +67,17 @@ export function observeListening(
     send("ended");
     started = false;
   }
+  function loop() {
+    // The native loop has already wrapped. Close the old interval at the real
+    // end before observing the new position; this is not a user seek.
+    last = audio.duration;
+    flush();
+    send("ended", audio.duration);
+    started = false;
+    start = last = audio.currentTime;
+    lastWall = performance.now();
+    if (!audio.seeking) playing();
+  }
   function tick() {
     if (!audio.paused && !audio.seeking) {
       observe();
@@ -80,10 +91,13 @@ export function observeListening(
     pause,
     ended,
     timeupdate: observe,
+    "wavecase-loop": loop,
   };
   if (versionChanged) send("version-changed");
   for (const [name, listener] of Object.entries(listeners))
     audio.addEventListener(name, listener);
+  // A prepared version becomes audible after its native playing event.
+  if (!audio.paused && audio.readyState >= 3) playing();
   const timer = setInterval(tick, 2000);
   window.addEventListener("pagehide", flush);
   return () => {

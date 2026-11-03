@@ -2,6 +2,7 @@ import {
   useEffect,
   useEffectEvent,
   useRef,
+  useSyncExternalStore,
   useState,
   type RefObject,
 } from "react";
@@ -9,11 +10,8 @@ import WaveSurfer from "wavesurfer.js";
 import { observeListening } from "./listening";
 import { Icon } from "./icons";
 import { useMediaSession } from "./media-session";
-import {
-  disconnectPlaybackAudio,
-  playbackGainDb,
-  playNormalized,
-} from "./playback-audio";
+import { playbackGainDb } from "./playback-audio";
+import { DemoPlayback } from "./demo-playback";
 import {
   attachWaveformGestures,
   type CommentSelection,
@@ -27,6 +25,9 @@ const clock = (time: number) =>
   `${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, "0")}`;
 export function Player({
   url,
+  revision,
+  availableSources,
+  seekRequest,
   peaks,
   duration,
   title,
@@ -42,6 +43,9 @@ export function Player({
   onComment,
 }: {
   url: string;
+  revision: string;
+  availableSources: string;
+  seekRequest: { versionId: string; position: number } | null;
   peaks: number[];
   duration: number;
   title: string;
@@ -57,46 +61,88 @@ export function Player({
   onComment?: (selection: CommentSelection) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
-  const initialPeaks = useRef(peaks);
+  const [playback] = useState(() => new DemoPlayback());
+  const {
+    media,
+    source,
+    loading,
+    starting,
+    error: loadError,
+  } = useSyncExternalStore(
+    playback.subscribe,
+    playback.getSnapshot,
+    playback.getSnapshot,
+  );
   const [playing, setPlaying] = useState(false);
+  const active = playing || starting;
   const [position, setPosition] = useState(0);
   const [error, setError] = useState("");
+  const [seeking, setSeeking] = useState(false);
   const gainDb = playbackGainDb(metadata);
+  const select = () =>
+    playback.select({
+      key: versionId + revision,
+      versionId,
+      url,
+      duration,
+      gainDb,
+      peaks,
+      title,
+      artist,
+      artwork,
+      share,
+    });
+  const selectLatest = useEffectEvent(select);
+  useEffect(() => {
+    playback.reconcile(availableSources.split(","));
+    void selectLatest();
+  }, [playback, versionId, revision, url, gainDb, availableSources]);
+  useEffect(() => {
+    if (seekRequest) playback.seek(seekRequest.versionId, seekRequest.position);
+  }, [playback, seekRequest]);
+  useEffect(() => {
+    playback.setRepeat(repeat);
+  }, [playback, repeat]);
+  useEffect(() => {
+    const revoke = () => playback.dispose();
+    window.addEventListener("wavecase-access-revoked", revoke);
+    return () => {
+      window.removeEventListener("wavecase-access-revoked", revoke);
+      playback.dispose();
+    };
+  }, [playback]);
+  useEffect(() => {
+    audioRef.current = media;
+    return () => {
+      audioRef.current = null;
+    };
+  }, [audioRef, media]);
   useMediaSession(
     audioRef,
     {
-      title,
-      artist,
-      artwork: artwork ? { src: artwork, type: "image/jpeg" } : null,
+      title: source?.title,
+      artist: source?.artist,
+      artwork: source?.artwork
+        ? { src: source.artwork, type: "image/jpeg" }
+        : null,
     },
     () => setError("Audio could not play. Please try again."),
-    () =>
-      audioRef.current
-        ? playNormalized(audioRef.current, gainDb)
-        : Promise.resolve(),
+    playback.play,
+    playback.pause,
+    source?.key,
   );
-  const comment = useEffectEvent((selection: CommentSelection) =>
-    onComment?.(selection),
-  );
-  const ended = useEffectEvent(() => {
-    const media = audioRef.current;
-    if (repeat && media) {
-      media.currentTime = 0;
-      void playNormalized(media, gainDb).catch(() =>
-        setError("Press Play to continue playback."),
-      );
-    }
+  const comment = useEffectEvent((selection: CommentSelection) => {
+    if (!loading && source?.versionId === versionId) onComment?.(selection);
   });
   const canComment = !!onComment;
   useEffect(() => {
-    const media = audioRef.current,
-      element = container.current;
-    if (!element || !media) return;
+    const element = container.current;
+    if (!element || !media || !source) return;
     const wave = WaveSurfer.create({
       container: element,
       media,
-      peaks: [initialPeaks.current],
-      duration,
+      peaks: [source.peaks],
+      duration: source.duration,
       waveColor: "#8b9995",
       progressColor: "#bcebd6",
       cursorColor: "#ffffff",
@@ -111,11 +157,16 @@ export function Player({
       element,
       wave,
       media,
-      duration,
+      source.duration,
       canComment ? (selection) => comment(selection) : undefined,
     );
-    let stop: (() => void) | undefined;
-    let restored = false;
+    const versionChanged =
+      playbackRef.current.versionId !== undefined &&
+      playbackRef.current.versionId !== source.versionId;
+    playbackRef.current.versionId = source.versionId;
+    const stop = source.share
+      ? observeListening(media, source.versionId, source.share, versionChanged)
+      : undefined;
     const remember = () => {
       playbackRef.current.position = media.currentTime;
       setPosition(media.currentTime);
@@ -129,34 +180,18 @@ export function Player({
       playbackRef.current.playing = false;
       setPlaying(false);
     };
-    const restore = () => {
-      if (restored) return;
-      restored = true;
-      const versionChanged =
-        playbackRef.current.versionId !== undefined &&
-        playbackRef.current.versionId !== versionId;
-      media.currentTime =
-        playbackRef.current.position < duration
-          ? playbackRef.current.position
-          : 0;
-      playbackRef.current.versionId = versionId;
-      // Observe from the restored position, not the new media element's zero.
-      if (share)
-        stop = observeListening(media, versionId, share, versionChanged);
-      // Record the completed version before repeat rewinds the media.
-      media.addEventListener("ended", finish);
-      media.loop = false;
-      if (playbackRef.current.playing)
-        void playNormalized(media, gainDb).catch(() =>
-          setError("Press Play to continue playback."),
-        );
-    };
+    const seek = () => setSeeking(true);
+    const seeked = () => setSeeking(false);
+    remember();
+    seeked();
+    if (media.paused) pause();
+    else play();
     const toggle = () => {
       if (media.paused)
-        void playNormalized(media, gainDb).catch(() =>
-          setError("Audio could not play. Please try again."),
-        );
-      else media.pause();
+        void playback
+          .play()
+          .catch(() => setError("Audio could not play. Please try again."));
+      else playback.pause();
     };
     const keyboard = (event: KeyboardEvent) => {
       if (
@@ -176,52 +211,30 @@ export function Player({
       event.preventDefault();
       if (!event.repeat) toggle();
     };
-    const finish = () => ended();
     const fail = () =>
       setError(
         "Audio could not be loaded. Please reload the page or try another version.",
       );
-    media.addEventListener("loadedmetadata", restore, { once: true });
     media.addEventListener("timeupdate", remember);
     media.addEventListener("play", play);
     media.addEventListener("pause", pause);
     media.addEventListener("error", fail);
-    if (media.readyState >= 1) restore();
-    const revoke = () => {
-      media.pause();
-      disconnectPlaybackAudio(media);
-      media.removeAttribute("src");
-      media.load();
-    };
-    window.addEventListener("wavecase-access-revoked", revoke);
+    media.addEventListener("wavecase-user-seek", seek);
+    media.addEventListener("wavecase-user-seeked", seeked);
     window.addEventListener("keydown", keyboard, true);
     return () => {
-      window.removeEventListener("wavecase-access-revoked", revoke);
       window.removeEventListener("keydown", keyboard, true);
-      media.removeEventListener("ended", finish);
-      media.removeEventListener("loadedmetadata", restore);
       media.removeEventListener("timeupdate", remember);
       media.removeEventListener("play", play);
       media.removeEventListener("pause", pause);
       media.removeEventListener("error", fail);
+      media.removeEventListener("wavecase-user-seek", seek);
+      media.removeEventListener("wavecase-user-seeked", seeked);
       stopGestures();
       stop?.();
       wave.destroy();
-      media.pause();
-      disconnectPlaybackAudio(media);
-      media.removeAttribute("src");
-      media.load();
     };
-  }, [
-    audioRef,
-    playbackRef,
-    duration,
-    canComment,
-    share,
-    url,
-    versionId,
-    gainDb,
-  ]);
+  }, [media, source, playback, playbackRef, canComment]);
   return (
     <>
       <div
@@ -231,16 +244,31 @@ export function Player({
         role="slider"
         aria-label="Waveform"
         aria-valuemin={0}
-        aria-valuemax={duration}
+        aria-valuemax={source?.duration ?? duration}
         aria-valuenow={position}
-        aria-valuetext={`${clock(position)} of ${clock(duration)}`}
+        aria-valuetext={`${clock(position)} of ${clock(source?.duration ?? duration)}`}
         aria-describedby="waveform-help"
       />
       <p className="waveform-help" id="waveform-help">
         Scroll or pinch to zoom · Drag to pan
         {canComment && " · Right-click or hold to comment"}
       </p>
-      <audio ref={audioRef} src={url} preload="metadata" hidden />
+      {loading && (
+        <p role="status">
+          {playing
+            ? "Loading selected version. The previous version is still playing."
+            : "Loading audio…"}
+        </p>
+      )}
+      {seeking && <p role="status">Seeking…</p>}
+      {loadError && (
+        <p role="alert">
+          {loadError}{" "}
+          <button type="button" onClick={() => void select()}>
+            Retry
+          </button>
+        </p>
+      )}
       <div
         className="player-controls"
         role="group"
@@ -248,26 +276,27 @@ export function Player({
       >
         <span
           className="tooltip"
-          data-tooltip={playing ? "Pause (Space)" : "Play (Space)"}
+          data-tooltip={active ? "Pause (Space)" : "Play (Space)"}
         >
           <button
             type="button"
             className="icon-action play-toggle"
-            aria-label={playing ? "Pause" : "Play"}
+            aria-label={active ? "Pause" : "Play"}
             onClick={() => {
-              const media = audioRef.current;
-              if (media?.paused)
-                void playNormalized(media, gainDb).catch(() =>
-                  setError("Audio could not play. Please try again."),
-                );
-              else media?.pause();
+              if (!active)
+                void playback
+                  .play()
+                  .catch(() =>
+                    setError("Audio could not play. Please try again."),
+                  );
+              else playback.pause();
             }}
           >
-            <Icon name={playing ? "pause" : "play"} />
+            <Icon name={active ? "pause" : "play"} />
           </button>
         </span>
         <output className="playback-time" aria-label="Playback time">
-          {clock(position)} / {clock(duration)}
+          {clock(position)} / {clock(source?.duration ?? duration)}
         </output>
         <span
           className="tooltip"

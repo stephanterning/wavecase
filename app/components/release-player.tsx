@@ -37,7 +37,8 @@ export function ReleasePlayerProvider({ children }: { children: ReactNode }) {
 }
 
 function ReleasePlayer() {
-  const { playback, queue, index, status, error } = useReleasePlayer();
+  const { playback, queue, index, status, error, repeat, seeking } =
+    useReleasePlayer();
   const audio = useRef<HTMLAudioElement>(null);
   const track = queue?.tracks[index];
   const active = status === "playing" || status === "loading";
@@ -115,6 +116,17 @@ function ReleasePlayer() {
               >
                 <Icon name={active ? "pause" : "play"} />
               </button>
+              <button
+                type="button"
+                className="icon-action"
+                aria-label="Repeat track"
+                aria-pressed={repeat}
+                data-tooltip={repeat ? "Repeat track on" : "Repeat track off"}
+                onClick={() => playback.setRepeat(!repeat)}
+              >
+                <Icon name="repeat" />
+              </button>
+              {seeking && <span role="status">Seeking…</span>}
             </>
           )}
           {error && <p role="alert">{error}</p>}
