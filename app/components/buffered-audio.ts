@@ -80,13 +80,18 @@ export class BufferedAudio extends EventTarget {
         : 0);
     return this.loop && this.duration
       ? time % this.duration
-      : Math.min(time, this.duration);
+      : this.buffer
+        ? Math.min(time, this.duration)
+        : time;
   }
   set currentTime(position: number) {
     if (!Number.isFinite(position)) return;
     this.tick();
     this.emit("wavecase-user-seek");
-    this.offset = Math.max(0, Math.min(position, this.duration));
+    this.offset = Math.max(
+      0,
+      this.buffer ? Math.min(position, this.duration) : position,
+    );
     this.startedAt = this.context.currentTime;
     this.loops = 0;
     this.ended = false;
@@ -120,6 +125,7 @@ export class BufferedAudio extends EventTarget {
       .then((buffer) => {
         request.signal.throwIfAborted();
         this.buffer = buffer;
+        this.offset = Math.min(this.offset, buffer.duration);
         this.readyState = 4;
         this.emit("durationchange");
         this.emit("loadedmetadata");

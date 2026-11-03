@@ -259,3 +259,24 @@ test("preparation serializes uncancellable decoding and discards superseded resu
   decodes[2]({ length: maxBufferBytes, numberOfChannels: 2 } as AudioBuffer);
   await tooLarge;
 });
+
+test("a seek during first loading is retained when playback starts", async () => {
+  const context = new Context();
+  let resolve!: (buffer: AudioBuffer) => void;
+  const audio = new BufferedAudio(
+    context as unknown as AudioContext,
+    () =>
+      new Promise((done) => {
+        resolve = done;
+      }),
+  );
+  audio.src = "/audio";
+  const playing = audio.play();
+  audio.currentTime = 7;
+  assert.equal(audio.currentTime, 7);
+  audio.loop = true;
+  resolve(buffer);
+  await playing;
+  assert.deepEqual(context.voices[0].starts, [[0, 7]]);
+  audio.destroy();
+});
