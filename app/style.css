@@ -597,6 +597,13 @@ body:has(.release-mini) {
 .release-seek {
   font-size: 13px;
 }
+.release-seek input[type="range"] {
+  /* Text-field padding offsets the native thumb from the progress track. */
+  padding: 0;
+  border: 0;
+  background: transparent;
+  min-height: 44px;
+}
 .service-links {
   display: grid;
   gap: 10px;
