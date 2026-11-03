@@ -1,4 +1,5 @@
 import { versionStatuses } from "../domain/versions";
+import { shareVersionScope } from "../server/share-links";
 import { deleteDemo, deleteShareLink } from "../server/delete-demo";
 import { formError } from "../server/releases";
 import { resolveTrackArtist } from "../server/track-artist";
@@ -180,24 +181,18 @@ export async function action({ request, params }: ActionFunctionArgs) {
         })
         .where(eq(tracks.id, access.track.id));
     } else if (intent === "link") {
-      let fromOrder: number | null = null;
-      if (form.get("from")) {
-        const version = await db.query.versions.findFirst({
-          where: and(
-            eq(versions.id, z.uuid().parse(form.get("from"))),
-            eq(versions.trackId, access.track.id),
-          ),
-        });
-        if (!version) throw new Response("Invalid version", { status: 400 });
-        fromOrder = version.position;
-      }
+      const scope = await shareVersionScope(
+        access.track.id,
+        form.get("visibility") || (form.get("from") ? "onward" : "all"),
+        form.get("from"),
+      );
       await db
         .update(links)
         .set({
           label: String(form.get("label") || "Shared link").slice(0, 200),
           active: form.has("active"),
           download: form.has("download"),
-          fromOrder,
+          ...scope,
         })
         .where(
           and(

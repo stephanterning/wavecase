@@ -108,6 +108,7 @@ export const links = pgTable("links", {
   active: boolean().notNull().default(true),
   download: boolean().notNull().default(false),
   fromOrder: bigint({ mode: "number" }),
+  pinnedOrder: bigint({ mode: "number" }),
   createdAt: created(),
 });
 export const comments = pgTable("comments", {

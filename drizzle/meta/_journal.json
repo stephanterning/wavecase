@@ -71,6 +71,13 @@
       "when": 1793557615869,
       "tag": "0009_rename_demo_status",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793698434839,
+      "tag": "0010_omniscient_romulus",
+      "breakpoints": true
     }
   ]
 }
