@@ -1,3 +1,4 @@
+import type { PlaybackMedia } from "../app/components/playback-audio";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DemoPlayback, type DemoSource } from "../app/components/demo-playback";
@@ -41,13 +42,13 @@ const source = (id: string): DemoSource => ({
 });
 function setup() {
   const media: Media[] = [];
-  const plays: { media: HTMLAudioElement; silent: boolean }[] = [];
-  const fades: [HTMLAudioElement | null, HTMLAudioElement][] = [];
+  const plays: { media: PlaybackMedia; silent: boolean }[] = [];
+  const fades: [PlaybackMedia | null, PlaybackMedia][] = [];
   const playback = new DemoPlayback(
     () => {
       const next = new Media();
       media.push(next);
-      return next as unknown as HTMLAudioElement;
+      return next as unknown as PlaybackMedia;
     },
     async (audio, _gain, silent = false) => {
       plays.push({ media: audio, silent });
@@ -172,7 +173,7 @@ test("a rejected old play cannot cancel a later resume or version change", async
     () => {
       const audio = new Media();
       media.push(audio);
-      return audio as unknown as HTMLAudioElement;
+      return audio as unknown as PlaybackMedia;
     },
     (audio) => (++calls === 1 ? interrupted : audio.play()),
     () => {},

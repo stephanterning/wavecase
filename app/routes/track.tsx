@@ -200,7 +200,6 @@ export default function Track() {
     position: 0,
     playing: false,
   });
-  const audio = useRef<HTMLAudioElement>(null);
   const [seekRequest, setSeekRequest] = useState<{
     versionId: string;
     position: number;
@@ -397,7 +396,6 @@ export default function Track() {
                 artist={data.track.artist}
                 artwork={artwork}
                 playbackRef={cursor}
-                audioRef={audio}
                 repeat={repeat}
                 onRepeatChange={setRepeat}
                 onComment={

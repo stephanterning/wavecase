@@ -1,3 +1,4 @@
+import type { PlaybackMedia } from "./playback-audio";
 import { seekPlayback } from "./playback-audio";
 export type CommentSelection = { start: number | null; end: number | null };
 export function selectedTimes(
@@ -23,7 +24,7 @@ export interface WaveformViewport {
 export function attachWaveformGestures(
   element: HTMLElement,
   wave: WaveformViewport,
-  media: HTMLAudioElement,
+  media: PlaybackMedia,
   duration: number,
   onComment?: (selection: CommentSelection) => void,
 ) {

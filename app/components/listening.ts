@@ -1,6 +1,7 @@
+import type { PlaybackMedia } from "./playback-audio";
 import { recordEvent } from "./telemetry";
 export function observeListening(
-  audio: HTMLAudioElement,
+  audio: PlaybackMedia,
   versionId: string,
   share: string,
   versionChanged = false,

@@ -1,3 +1,4 @@
+import type { PlaybackMedia } from "../app/components/playback-audio";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -79,7 +80,7 @@ test("repeat stays on the selected release track and counts loops but not seeks"
   assert.equal(state().queue?.tracks[state().index].id, "a3");
 });
 function setup(
-  playAudio?: (media: HTMLAudioElement, gainDb: number) => Promise<void>,
+  playAudio?: (media: PlaybackMedia, gainDb: number) => Promise<void>,
 ) {
   const media = new Media();
   const plays: string[] = [];
@@ -92,7 +93,7 @@ function setup(
       }),
     (release, track) => plays.push(`${release}/${track}`),
   );
-  const detach = playback.attach(media as unknown as HTMLAudioElement);
+  const detach = playback.attach(media as unknown as PlaybackMedia);
   return { media, playback, plays, gains, detach, state: playback.getSnapshot };
 }
 

@@ -1,5 +1,7 @@
 import {
   crossfadePlayback,
+  createPlaybackMedia,
+  type PlaybackMedia,
   disconnectPlaybackAudio,
   observePlaybackLoop,
   playNormalized,
@@ -22,14 +24,14 @@ export type DemoSource = {
 
 type State = {
   source: DemoSource | null;
-  media: HTMLAudioElement | null;
+  media: PlaybackMedia | null;
   loading: boolean;
   error: string;
   starting: boolean;
 };
 
 function ready(
-  media: HTMLAudioElement,
+  media: PlaybackMedia,
   predicate: () => boolean,
   signal: AbortSignal,
 ) {
@@ -67,19 +69,19 @@ export class DemoPlayback {
   };
   private listeners = new Set<() => void>();
   private pending?: {
-    media: HTMLAudioElement;
+    media: PlaybackMedia;
     source: DemoSource;
     abort: AbortController;
     seekTo?: number;
   };
-  private retired = new Set<HTMLAudioElement>();
+  private retired = new Set<PlaybackMedia>();
   private stopLoop?: () => void;
   private wantPlay = false;
   private playAttempt = 0;
   private repeat = false;
 
   constructor(
-    private createMedia = () => new Audio(),
+    private createMedia = createPlaybackMedia,
     private playAudio = playNormalized,
     private fade = crossfadePlayback,
   ) {}
@@ -95,7 +97,7 @@ export class DemoPlayback {
     this.state = { ...this.state, ...change };
     for (const listener of this.listeners) listener();
   }
-  private release(media: HTMLAudioElement) {
+  private release(media: PlaybackMedia) {
     media.pause();
     disconnectPlaybackAudio(media);
     media.removeAttribute("src");
@@ -117,7 +119,7 @@ export class DemoPlayback {
       return;
     }
     ++this.playAttempt;
-    const media = this.createMedia();
+    const media = this.createMedia(source.duration);
     const pending = {
       media,
       source,

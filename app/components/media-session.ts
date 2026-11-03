@@ -1,8 +1,9 @@
-import { useEffect, useEffectEvent, type RefObject } from "react";
+import type { PlaybackMedia } from "./playback-audio";
+import { useEffect, useEffectEvent } from "react";
 import { seekPlayback } from "./playback-audio";
 
 export function attachMediaSession(
-  media: HTMLAudioElement,
+  media: PlaybackMedia,
   metadata: MediaMetadataInit,
   onError: () => void,
   onPlay: () => Promise<void> = () => media.play(),
@@ -56,7 +57,7 @@ export function attachMediaSession(
 }
 
 export function useMediaSession(
-  audioRef: RefObject<HTMLAudioElement | null>,
+  media: PlaybackMedia | null,
   {
     title,
     artist = "",
@@ -71,16 +72,12 @@ export function useMediaSession(
   onError: () => void,
   onPlay: () => Promise<void>,
   onPause?: () => void,
-  sourceKey?: string,
 ) {
   const fail = useEffectEvent(onError);
   const play = useEffectEvent(onPlay);
-  const pause = useEffectEvent(() =>
-    onPause ? onPause() : audioRef.current?.pause(),
-  );
+  const pause = useEffectEvent(() => (onPause ? onPause() : media?.pause()));
   const { src, sizes, type } = artwork ?? {};
   useEffect(() => {
-    const media = audioRef.current;
     if (!media || title === undefined) return;
     return attachMediaSession(
       media,
@@ -89,5 +86,5 @@ export function useMediaSession(
       () => play(),
       () => pause(),
     );
-  }, [audioRef, title, artist, album, src, sizes, type, sourceKey]);
+  }, [media, title, artist, album, src, sizes, type]);
 }

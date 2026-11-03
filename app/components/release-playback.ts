@@ -1,5 +1,7 @@
 import {
   cancelPlaybackSeek,
+  createPlaybackMedia,
+  type PlaybackMedia,
   disconnectPlaybackAudio,
   observePlaybackLoop,
   playNormalized,
@@ -21,6 +23,7 @@ export type ReleaseQueue = {
   }[];
 };
 export type ReleasePlaybackState = {
+  media: PlaybackMedia | null;
   queue: ReleaseQueue | null;
   index: number;
   status: "idle" | "loading" | "playing" | "paused" | "ended" | "error";
@@ -44,9 +47,10 @@ function recordPlay(releaseId: string, trackId: string) {
 }
 
 // One controller belongs to one mounted public layout. Pages only select music
-// or control this same media element; navigating never loads another source.
+// or control its active transport; navigating never loads another source.
 export class ReleasePlayback {
   private state: ReleasePlaybackState = {
+    media: null,
     queue: null,
     index: 0,
     status: "idle",
@@ -57,9 +61,11 @@ export class ReleasePlayback {
     seeking: false,
   };
   private listeners = new Set<() => void>();
-  private media: HTMLAudioElement | null = null;
+  private media: PlaybackMedia | null = null;
   private attempt = 0;
   private counted = false;
+  private ownsMedia = false;
+  private detachMedia?: () => void;
 
   constructor(
     private playAudio = playNormalized,
@@ -78,8 +84,19 @@ export class ReleasePlayback {
     for (const listener of this.listeners) listener();
   }
 
-  attach(media: HTMLAudioElement) {
+  attach(media?: PlaybackMedia) {
+    this.ownsMedia = !media;
+    if (media) this.detachMedia = this.bind(media);
+    return () => {
+      this.detachMedia?.();
+      this.detachMedia = undefined;
+      this.ownsMedia = false;
+    };
+  }
+
+  private bind(media: PlaybackMedia) {
     this.media = media;
+    this.update({ media });
     media.loop = this.state.repeat;
     const stopLoop = observePlaybackLoop(media);
     const listeners = {
@@ -144,12 +161,13 @@ export class ReleasePlayback {
       media.removeAttribute("src");
       media.load();
       this.media = null;
+      this.update({ media: null });
     };
   }
 
   start = (release: ReleaseQueue, trackId: string) => {
     const index = release.tracks.findIndex((track) => track.id === trackId);
-    if (index < 0 || !this.media) return;
+    if (index < 0 || (!this.media && !this.ownsMedia)) return;
     const current = this.state.queue;
     if (
       current?.releaseId === release.releaseId &&
@@ -167,11 +185,16 @@ export class ReleasePlayback {
 
   private load(index: number) {
     const { queue } = this.state;
-    if (!queue || !this.media) return Promise.resolve();
+    if (!queue) return Promise.resolve();
+    const track = queue.tracks[index];
+    if (this.ownsMedia) {
+      this.detachMedia?.();
+      this.detachMedia = this.bind(createPlaybackMedia(track.duration));
+    }
+    if (!this.media) return Promise.resolve();
     ++this.attempt;
     cancelPlaybackSeek(this.media);
     this.media.pause();
-    const track = queue.tracks[index];
     this.counted = false;
     this.update({
       index,

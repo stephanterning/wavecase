@@ -1,5 +1,21 @@
 // One context per page keeps it unlocked across version changes. Sources belong
 // to media elements and must be reused if an effect reconnects the same element.
+import { BufferedAudio } from "./buffered-audio";
+import {
+  playbackContext,
+  resumePlayback,
+  maxBufferBytes,
+  transitionSeconds,
+} from "./audio-context";
+export { transitionSeconds } from "./audio-context";
+export type PlaybackMedia = HTMLAudioElement | BufferedAudio;
+
+export function createPlaybackMedia(duration: number): PlaybackMedia {
+  const context = playbackContext();
+  return duration > 0 && duration * context.sampleRate * 2 * 4 <= maxBufferBytes
+    ? new BufferedAudio(context)
+    : new Audio();
+}
 let context: AudioContext | undefined;
 const sources = new WeakMap<
   HTMLAudioElement,
@@ -12,7 +28,6 @@ const sources = new WeakMap<
 >();
 const attempts = new WeakMap<HTMLAudioElement, object>();
 const seeks = new WeakMap<HTMLAudioElement, AbortController>();
-export const transitionSeconds = 0.005;
 
 export function playbackGainDb(metadata: Record<string, unknown> | null) {
   const finite = (value: unknown): value is number =>
@@ -31,18 +46,18 @@ export function playbackGainDb(metadata: Record<string, unknown> | null) {
 }
 
 export async function playNormalized(
-  media: HTMLAudioElement,
+  media: PlaybackMedia,
   gainDb: number,
   silent = false,
 ) {
+  if (media instanceof BufferedAudio) {
+    media.setGain(gainDb);
+    media.setAudible(!silent);
+    return media.play();
+  }
   const attempt = {};
   attempts.set(media, attempt);
-  // Let supporting browsers treat Web Audio as music, including in background.
-  const audioSession = (
-    navigator as Navigator & { audioSession?: { type: string } }
-  ).audioSession;
-  if (audioSession) audioSession.type = "playback";
-  context ??= new AudioContext({ latencyHint: "interactive" });
+  context = playbackContext();
   let graph = sources.get(media);
   if (!graph) {
     graph = {
@@ -64,10 +79,7 @@ export async function playNormalized(
   }
   try {
     // Start both synchronously in the user gesture, including on mobile Safari.
-    await Promise.all([
-      context.state === "running" ? Promise.resolve() : context.resume(),
-      media.play(),
-    ]);
+    await Promise.all([resumePlayback(context), media.play()]);
   } catch (error) {
     // A rejected play from a replaced source must not pause its replacement.
     if (attempts.get(media) === attempt) media.pause();
@@ -75,12 +87,14 @@ export async function playNormalized(
   }
 }
 
-export function cancelPlaybackSeek(media: HTMLAudioElement) {
+export function cancelPlaybackSeek(media: PlaybackMedia) {
+  if (media instanceof BufferedAudio) return;
   seeks.get(media)?.abort();
   seeks.delete(media);
 }
 
-export function disconnectPlaybackAudio(media: HTMLAudioElement) {
+export function disconnectPlaybackAudio(media: PlaybackMedia) {
+  if (media instanceof BufferedAudio) return media.destroy();
   cancelPlaybackSeek(media);
   attempts.delete(media);
   const graph = sources.get(media);
@@ -93,16 +107,19 @@ export function disconnectPlaybackAudio(media: HTMLAudioElement) {
 
 /** Schedule both sides on the audio clock; a delayed JS timer cannot add a gap. */
 export function crossfadePlayback(
-  previous: HTMLAudioElement | null,
-  next: HTMLAudioElement,
+  previous: PlaybackMedia | null,
+  next: PlaybackMedia,
 ) {
-  if (!context) return;
-  const now = context.currentTime;
+  const now = playbackContext().currentTime;
   for (const [media, from, to] of [
     [previous, 1, 0],
     [next, 0, 1],
   ] as const) {
     if (!media) continue;
+    if (media instanceof BufferedAudio) {
+      media.setAudible(to === 1, true, now);
+      continue;
+    }
     cancelPlaybackSeek(media);
     const gain = sources.get(media)?.envelope.gain;
     gain?.cancelScheduledValues(now);
@@ -112,11 +129,15 @@ export function crossfadePlayback(
 }
 
 /** All user seeks go through this entry point, including lock-screen controls.
- * Silence the outgoing stream while the browser seeks instead of letting stale
- * decoded audio continue behind a cursor that already shows the new position.
+ * Buffered sources switch on the audio clock. The long-file streaming fallback
+ * fades around the browser seek, but cannot flush Safari's media bridge queue.
  */
-export function seekPlayback(media: HTMLAudioElement, position: number) {
+export function seekPlayback(media: PlaybackMedia, position: number) {
   if (!Number.isFinite(position)) return;
+  if (media instanceof BufferedAudio) {
+    media.currentTime = position;
+    return;
+  }
   if (position === media.currentTime && !media.seeking && !seeks.has(media))
     return;
   seeks.get(media)?.abort();
@@ -169,7 +190,8 @@ export function seekPlayback(media: HTMLAudioElement, position: number) {
 /** Native looping never fires ended. Emit a separate boundary event so a loop
  * counts as a new play, while an explicit seek to zero still does not.
  */
-export function observePlaybackLoop(media: HTMLAudioElement) {
+export function observePlaybackLoop(media: PlaybackMedia) {
+  if (media instanceof BufferedAudio) return () => {};
   let last = media.currentTime;
   let userSeek = false;
   const seeking = () => {

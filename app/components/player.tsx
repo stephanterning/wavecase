@@ -11,6 +11,7 @@ import { observeListening } from "./listening";
 import { Icon } from "./icons";
 import { useMediaSession } from "./media-session";
 import { playbackGainDb } from "./playback-audio";
+import { BufferedAudio } from "./buffered-audio";
 import { DemoPlayback } from "./demo-playback";
 import {
   attachWaveformGestures,
@@ -37,7 +38,6 @@ export function Player({
   share,
   versionId,
   playbackRef,
-  audioRef,
   repeat,
   onRepeatChange,
   onComment,
@@ -55,7 +55,6 @@ export function Player({
   share?: string;
   versionId: string;
   playbackRef: RefObject<Playback>;
-  audioRef: RefObject<HTMLAudioElement | null>;
   repeat: boolean;
   onRepeatChange: (repeat: boolean) => void;
   onComment?: (selection: CommentSelection) => void;
@@ -111,14 +110,8 @@ export function Player({
       playback.dispose();
     };
   }, [playback]);
-  useEffect(() => {
-    audioRef.current = media;
-    return () => {
-      audioRef.current = null;
-    };
-  }, [audioRef, media]);
   useMediaSession(
-    audioRef,
+    media,
     {
       title: source?.title,
       artist: source?.artist,
@@ -129,7 +122,6 @@ export function Player({
     () => setError("Audio could not play. Please try again."),
     playback.play,
     playback.pause,
-    source?.key,
   );
   const comment = useEffectEvent((selection: CommentSelection) => {
     if (!loading && source?.versionId === versionId) onComment?.(selection);
@@ -140,7 +132,7 @@ export function Player({
     if (!element || !media || !source) return;
     const wave = WaveSurfer.create({
       container: element,
-      media,
+      ...(media instanceof BufferedAudio ? {} : { media }),
       peaks: [source.peaks],
       duration: source.duration,
       waveColor: "#8b9995",
@@ -168,6 +160,7 @@ export function Player({
       ? observeListening(media, source.versionId, source.share, versionChanged)
       : undefined;
     const remember = () => {
+      if (media instanceof BufferedAudio) wave.setTime(media.currentTime);
       playbackRef.current.position = media.currentTime;
       setPosition(media.currentTime);
     };
@@ -259,6 +252,9 @@ export function Player({
             ? "Loading selected version. The previous version is still playing."
             : "Loading audio…"}
         </p>
+      )}
+      {media && !(media instanceof BufferedAudio) && (
+        <p>Large audio file: streaming playback.</p>
       )}
       {seeking && <p role="status">Seeking…</p>}
       {loadError && (
