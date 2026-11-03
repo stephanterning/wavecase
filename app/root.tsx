@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { viewer } from "./server/security";
 import {
+  Link,
   Links,
   useRouteLoaderData,
   useLocation,
@@ -36,14 +37,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {publicPage ? (
               <span className="brand">▥ wavecase</span>
             ) : (
-              <a href="/" className="brand">
+              <Link to={data?.user ? "/dashboard" : "/"} className="brand">
                 ▥ wavecase
-              </a>
+              </Link>
             )}
             {!publicPage && data?.user?.admin && (
-              <a
+              <Link
                 className="header-icon"
-                href="/admin"
+                to="/admin"
                 aria-label="Installation settings"
                 title="Installation settings"
               >
@@ -59,7 +60,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <path d="m9 3-1 3-3 1-2 3 2 2-1 3 3 2 3-1 2 3 3-1 1-3 3-1 2-3-2-2 1-3-3-2-3 1-2-3Z" />
                   <circle cx="12" cy="11" r="3" />
                 </svg>
-              </a>
+              </Link>
             )}
           </div>
           {!publicPage && data?.user && (
@@ -76,7 +77,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </button>
               <div id="account-menu" popover="auto" className="account-menu">
                 <nav aria-label="Account">
-                  <a href="/account">Your account</a>
+                  <Link
+                    to="/account"
+                    onClick={(event) =>
+                      event.currentTarget
+                        .closest<HTMLElement>("[popover]")
+                        ?.hidePopover?.()
+                    }
+                  >
+                    Your account
+                  </Link>
                   <form method="post" action="/logout">
                     <button type="submit">Log out</button>
                   </form>

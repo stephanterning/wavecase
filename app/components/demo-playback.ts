@@ -11,6 +11,8 @@ import {
 } from "./playback-audio";
 
 export type DemoSource = {
+  trackId?: string;
+  versionName?: string;
   key: string;
   versionId: string;
   url: string;
@@ -29,6 +31,8 @@ type State = {
   loading: boolean;
   error: string;
   starting: boolean;
+  playing: boolean;
+  repeating: boolean;
 };
 
 function ready(
@@ -67,6 +71,8 @@ export class DemoPlayback {
     loading: false,
     error: "",
     starting: false,
+    playing: false,
+    repeating: false,
   };
   private listeners = new Set<() => void>();
   private pending?: {
@@ -80,7 +86,6 @@ export class DemoPlayback {
   private stopLoop?: () => void;
   private wantPlay = false;
   private playAttempt = 0;
-  private repeat = false;
 
   constructor(
     private createMedia = createPlaybackMedia,
@@ -117,7 +122,7 @@ export class DemoPlayback {
     if (this.pending?.source.key === source.key) return;
     this.cancelPending();
     if (this.state.source?.key === source.key) {
-      this.update({ loading: false, error: "" });
+      this.update({ source, loading: false, error: "" });
       return;
     }
     ++this.playAttempt;
@@ -135,7 +140,7 @@ export class DemoPlayback {
     };
     this.pending = pending;
     media.preload = this.wantPlay ? "auto" : "metadata";
-    media.loop = this.repeat;
+    media.loop = this.state.repeating;
     if (!cached) {
       media.src = source.url;
       if (media instanceof BufferedAudio)
@@ -192,9 +197,19 @@ export class DemoPlayback {
         this.wantPlay = false;
       };
       media.addEventListener("ended", ended);
+      const sync = () =>
+        this.update({
+          playing: !media.paused,
+          ...(media.error
+            ? { error: "Audio is unavailable. Please try again." }
+            : {}),
+        });
+      const events = ["play", "pause", "ended", "error"];
+      for (const event of events) media.addEventListener(event, sync);
       this.stopLoop = () => {
         stopLoop();
         media.removeEventListener("ended", ended);
+        for (const event of events) media.removeEventListener(event, sync);
       };
       if (this.wantPlay) {
         this.fade(previous, media);
@@ -233,6 +248,7 @@ export class DemoPlayback {
         loading: false,
         error: "",
         starting: false,
+        playing: !media.paused,
       });
     } catch (error) {
       if (signal.aborted) return;
@@ -251,6 +267,7 @@ export class DemoPlayback {
   play = async () => {
     const attempt = ++this.playAttempt;
     this.wantPlay = true;
+    this.update({ error: "" });
     const { media, source } = this.state;
     const target = media || this.pending?.media;
     const gain = source?.gainDb ?? this.pending?.source.gainDb;
@@ -261,7 +278,10 @@ export class DemoPlayback {
       } catch (error) {
         if (attempt !== this.playAttempt) return;
         this.wantPlay = false;
-        this.update({ starting: false });
+        this.update({
+          starting: false,
+          error: "Audio could not play. Please try again.",
+        });
         throw error;
       }
     }
@@ -281,7 +301,7 @@ export class DemoPlayback {
       seekPlayback(this.state.media, position);
   };
   setRepeat = (repeat: boolean) => {
-    this.repeat = repeat;
+    this.update({ repeating: repeat });
     if (this.state.media) this.state.media.loop = repeat;
     if (this.pending) this.pending.media.loop = repeat;
   };
@@ -311,6 +331,7 @@ export class DemoPlayback {
       loading: false,
       error: "",
       starting: false,
+      playing: false,
     });
   };
 }

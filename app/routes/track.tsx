@@ -11,6 +11,7 @@ import { demoWavAvailable } from "../server/download";
 import { artistChoices, linkedArtist } from "../server/track-artist";
 import { uploadVersion } from "../server/upload";
 import { limitedBody } from "../server/request";
+import { useWorkspacePlayback } from "../components/workspace-player";
 import { Player, type Playback } from "../components/player";
 import { Feedback } from "../components/feedback";
 import { Download } from "../components/download";
@@ -169,7 +170,21 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 export default function Track() {
   const data = useLoaderData<typeof loader>();
+  return <TrackContents key={data.track.id} />;
+}
+function TrackContents() {
+  const workspace = useWorkspacePlayback();
+  const data = useLoaderData<typeof loader>();
   const result = useActionData<{ error?: string; requested?: boolean }>();
+  const available = data.versions
+    .filter((v) => v.state === "ready")
+    .map((v) => v.id + v.revision)
+    .join(",");
+  useEffect(() => {
+    const active = workspace?.getSnapshot();
+    if (active?.trackId === data.track.id)
+      active.playback?.reconcile(available.split(","));
+  }, [workspace, data.track.id, available]);
   const visitedShare = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (
@@ -192,10 +207,17 @@ export default function Track() {
   const [selection, setSelection] = useState(
     () =>
       search.get("version") ||
+      (workspace?.getSnapshot().trackId === data.track.id
+        ? workspace.getSnapshot().playback?.getSnapshot().source?.versionId
+        : undefined) ||
       data.versions.find((v) => v.state === "ready")?.id ||
       data.versions[0]?.id ||
       "",
   );
+  const requestedVersion = search.get("version");
+  useEffect(() => {
+    if (requestedVersion) setSelection(requestedVersion);
+  }, [requestedVersion]);
   const cursor = useRef<Playback>({
     position: 0,
     playing: false,
@@ -386,6 +408,8 @@ export default function Track() {
             {current.state === "ready" ? (
               <Player
                 key={`${data.track.id}:${data.share || ""}:${data.preview}`}
+                trackId={data.track.id}
+                versionName={current.name}
                 revision={current.revision}
                 seekRequest={seekRequest}
                 availableSources={data.versions

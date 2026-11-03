@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useEffectEvent,
   useRef,
@@ -12,6 +13,7 @@ import { Icon } from "./icons";
 import { useMediaSession } from "./media-session";
 import { playbackGainDb } from "./playback-audio";
 import { BufferedAudio } from "./buffered-audio";
+import { useWorkspacePlayback } from "./workspace-player";
 import { DemoPlayback } from "./demo-playback";
 import {
   attachWaveformGestures,
@@ -25,6 +27,8 @@ export type Playback = {
 const clock = (time: number) =>
   `${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, "0")}`;
 export function Player({
+  trackId,
+  versionName,
   url,
   revision,
   availableSources,
@@ -38,10 +42,12 @@ export function Player({
   share,
   versionId,
   playbackRef,
-  repeat,
+  repeat: localRepeat,
   onRepeatChange,
   onComment,
 }: {
+  trackId?: string;
+  versionName?: string;
   url: string;
   revision: string;
   availableSources: string;
@@ -60,18 +66,27 @@ export function Player({
   onComment?: (selection: CommentSelection) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
-  const [playback] = useState(() => new DemoPlayback());
+  const workspace = useWorkspacePlayback();
+  const [playback] = useState(() =>
+    workspace && trackId ? workspace.forTrack(trackId) : new DemoPlayback(),
+  );
   const {
     media,
     source,
     loading,
     starting,
+    repeating,
     error: loadError,
   } = useSyncExternalStore(
     playback.subscribe,
     playback.getSnapshot,
     playback.getSnapshot,
   );
+  const repeat = workspace ? repeating : localRepeat;
+  const startPlayback = useCallback(() => {
+    if (workspace && trackId) workspace.activate(playback, trackId);
+    return playback.play();
+  }, [workspace, trackId, playback]);
   const [playing, setPlaying] = useState(false);
   const active = playing || starting;
   const [position, setPosition] = useState(0);
@@ -81,6 +96,8 @@ export function Player({
   const select = () =>
     playback.select({
       key: versionId + revision,
+      trackId,
+      versionName,
       versionId,
       url,
       duration,
@@ -95,23 +112,35 @@ export function Player({
   useEffect(() => {
     playback.reconcile(availableSources.split(","));
     void selectLatest();
-  }, [playback, versionId, revision, url, gainDb, availableSources]);
+  }, [
+    playback,
+    versionId,
+    revision,
+    url,
+    gainDb,
+    availableSources,
+    title,
+    artist,
+    artwork,
+    versionName,
+  ]);
   useEffect(() => {
     if (seekRequest) playback.seek(seekRequest.versionId, seekRequest.position);
   }, [playback, seekRequest]);
   useEffect(() => {
-    playback.setRepeat(repeat);
-  }, [playback, repeat]);
+    if (!workspace) playback.setRepeat(localRepeat);
+  }, [playback, localRepeat, workspace]);
   useEffect(() => {
     const revoke = () => playback.dispose();
     window.addEventListener("wavecase-access-revoked", revoke);
     return () => {
       window.removeEventListener("wavecase-access-revoked", revoke);
-      playback.dispose();
+      if (workspace) workspace.release(playback);
+      else playback.dispose();
     };
-  }, [playback]);
+  }, [playback, workspace]);
   useMediaSession(
-    media,
+    workspace ? null : media,
     {
       title: source?.title,
       artist: source?.artist,
@@ -181,12 +210,15 @@ export function Player({
     else play();
     const toggle = () => {
       if (media.paused)
-        void playback
-          .play()
-          .catch(() => setError("Audio could not play. Please try again."));
+        void startPlayback().catch(() =>
+          setError("Audio could not play. Please try again."),
+        );
       else playback.pause();
     };
     const keyboard = (event: KeyboardEvent) => {
+      const shared = workspace?.getSnapshot().playback?.getSnapshot();
+      if (shared?.source || shared?.loading) return;
+      if (event.defaultPrevented || event.isComposing || event.shiftKey) return;
       if (
         (event.code !== "Space" && event.key !== " ") ||
         event.altKey ||
@@ -227,7 +259,15 @@ export function Player({
       stop?.();
       wave.destroy();
     };
-  }, [media, source, playback, playbackRef, canComment]);
+  }, [
+    media,
+    source,
+    playback,
+    playbackRef,
+    canComment,
+    workspace,
+    startPlayback,
+  ]);
   return (
     <>
       <div
@@ -280,11 +320,9 @@ export function Player({
             aria-label={active ? "Pause" : "Play"}
             onClick={() => {
               if (!active)
-                void playback
-                  .play()
-                  .catch(() =>
-                    setError("Audio could not play. Please try again."),
-                  );
+                void startPlayback().catch(() =>
+                  setError("Audio could not play. Please try again."),
+                );
               else playback.pause();
             }}
           >
@@ -303,7 +341,9 @@ export function Player({
             className="icon-action"
             aria-label="Repeat"
             aria-pressed={repeat}
-            onClick={() => onRepeatChange(!repeat)}
+            onClick={() =>
+              workspace ? playback.setRepeat(!repeat) : onRepeatChange(!repeat)
+            }
           >
             <Icon name="repeat" />
           </button>
