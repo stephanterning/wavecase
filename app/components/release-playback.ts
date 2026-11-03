@@ -212,7 +212,12 @@ export class ReleasePlayback {
     const { queue, index, status } = this.state;
     const media = this.media;
     if (!queue || !media) return;
-    if (status === "ended") return this.load(this.state.repeat ? index : 0);
+    if (status === "ended") {
+      const next = this.state.repeat ? index : 0;
+      if (next !== index) return this.load(next);
+      // Keep the beginning already held by the current transport for Replay.
+      this.counted = false;
+    }
     if (media.error) media.load();
     const attempt = ++this.attempt;
     this.update({ status: "loading", error: "" });

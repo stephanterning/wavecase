@@ -1,3 +1,4 @@
+import { streamResponse } from "../server/audio-stream";
 import { downloadDetails } from "../server/download-details";
 import { rejectPreviewMutation } from "../server/preview";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
@@ -96,6 +97,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   );
   if (!track?.playback)
     throw new Response("Audio unavailable", { status: 404 });
+  const streamed = await streamResponse(request, directory(), track.playback);
+  if (streamed) return streamed;
   const path = join(directory(), track.playback);
   const { size } = await stat(path);
   let start = 0,

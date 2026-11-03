@@ -1,3 +1,4 @@
+import { prepareStream } from "./audio-stream";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { stat, unlink } from "node:fs/promises";
@@ -157,6 +158,7 @@ export async function processAudio(directory: string, key: string) {
     );
     const finite = (v: string) =>
       Number.isFinite(Number(v)) ? Number(v) : null;
+    await prepareStream(directory, playback);
     return {
       original: key,
       playback,

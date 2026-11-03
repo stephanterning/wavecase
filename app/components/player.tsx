@@ -254,7 +254,7 @@ export function Player({
         </p>
       )}
       {media && !(media instanceof BufferedAudio) && (
-        <p>Large audio file: streaming playback.</p>
+        <p>This browser uses native audio playback.</p>
       )}
       {seeking && <p role="status">Seeking…</p>}
       {loadError && (

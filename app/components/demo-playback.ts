@@ -1,3 +1,4 @@
+import { BufferedAudio } from "./buffered-audio";
 import {
   crossfadePlayback,
   createPlaybackMedia,
@@ -56,8 +57,8 @@ function ready(
   });
 }
 
-/** Owns audio independently of the waveform. Only the audible and requested
- * versions are retained; changing pages can later move this owner to a layout.
+/** Owns audio independently of the waveform. Retains the audible version and
+ * either its predecessor or requested replacement for quick A/B comparison.
  */
 export class DemoPlayback {
   private state: State = {
@@ -75,6 +76,7 @@ export class DemoPlayback {
     seekTo?: number;
   };
   private retired = new Set<PlaybackMedia>();
+  private standby?: { media: BufferedAudio; source: DemoSource };
   private stopLoop?: () => void;
   private wantPlay = false;
   private playAttempt = 0;
@@ -119,7 +121,12 @@ export class DemoPlayback {
       return;
     }
     ++this.playAttempt;
-    const media = this.createMedia(source.duration);
+    const cached =
+      this.standby?.source.key === source.key ? this.standby.media : undefined;
+    if (this.standby && !cached) this.release(this.standby.media);
+    this.standby = undefined;
+    cached?.follow(null);
+    const media = cached ?? this.createMedia(source.duration);
     const pending = {
       media,
       source,
@@ -129,7 +136,11 @@ export class DemoPlayback {
     this.pending = pending;
     media.preload = this.wantPlay ? "auto" : "metadata";
     media.loop = this.repeat;
-    media.src = source.url;
+    if (!cached) {
+      media.src = source.url;
+      if (media instanceof BufferedAudio)
+        media.currentTime = this.state.media?.currentTime ?? 0;
+    }
     this.update({ loading: true, error: "" });
     const signal = pending.abort.signal;
     // Retry can run directly inside a user gesture on mobile Safari. Start
@@ -188,7 +199,21 @@ export class DemoPlayback {
       if (this.wantPlay) {
         this.fade(previous, media);
       }
-      if (previous && this.wantPlay && !previous.paused) {
+      if (
+        previous instanceof BufferedAudio &&
+        media instanceof BufferedAudio &&
+        this.state.source
+      ) {
+        const standby = { media: previous, source: this.state.source };
+        this.standby = standby;
+        const keep = () => {
+          if (this.standby !== standby) return;
+          previous.pause();
+          previous.follow(media);
+        };
+        if (this.wantPlay) setTimeout(keep, transitionSeconds * 1000 + 50);
+        else keep();
+      } else if (previous && this.wantPlay && !previous.paused) {
         this.retired.add(previous);
         setTimeout(
           () => {
@@ -261,6 +286,12 @@ export class DemoPlayback {
     if (this.pending) this.pending.media.loop = repeat;
   };
   reconcile = (available: string[]) => {
+    if (this.standby && !available.includes(this.standby.source.key)) {
+      this.release(this.standby.media);
+      this.standby = undefined;
+    }
+    if (this.pending && !available.includes(this.pending.source.key))
+      this.cancelPending();
     if (this.state.source && !available.includes(this.state.source.key))
       this.dispose();
   };
@@ -268,6 +299,8 @@ export class DemoPlayback {
     ++this.playAttempt;
     this.wantPlay = false;
     this.cancelPending();
+    if (this.standby) this.release(this.standby.media);
+    this.standby = undefined;
     this.stopLoop?.();
     this.stopLoop = undefined;
     if (this.state.media) this.release(this.state.media);

@@ -1,16 +1,32 @@
+import { createOutput } from "./stream-output.client";
 import {
-  loadPlaybackBuffer,
   playbackContext,
   resumePlayback,
   transitionSeconds,
 } from "./audio-context";
+import {
+  streamRate,
+  streamChunkFrames,
+  validStreamManifest,
+  type StreamManifest,
+} from "../domain/audio-stream";
+import { download } from "./stream-download";
 
-type Voice = { source: AudioBufferSourceNode; gain: GainNode };
+const sleep = (signal: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    signal.throwIfAborted();
+    const abort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, 1000);
+    signal.addEventListener("abort", abort, { once: true });
+  });
 
-/** A small media-like transport with one audio clock. The actual sound is read
- * from decoded samples, never through Safari's delayed media-element bridge.
- * JS events update controls/analytics; they do not schedule repeat boundaries.
- */
+/** A bounded, media-like streaming transport. Only the audio thread advances playback. */
 export class BufferedAudio extends EventTarget {
   preload = "auto";
   readonly playbackRate = 1;
@@ -20,25 +36,33 @@ export class BufferedAudio extends EventTarget {
   error: Error | null = null;
   readyState = 0;
   private url = "";
-  private buffer: AudioBuffer | null = null;
+  private manifest: StreamManifest | null = null;
   private offset = 0;
-  private startedAt = 0;
+  private clock = 0;
+  private running = false;
   private repeating = false;
-  private loops = 0;
   private boundary = false;
-  private voice: Voice | null = null;
-  private voices = new Set<Voice>();
+  private loops = 0;
+  private node?: AudioWorkletNode;
   private normalization: GainNode;
   private envelope: GainNode;
-  private timer?: ReturnType<typeof setInterval>;
-  private request?: AbortController;
-  private loaded: Promise<void> = Promise.resolve();
+  private request = new AbortController();
+  private initialized: Promise<void> = Promise.resolve();
+  private generation = 0;
   private attempt = 0;
+  private loaded = new Set<number>();
+  private pending = new Map<
+    number,
+    { request: AbortController; promise: Promise<void>; priority: number }
+  >();
   private destroyed = false;
+  private stopFollow?: () => void;
+  private warmPosition?: number;
+  private filling = false;
 
   constructor(
     private context = playbackContext(),
-    private loadBuffer = loadPlaybackBuffer,
+    private output = createOutput,
   ) {
     super();
     this.normalization = context.createGain();
@@ -46,12 +70,11 @@ export class BufferedAudio extends EventTarget {
     this.normalization.connect(this.envelope);
     this.envelope.connect(context.destination);
   }
-
   private emit(name: string) {
     this.dispatchEvent(new Event(name));
   }
   get duration() {
-    return this.buffer?.duration ?? 0;
+    return this.manifest ? this.manifest.frames / streamRate : 0;
   }
   get src() {
     return this.url;
@@ -64,123 +87,256 @@ export class BufferedAudio extends EventTarget {
     return this.repeating;
   }
   set loop(value: boolean) {
-    const position = this.currentTime;
     this.repeating = value;
-    this.offset = position;
-    this.startedAt = this.context.currentTime;
-    this.loops = 0;
-    if (this.voice) this.voice.source.loop = value;
+    this.node?.port.postMessage({ type: "loop", value });
   }
   get currentTime() {
     if (this.boundary) return 0;
     const time =
       this.offset +
-      (this.voice && !this.paused
-        ? this.context.currentTime - this.startedAt
+      (this.running && !this.paused && !this.seeking
+        ? Math.max(0, this.context.currentTime - this.clock)
         : 0);
     return this.loop && this.duration
       ? time % this.duration
-      : this.buffer
+      : this.manifest
         ? Math.min(time, this.duration)
         : time;
   }
   set currentTime(position: number) {
     if (!Number.isFinite(position)) return;
-    this.tick();
-    this.emit("wavecase-user-seek");
     this.offset = Math.max(
       0,
-      this.buffer ? Math.min(position, this.duration) : position,
+      this.manifest ? Math.min(position, this.duration) : position,
     );
-    this.startedAt = this.context.currentTime;
-    this.loops = 0;
-    this.ended = false;
-    this.seeking = true;
-    this.emit("seeking");
-    if (this.voice && !this.paused) this.startVoice(true);
-    this.seeking = false;
-    this.emit("seeked");
-    this.emit("timeupdate");
-    this.emit("wavecase-user-seeked");
+    void this.seek(this.offset, true).catch((error) => this.fail(error));
   }
-
+  private asset(part: string) {
+    const url = new URL(this.url, window.location.href);
+    url.searchParams.set("stream", part);
+    if (this.manifest) url.searchParams.set("revision", this.manifest.revision);
+    return url.href;
+  }
   load() {
+    ++this.generation;
     ++this.attempt;
-    this.request?.abort();
-    this.stopVoices();
+    this.request.abort();
+    this.request = new AbortController();
+    this.follow(null);
+    this.clearOutput();
+    this.manifest = null;
+    this.offset = 0;
+    this.running = false;
     this.paused = true;
     this.ended = false;
     this.error = null;
     this.readyState = 0;
-    this.buffer = null;
-    this.offset = 0;
+    this.seeking = false;
     this.loops = 0;
-    this.loaded = Promise.resolve();
+    this.loaded.clear();
+    this.pending.clear();
+    this.initialized = Promise.resolve();
     this.emit("emptied");
     if (!this.url || this.destroyed) return;
-    const request = new AbortController();
-    this.request = request;
+    const signal = this.request.signal;
     this.emit("loadstart");
-    this.loaded = this.loadBuffer(this.context, this.url, request.signal)
-      .then((buffer) => {
-        request.signal.throwIfAborted();
-        this.buffer = buffer;
-        this.offset = Math.min(this.offset, buffer.duration);
-        this.readyState = 4;
-        this.emit("durationchange");
-        this.emit("loadedmetadata");
-        this.emit("canplay");
+    this.initialized = (async () => {
+      let response: Response;
+      const deadline = performance.now() + 120_000;
+      do {
+        signal.throwIfAborted();
+        response = await fetch(this.asset("manifest"), {
+          signal,
+          cache: "no-store",
+        });
+        if (response.status !== 202) break;
+        if (performance.now() > deadline)
+          throw new Error("Audio is still preparing. Try again shortly.");
+        await sleep(signal);
+      } while (true);
+      if (!response.ok) throw new Error("Audio is unavailable.");
+      const manifest: StreamManifest = await response.json();
+      if (!validStreamManifest(manifest))
+        throw new Error("Invalid audio description");
+      const node = await this.output(this.context, manifest.channels);
+      if (signal.aborted) {
+        node.port.postMessage({ type: "dispose" });
+        node.disconnect();
+        signal.throwIfAborted();
+      }
+      this.node = node;
+      this.manifest = manifest;
+      node.connect(this.normalization);
+      node.port.onmessage = (event) => this.report(event.data);
+      node.port.postMessage({
+        type: "configure",
+        frames: manifest.frames,
+        channels: manifest.channels,
+      });
+      node.port.postMessage({ type: "loop", value: this.loop });
+      this.readyState = 1;
+      this.emit("durationchange");
+      this.emit("loadedmetadata");
+    })();
+    void this.initialized
+      .then(() => {
+        if (!signal.aborted) return this.seek(this.offset);
       })
       .catch((error) => {
-        if (!request.signal.aborted) {
-          this.error =
-            error instanceof Error
-              ? error
-              : new Error("Audio could not be loaded.");
-          this.paused = true;
-          this.emit("error");
-        }
-        throw error;
+        if (!signal.aborted) this.fail(error);
       });
-    // Preloading without a play request must not produce an unhandled rejection.
-    void this.loaded.catch(() => {});
   }
   removeAttribute(name: string) {
     if (name === "src") this.src = "";
   }
 
+  private chunk(index: number, priority: number) {
+    const manifest = this.manifest!;
+    if (
+      index < 0 ||
+      index * streamChunkFrames >= manifest.frames ||
+      this.loaded.has(index)
+    )
+      return Promise.resolve();
+    const pending = this.pending.get(index);
+    if (pending && pending.priority <= priority) return pending.promise;
+    pending?.request.abort();
+    const request = new AbortController();
+    const signal = AbortSignal.any([this.request.signal, request.signal]);
+    const promise = download(priority, signal, async () => {
+      const response = await fetch(this.asset(String(index)), {
+        signal,
+        cache: "no-store",
+      });
+      if (!response.ok || response.status === 202)
+        throw new Error("Audio is unavailable. Reload the player.");
+      const bytes = await response.arrayBuffer();
+      signal.throwIfAborted();
+      const frames = Math.min(
+        streamChunkFrames,
+        manifest.frames - index * streamChunkFrames,
+      );
+      if (bytes.byteLength !== frames * manifest.channels * 4)
+        throw new Error("Incomplete audio part");
+      this.node!.port.postMessage({ type: "chunk", index, bytes }, [bytes]);
+      this.loaded.add(index);
+      // Bound abandoned seek results as well as the normal moving window.
+      const current = Math.floor(this.currentTime / 2);
+      const evicted: number[] = [];
+      for (const part of this.loaded) {
+        if (this.loaded.size <= 18) break;
+        if (part < 2 || part === current || part === current + 1) continue;
+        this.loaded.delete(part);
+        evicted.push(part);
+      }
+      if (evicted.length)
+        this.node!.port.postMessage({ type: "evict", indices: evicted });
+    }).finally(() => {
+      if (this.pending.get(index)?.request === request)
+        this.pending.delete(index);
+    });
+    this.pending.set(index, { request, promise, priority });
+    return promise;
+  }
+  private prune(position: number, ahead = 10, evict = true) {
+    const current = Math.floor(position / 2);
+    const keep = (index: number) =>
+      index < 2 ||
+      (index >= Math.max(0, current - 2) && index <= current + ahead);
+    const evicted = evict
+      ? [...this.loaded].filter((index) => !keep(index))
+      : [];
+    for (const index of evicted) this.loaded.delete(index);
+    for (const [index, item] of this.pending)
+      if (!keep(index)) item.request.abort();
+    this.node?.port.postMessage({ type: "evict", indices: evicted });
+  }
+  private async seek(position: number, userSeek = false) {
+    const generation = ++this.generation;
+    const signal = this.request.signal;
+    this.seeking = true;
+    this.emit("wavecase-user-seek");
+    if (userSeek) this.emit("seeking");
+    const index = Math.floor(position / 2);
+    const immediate =
+      this.loaded.has(index) &&
+      (this.loaded.has(index + 1) || (index + 1) * 2 >= this.duration);
+    if (!immediate) {
+      this.running = false;
+      this.node?.port.postMessage({ type: "pause", generation });
+      if (!this.paused) this.emit("waiting");
+    }
+    try {
+      await this.initialized;
+    } catch (error) {
+      if (generation !== this.generation || signal.aborted) return;
+      throw error;
+    }
+    if (generation !== this.generation || signal.aborted) return;
+    this.offset = Math.min(position, this.duration);
+    this.prune(this.offset, 10, false);
+    const target = Math.min(
+      Math.floor(this.offset / 2),
+      Math.ceil(this.duration / 2) - 1,
+    );
+    try {
+      await Promise.all([this.chunk(target, 0), this.chunk(target + 1, 0)]);
+    } catch (error) {
+      if (generation !== this.generation || signal.aborted) return;
+      throw error;
+    }
+    if (generation !== this.generation || signal.aborted) return;
+    this.clock = this.context.currentTime;
+    this.running = false;
+    this.ended = false;
+    this.seeking = false;
+    this.readyState = 4;
+    this.node!.port.postMessage({
+      type: "seek",
+      frame: Math.round(this.offset * streamRate),
+      playing: !this.paused,
+      generation,
+      fade: immediate,
+    });
+    this.prune(this.offset);
+    this.emit("seeked");
+    this.emit("wavecase-user-seeked");
+    this.emit("canplay");
+    this.emit("timeupdate");
+    this.fill();
+  }
   play = async () => {
     if (this.destroyed || !this.url) return;
+    if (this.error) {
+      const position = this.offset;
+      this.load();
+      this.offset = position;
+    }
     const attempt = ++this.attempt;
-    const resumed = resumePlayback(this.context); // Preserve the user gesture.
+    const resumed = resumePlayback(this.context);
     if (this.paused) {
       this.paused = false;
       this.emit("play");
     }
     try {
-      await Promise.all([resumed, this.loaded]);
+      await Promise.all([resumed, this.initialized]);
+      if (attempt !== this.attempt || this.paused) return;
+      await this.seek(
+        this.ended || this.offset >= this.duration ? 0 : this.currentTime,
+      );
     } catch (error) {
-      if (attempt === this.attempt) this.pause();
+      if (attempt === this.attempt) this.fail(error);
       throw error;
     }
-    if (attempt !== this.attempt || this.paused || !this.buffer) return;
-    if (this.voice) return;
-    if (this.offset >= this.duration) this.offset = 0;
-    this.ended = false;
-    this.startVoice(false);
-    this.emit("playing");
   };
   pause = () => {
     ++this.attempt;
-    if (this.paused) return;
-    this.tick();
     this.offset = this.currentTime;
+    this.running = false;
+    const changed = !this.paused;
     this.paused = true;
-    if (this.voice) this.retire(this.voice, true);
-    this.voice = null;
-    clearInterval(this.timer);
-    this.timer = undefined;
-    this.emit("pause");
+    this.node?.port.postMessage({ type: "pause", generation: this.generation });
+    if (changed) this.emit("pause");
   };
   setGain(db: number) {
     this.normalization.gain.setValueAtTime(
@@ -189,86 +345,142 @@ export class BufferedAudio extends EventTarget {
     );
   }
   setAudible(audible: boolean, fade = false, now = this.context.currentTime) {
-    this.envelope.gain.cancelScheduledValues(now);
+    const gain = this.envelope.gain;
+    gain.cancelScheduledValues(now);
     if (fade) {
-      this.envelope.gain.setValueAtTime(this.envelope.gain.value, now);
-      this.envelope.gain.linearRampToValueAtTime(
-        audible ? 1 : 0,
-        now + transitionSeconds,
-      );
-    } else this.envelope.gain.setValueAtTime(audible ? 1 : 0, now);
+      gain.setValueAtTime(gain.value, now);
+      gain.linearRampToValueAtTime(audible ? 1 : 0, now + transitionSeconds);
+    } else gain.setValueAtTime(audible ? 1 : 0, now);
   }
-
-  private startVoice(fade: boolean) {
-    if (!this.buffer) return;
-    const now = this.context.currentTime;
-    if (this.voice) this.retire(this.voice, fade, now);
-    const source = this.context.createBufferSource();
-    const gain = this.context.createGain();
-    const voice = { source, gain };
-    source.buffer = this.buffer;
-    source.loop = this.loop;
-    source.connect(gain);
-    gain.connect(this.normalization);
-    gain.gain.setValueAtTime(fade ? 0 : 1, now);
-    if (fade) gain.gain.linearRampToValueAtTime(1, now + transitionSeconds);
-    this.voice = voice;
-    this.voices.add(voice);
-    this.startedAt = now;
-    this.loops = 0;
-    source.onended = () => {
-      this.releaseVoice(voice);
-      if (this.voice !== voice) return;
-      this.voice = null;
-      this.offset = this.duration;
-      this.paused = true;
+  private report(state: {
+    generation: number;
+    frame: number;
+    clock: number;
+    playing: boolean;
+    waiting: boolean;
+    ended: boolean;
+    loops: number;
+  }) {
+    if (state.generation !== this.generation || this.destroyed || this.seeking)
+      return;
+    const wasRunning = this.running;
+    this.offset = state.frame / streamRate;
+    this.clock = state.clock;
+    this.running = state.playing && !state.waiting && !this.paused;
+    if (state.loops > this.loops) {
+      this.boundary = true;
+      while (this.loops < state.loops) {
+        this.loops++;
+        this.emit("wavecase-loop");
+      }
+      this.boundary = false;
+    }
+    if (state.waiting && wasRunning) this.emit("waiting");
+    if (this.running && !wasRunning) this.emit("playing");
+    if (state.ended && !this.ended) {
       this.ended = true;
-      clearInterval(this.timer);
-      this.timer = undefined;
+      this.paused = true;
+      this.running = false;
       this.emit("timeupdate");
       this.emit("pause");
       this.emit("ended");
+    } else this.emit("timeupdate");
+    this.fill();
+  }
+  private ahead() {
+    let index = Math.floor(this.currentTime / 2);
+    while (this.loaded.has(index)) index++;
+    return Math.min(this.duration, index * 2) - this.currentTime;
+  }
+  /** Keep the previous version's moving window ready only after active audio is safe. */
+  follow(active: BufferedAudio | null) {
+    this.stopFollow?.();
+    this.stopFollow = undefined;
+    this.warmPosition = undefined;
+    if (!active) return;
+    const update = () => {
+      this.warmPosition =
+        !active.paused && active.ahead() >= 8
+          ? active.currentTime < this.duration
+            ? active.currentTime
+            : 0
+          : undefined;
+      if (this.warmPosition === undefined)
+        for (const item of this.pending.values())
+          if (item.priority === 2) item.request.abort();
+      this.fill();
     };
-    source.start(now, this.offset);
-    clearInterval(this.timer);
-    this.timer = setInterval(() => this.tick(), 50);
+    for (const name of ["timeupdate", "pause", "ended"])
+      active.addEventListener(name, update);
+    this.stopFollow = () => {
+      for (const name of ["timeupdate", "pause", "ended"])
+        active.removeEventListener(name, update);
+    };
+    update();
   }
-  private tick() {
-    if (!this.voice || this.paused) return;
-    if (this.loop && this.duration) {
-      const cycles = Math.floor(
-        (this.offset + this.context.currentTime - this.startedAt) /
-          this.duration,
-      );
-      while (this.loops < cycles) {
-        this.loops++;
-        // Late UI timers still close each complete loop at the correct boundary.
-        this.boundary = true;
-        this.emit("wavecase-loop");
-        this.boundary = false;
-      }
-    }
-    this.emit("timeupdate");
+  private fill() {
+    if (!this.manifest || this.filling || this.seeking || this.error) return;
+    const warm = this.warmPosition;
+    if (this.paused && warm === undefined) return;
+    const position = warm ?? this.currentTime;
+    const first = Math.floor(position / 2);
+    const ahead = warm === undefined ? 10 : 4;
+    this.prune(position, ahead);
+    const indices = [
+      first,
+      first + 1,
+      first + 2,
+      first + 3,
+      0,
+      1,
+      ...Array.from(
+        { length: Math.max(0, ahead - 3) },
+        (_, i) => first + i + 4,
+      ),
+    ];
+    const index = indices.find(
+      (i) =>
+        i * streamChunkFrames < this.manifest!.frames &&
+        !this.loaded.has(i) &&
+        !this.pending.has(i),
+    );
+    if (index === undefined) return;
+    const signal = this.request.signal;
+    this.filling = true;
+    void this.chunk(index, warm === undefined ? 1 : 2)
+      .catch((error) => {
+        if (
+          !signal.aborted &&
+          !(error instanceof DOMException && error.name === "AbortError")
+        )
+          this.fail(error);
+      })
+      .finally(() => {
+        this.filling = false;
+        if (!signal.aborted) this.fill();
+      });
   }
-  private releaseVoice(voice: Voice) {
-    voice.source.disconnect();
-    voice.gain.disconnect();
-    this.voices.delete(voice);
+  private fail(error: unknown) {
+    if (
+      this.destroyed ||
+      this.request.signal.aborted ||
+      (error instanceof DOMException && error.name === "AbortError")
+    )
+      return;
+    this.error =
+      error instanceof Error ? error : new Error("Audio could not be loaded.");
+    this.pause();
+    this.request.abort();
+    this.clearOutput();
+    this.loaded.clear();
+    this.emit("error");
   }
-  private retire(voice: Voice, fade: boolean, now = this.context.currentTime) {
-    voice.source.onended = () => this.releaseVoice(voice);
-    voice.gain.gain.cancelScheduledValues(now);
-    voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
-    if (fade)
-      voice.gain.gain.linearRampToValueAtTime(0, now + transitionSeconds);
-    voice.source.stop(now + (fade ? transitionSeconds : 0));
-    if (!fade) this.releaseVoice(voice);
-  }
-  private stopVoices() {
-    clearInterval(this.timer);
-    this.timer = undefined;
-    this.voice = null;
-    for (const voice of this.voices) this.retire(voice, false);
+  private clearOutput() {
+    for (const item of this.pending.values()) item.request.abort();
+    this.node?.port.postMessage({ type: "dispose" });
+    if (this.node) this.node.port.onmessage = null;
+    this.node?.disconnect();
+    this.node = undefined;
   }
   destroy() {
     this.destroyed = true;

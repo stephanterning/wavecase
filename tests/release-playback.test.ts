@@ -250,3 +250,23 @@ test("enabling repeat after the queue ends replays the displayed track", async (
   media.playing();
   assert.equal(state().queue?.tracks[state().index].id, "a3");
 });
+
+test("replaying the same release track retains its prepared beginning", async () => {
+  const { playback, media, plays } = setup();
+  let assignments = 0,
+    src = "";
+  Object.defineProperty(media, "src", {
+    get: () => src,
+    set: (value) => {
+      assignments++;
+      src = value;
+    },
+  });
+  playback.start(release(), "a3");
+  media.playing();
+  media.finish();
+  await playback.play();
+  media.playing();
+  assert.equal(assignments, 1, "replay must not reload the source");
+  assert.deepEqual(plays, ["a/a3", "a/a3"]);
+});

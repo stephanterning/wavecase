@@ -4,7 +4,6 @@ import { BufferedAudio } from "./buffered-audio";
 import {
   playbackContext,
   resumePlayback,
-  maxBufferBytes,
   transitionSeconds,
 } from "./audio-context";
 export { transitionSeconds } from "./audio-context";
@@ -12,7 +11,7 @@ export type PlaybackMedia = HTMLAudioElement | BufferedAudio;
 
 export function createPlaybackMedia(duration: number): PlaybackMedia {
   const context = playbackContext();
-  return duration > 0 && duration * context.sampleRate * 2 * 4 <= maxBufferBytes
+  return duration > 0 && context.sampleRate === 48_000 && !!context.audioWorklet
     ? new BufferedAudio(context)
     : new Audio();
 }
@@ -129,7 +128,7 @@ export function crossfadePlayback(
 }
 
 /** All user seeks go through this entry point, including lock-screen controls.
- * Buffered sources switch on the audio clock. The long-file streaming fallback
+ * Buffered sources switch on the audio clock. The native browser fallback
  * fades around the browser seek, but cannot flush Safari's media bridge queue.
  */
 export function seekPlayback(media: PlaybackMedia, position: number) {

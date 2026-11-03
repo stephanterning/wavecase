@@ -1,8 +1,6 @@
 import { encodeMp3 } from "./audio-exports";
 import { removeAudioFiles } from "./audio-files";
 import { and, eq, isNotNull, isNull, notLike, or } from "drizzle-orm";
-import { unlink } from "node:fs/promises";
-import { join } from "node:path";
 import { db } from "./db";
 import { releaseTracks } from "./schema";
 import { boss } from "./queue";
@@ -112,5 +110,5 @@ export async function upgradeReleasePlayback(trackId: string) {
       ? track.playback
       : null;
   });
-  if (obsolete) await unlink(join(directory, obsolete)).catch(() => {});
+  if (obsolete) await removeAudioFiles(directory, [obsolete]);
 }
