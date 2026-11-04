@@ -227,8 +227,9 @@ test(
         return () => boss.getJobById(name, job!);
       };
       const transientJob = await enqueue(transient);
+      // The worker also drains jobs queued by test files running in parallel.
       for (let attempt = 0; (await transientJob())!.retryCount < 1; attempt++) {
-        if (attempt > 200) assert.fail("Publication failure was not retried");
+        if (attempt > 600) assert.fail("Publication failure was not retried");
         await new Promise((resolve) => setTimeout(resolve, 50));
       }
       const retrying = await db.query.versions.findFirst({
