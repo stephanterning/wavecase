@@ -1,3 +1,4 @@
+import { attachAudioCacheSession } from "./compressed-audio-cache";
 import {
   createContext,
   useContext,
@@ -42,7 +43,12 @@ function ReleasePlayer() {
   const track = queue?.tracks[index];
   const active = status === "playing" || status === "loading";
   useEffect(() => {
-    return playback.attach();
+    const clearCache = attachAudioCacheSession();
+    const detach = playback.attach();
+    return () => {
+      detach();
+      clearCache();
+    };
   }, [playback]);
   useEffect(() => {
     const keyboard = (event: KeyboardEvent) => {

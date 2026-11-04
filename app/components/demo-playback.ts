@@ -1,3 +1,4 @@
+import { compressedAudioCache } from "./compressed-audio-cache";
 import { BufferedAudio } from "./buffered-audio";
 import {
   crossfadePlayback,
@@ -306,6 +307,12 @@ export class DemoPlayback {
     if (this.pending) this.pending.media.loop = repeat;
   };
   reconcile = (available: string[]) => {
+    if (
+      [this.state.source, this.standby?.source, this.pending?.source].some(
+        (source) => source && !available.includes(source.key),
+      )
+    )
+      compressedAudioCache.clear();
     if (this.standby && !available.includes(this.standby.source.key)) {
       this.release(this.standby.media);
       this.standby = undefined;

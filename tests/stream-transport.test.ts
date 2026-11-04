@@ -1,5 +1,6 @@
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
+import { compressedAudioCache } from "../app/components/compressed-audio-cache";
 import { BufferedAudio } from "../app/components/buffered-audio";
 import type { StreamManifest } from "../app/domain/audio-stream";
 
@@ -74,8 +75,11 @@ function fixture(t: TestContext) {
     nodes.push(node);
     return node as unknown as AudioWorkletNode;
   });
-  t.after(() => audio.destroy());
-  return { audio, nodes };
+  t.after(() => {
+    audio.destroy();
+    compressedAudioCache.clear();
+  });
+  return { audio, nodes, context };
 }
 
 test("pause during initial transfer prevents a delayed automatic start", async (t) => {
@@ -196,4 +200,93 @@ test("returning to a seek target starts a fresh transfer while its aborted fetch
   assert.equal(audio.seeking, false);
   assert.equal(audio.currentTime, 40);
   assert.equal(audio.error, null);
+});
+
+test("compressed reuse revalidates access, keeps decoder input intact and isolates grants and revisions", async (t) => {
+  const { audio, context } = fixture(t);
+  let revision = manifest.revision,
+    denied = false;
+  let gets = 0,
+    heads = 0,
+    decodes = 0;
+  Object.assign(context, {
+    decodeAudioData: async (bytes: ArrayBuffer) => {
+      decodes++;
+      assert.equal(bytes.byteLength, 1);
+      structuredClone(bytes, { transfer: [bytes] });
+      return {
+        sampleRate: 48_000,
+        numberOfChannels: 1,
+        length: 48_000,
+        getChannelData: () => new Float32Array(48_000),
+      };
+    },
+  });
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("stream=manifest"))
+        return Response.json({
+          ...manifest,
+          revision,
+          flacRate: 48_000,
+          flacSamples: 48_000,
+        });
+      if (init?.method === "HEAD") {
+        heads++;
+        return new Response(null, { status: denied ? 404 : 200 });
+      }
+      gets++;
+      return new Response(new Uint8Array([7]));
+    },
+  );
+  const ready = async () => {
+    for (let i = 0; i < 200 && !audio.error && audio.readyState < 4; i++)
+      await tick();
+    assert.equal(audio.readyState, 4);
+    assert.equal(audio.error, null);
+  };
+  audio.src = "/audio?share=one";
+  await ready();
+  assert.equal(gets, 1);
+  audio.load();
+  await ready();
+  assert.equal(gets, 1);
+  assert.equal(heads, 1);
+  assert.equal(decodes, 2);
+  audio.src = "/audio?share=two";
+  await ready();
+  assert.equal(gets, 2);
+  revision = "b".repeat(64);
+  audio.src = "/audio?share=one";
+  await ready();
+  assert.equal(gets, 3);
+  denied = true;
+  audio.load();
+  for (let i = 0; i < 200 && !audio.error; i++) await tick();
+  assert.ok(audio.error);
+  assert.equal(decodes, 4, "denied cached bytes are never decoded");
+  assert.equal(
+    compressedAudioCache.byteLength,
+    1,
+    "all cached revisions of the affected source are removed",
+  );
+});
+
+test("uncompressed PCM never enters the compressed cache", async (t) => {
+  const { audio } = fixture(t);
+  let gets = 0;
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL) => {
+    if (String(input).includes("stream=manifest"))
+      return Response.json(manifest);
+    gets++;
+    return new Response(new ArrayBuffer(48_000 * 4));
+  });
+  audio.src = "/pcm";
+  for (let i = 0; i < 10 && audio.readyState < 4; i++) await tick();
+  audio.load();
+  for (let i = 0; i < 10 && audio.readyState < 4; i++) await tick();
+  assert.equal(gets, 2);
+  assert.equal(compressedAudioCache.byteLength, 0);
 });

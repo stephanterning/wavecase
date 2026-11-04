@@ -1,3 +1,4 @@
+import { compressedAudioCache } from "./compressed-audio-cache";
 import {
   cancelPlaybackSeek,
   createPlaybackMedia,
@@ -277,6 +278,7 @@ export class ReleasePlayback {
     if (queue?.releaseId !== releaseId) return;
     // A fresh page response can revoke access to buffered audio as well.
     if (queue.tracks.some((track) => !playableIds.includes(track.id))) {
+      compressedAudioCache.clear();
       this.fail(
         "This release's audio availability has changed. Choose a track to continue.",
       );

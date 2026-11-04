@@ -1,3 +1,4 @@
+import { compressedAudioCache } from "./compressed-audio-cache";
 import { createOutput } from "./stream-output.client";
 import {
   playbackContext,
@@ -208,14 +209,22 @@ export class BufferedAudio extends EventTarget {
     pending?.request.abort();
     const request = new AbortController();
     const signal = AbortSignal.any([this.request.signal, request.signal]);
+    const url = this.asset(String(index));
+    const source = this.url;
+    const generation = compressedAudioCache.generation;
+    const compressed = !!(manifest.flacRate || manifest.mp3Rate);
     const promise = download(priority, signal, async () => {
-      const response = await fetch(this.asset(String(index)), {
+      // Cached bytes still require the route's current permission/revision check.
+      const cached = compressed ? compressedAudioCache.get(url) : undefined;
+      const response = await fetch(url, {
+        method: cached ? "HEAD" : "GET",
         signal,
         cache: "no-store",
       });
       if (!response.ok || response.status === 202)
         throw new Error("Audio is unavailable. Reload the player.");
-      let bytes = await response.arrayBuffer();
+      const encoded = cached ?? (await response.arrayBuffer());
+      let bytes = compressed ? encoded.slice(0) : encoded;
       if (manifest.flacRate) {
         signal.throwIfAborted();
         const { decodeDemoFlac } = await import("./decode-demo-flac");
@@ -237,6 +246,8 @@ export class BufferedAudio extends EventTarget {
       );
       if (bytes.byteLength !== frames * manifest.channels * 4)
         throw new Error("Incomplete audio part");
+      if (compressed && !cached)
+        compressedAudioCache.put(url, source, encoded, generation);
       this.node!.port.postMessage({ type: "chunk", index, bytes }, [bytes]);
       this.loaded.add(index);
       // Bound abandoned seek results as well as the normal moving window.
@@ -489,6 +500,7 @@ export class BufferedAudio extends EventTarget {
       return;
     this.error =
       error instanceof Error ? error : new Error("Audio could not be loaded.");
+    compressedAudioCache.forget(this.url);
     this.pause();
     this.request.abort();
     this.clearOutput();
