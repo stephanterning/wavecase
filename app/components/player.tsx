@@ -1,3 +1,4 @@
+import { attachAudioCacheSession } from "./compressed-audio-cache";
 import {
   useCallback,
   useEffect,
@@ -131,12 +132,14 @@ export function Player({
     if (!workspace) playback.setRepeat(localRepeat);
   }, [playback, localRepeat, workspace]);
   useEffect(() => {
+    const clearCache = workspace ? undefined : attachAudioCacheSession();
     const revoke = () => playback.dispose();
     window.addEventListener("wavecase-access-revoked", revoke);
     return () => {
       window.removeEventListener("wavecase-access-revoked", revoke);
       if (workspace) workspace.release(playback);
       else playback.dispose();
+      clearCache?.();
     };
   }, [playback, workspace]);
   useMediaSession(
