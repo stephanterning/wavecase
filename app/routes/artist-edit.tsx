@@ -27,7 +27,7 @@ import {
   users,
 } from "../server/schema";
 import { requireUser, sameOrigin, origin } from "../server/security";
-import { limitedBody } from "../server/request";
+import { uploadForm } from "../server/request";
 import {
   directory,
   formError,
@@ -80,8 +80,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 export async function action({ request, params }: ActionFunctionArgs) {
   sameOrigin(request);
   const user = await requireUser(request);
+  let upload: Awaited<ReturnType<typeof uploadForm>> | undefined;
   try {
-    const f = await (await limitedBody(request, 11 * 1024 * 1024)).formData();
+    upload = await uploadForm(request, 11 * 1024 * 1024);
+    const { form: f, files } = upload;
     const intent = f.get("intent");
     if (
       [
@@ -121,9 +123,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
       await db.update(artists).set(values).where(eq(artists.id, previous.id));
     } else if (intent === "artist-image") {
       const artist = await ownedArtist(request, params.id!);
-      const file = f.get("image");
-      if (!(file instanceof File))
-        throw new Response("Choose an image", { status: 400 });
+      const file = files.get("image");
+      if (!file) throw new Response("Choose an image", { status: 400 });
       const key = await storeArtwork(file);
       await db
         .update(artists)
@@ -136,6 +137,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return redirect(`/artist-profiles/${params.id}`);
   } catch (error) {
     return formError(error);
+  } finally {
+    await upload?.discard();
   }
 }
 export default function ArtistEdit() {

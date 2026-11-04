@@ -24,9 +24,14 @@ function collect(dependencies: Record<string, Package>) {
     if (packages.has(key)) continue;
     let license = entry.license;
     try {
-      license ||= JSON.parse(
+      const manifest = JSON.parse(
         readFileSync(join(entry.path!, "package.json"), "utf8"),
-      ).license;
+      );
+      license ||=
+        manifest.license ??
+        manifest.licenses
+          ?.map((item: { type?: string }) => item.type)
+          .join(" OR ");
     } catch {
       /* Missing optional packages remain explicitly unidentified. */
     }

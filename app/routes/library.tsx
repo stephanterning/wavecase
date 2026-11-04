@@ -3,8 +3,9 @@ import { DemoList } from "../components/demo-list";
 import { useRef, useEffect } from "react";
 import { TrackArtistField } from "../components/track-artist-field";
 import { artistChoices, resolveTrackArtist } from "../server/track-artist";
-import { uploadVersion } from "../server/upload";
-import { limitedBody } from "../server/request";
+import { audioUploadError, uploadVersion } from "../server/upload";
+import { uploadForm } from "../server/request";
+import { maxUploadBytes } from "../server/config";
 import { defaultVersionStatus, versionStatuses } from "../domain/versions";
 import { redirect } from "react-router";
 import {
@@ -32,59 +33,67 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export async function action({ request }: ActionFunctionArgs) {
   sameOrigin(request);
   const user = await requireUser(request);
-  const form = await (
-    await limitedBody(
-      request,
-      Number(process.env.MAX_UPLOAD_MB || 256) * 1024 * 1024 + 65536,
-    )
-  ).formData();
-  if (form.get("intent") === "favorite") {
-    const trackId = z.uuid().safeParse(form.get("trackId"));
-    const favorite = form.get("favorite");
-    if (!trackId.success || (favorite !== "1" && favorite !== "0"))
-      return { error: "Choose a track and favorite state." };
-    await db.transaction(async (tx) => {
-      const [track] = await tx
-        .select({ id: tracks.id })
-        .from(tracks)
-        .where(and(eq(tracks.id, trackId.data), trackScope(user.id)))
-        .for("update");
-      if (!track) throw new Response("Not found", { status: 404 });
-      if (favorite === "1")
-        await tx
-          .insert(trackFavorites)
-          .values({ userId: user.id, trackId: track.id })
-          .onConflictDoNothing();
-      else
-        await tx
-          .delete(trackFavorites)
-          .where(
-            and(
-              eq(trackFavorites.userId, user.id),
-              eq(trackFavorites.trackId, track.id),
-            ),
-          );
-    });
-    return { error: undefined };
-  }
-  const title = String(form.get("title") || "").trim();
-  if (!title || title.length > 200)
-    return { error: "Enter a title of up to 200 characters." };
-  let artist;
+  const upload = await uploadForm(request, maxUploadBytes() + 65536).catch(
+    (error) => {
+      if (error instanceof Response && error.status === 413) return undefined;
+      throw error;
+    },
+  );
+  if (!upload) return { error: audioUploadError };
+  const { form, files } = upload;
   try {
-    artist = await resolveTrackArtist(user.id, form);
-  } catch (error) {
-    if (error instanceof Response && error.status === 400)
-      return { error: await error.text() };
-    throw error;
+    if (form.get("intent") === "favorite") {
+      const trackId = z.uuid().safeParse(form.get("trackId"));
+      const favorite = form.get("favorite");
+      if (!trackId.success || (favorite !== "1" && favorite !== "0"))
+        return { error: "Choose a track and favorite state." };
+      await db.transaction(async (tx) => {
+        const [track] = await tx
+          .select({ id: tracks.id })
+          .from(tracks)
+          .where(and(eq(tracks.id, trackId.data), trackScope(user.id)))
+          .for("update");
+        if (!track) throw new Response("Not found", { status: 404 });
+        if (favorite === "1")
+          await tx
+            .insert(trackFavorites)
+            .values({ userId: user.id, trackId: track.id })
+            .onConflictDoNothing();
+        else
+          await tx
+            .delete(trackFavorites)
+            .where(
+              and(
+                eq(trackFavorites.userId, user.id),
+                eq(trackFavorites.trackId, track.id),
+              ),
+            );
+      });
+      return { error: undefined };
+    }
+    const title = String(form.get("title") || "").trim();
+    if (!title || title.length > 200)
+      return { error: "Enter a title of up to 200 characters." };
+    let artist;
+    try {
+      artist = await resolveTrackArtist(user.id, form);
+    } catch (error) {
+      if (error instanceof Response && error.status === 400)
+        return { error: await error.text() };
+      throw error;
+    }
+    const file = files.get("audio");
+    if (file && file.size > maxUploadBytes())
+      return { error: audioUploadError };
+    const [track] = await db
+      .insert(tracks)
+      .values({ ownerId: user.id, title, ...artist })
+      .returning();
+    if (file?.size) await uploadVersion(track.id, form, file);
+    return redirect("/tracks/" + track.id);
+  } finally {
+    await upload.discard();
   }
-  const [track] = await db
-    .insert(tracks)
-    .values({ ownerId: user.id, title, ...artist })
-    .returning();
-  const file = form.get("audio");
-  if (file instanceof File && file.size) await uploadVersion(track.id, form);
-  return redirect("/tracks/" + track.id);
 }
 export default function Library() {
   const data = useLoaderData<typeof loader>();

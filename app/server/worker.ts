@@ -11,7 +11,8 @@ import { processAudio, sameDuration } from "./audio";
 import { InvalidAudioError, retryProcessing } from "./processing-errors";
 import { startReleaseWorker, reconcileReleases } from "./release-worker";
 import { deleteExpiredTokens } from "./security";
-const directory = process.env.DATA_DIR || "data/audio";
+import { dataDir } from "./config";
+const directory = dataDir();
 await queue();
 await startReleaseWorker();
 await boss.work<{ key: string }>("prepare-stream", async (jobs) => {

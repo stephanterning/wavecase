@@ -33,6 +33,7 @@ Generated with `npm run notices`.
 | @wasm-audio-decoders/common | 9.0.7 | MIT |
 | asn1js | 3.1.0 | BSD-3-Clause |
 | buffer-crc32 | 1.0.0 | MIT |
+| busboy | 1.6.0 | MIT |
 | cron-parser | 5.10.2 | MIT |
 | debug | 4.4.3 | MIT |
 | detect-europe-js | 0.1.2 | MIT |
@@ -62,6 +63,7 @@ Generated with `npm run notices`.
 | scheduler | 0.28.0 | MIT |
 | serialize-error | 13.0.2 | MIT |
 | simple-yenc | 1.0.4 | MIT |
+| streamsearch | 1.1.0 | MIT |
 | tagged-tag | 1.0.0 | MIT |
 | temporal-spec | 1.0.1 | Apache-2.0 |
 | tiny-lru | 13.0.0 | BSD-3-Clause |

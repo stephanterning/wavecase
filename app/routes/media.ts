@@ -11,6 +11,7 @@ import { downloadDemo } from "../server/demo-download";
 import { sameOrigin } from "../server/security";
 import { limitedBody } from "../server/request";
 import { versionAccess } from "../server/access";
+import { dataDir } from "../server/config";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const query = new URL(request.url).searchParams;
   const { version, owner, link, track } = await versionAccess(
@@ -25,11 +26,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       throw new Response("Audio unavailable", { status: 404 });
     return Response.json(
       await downloadDetails(
-        process.env.DATA_DIR || "data/audio",
+        dataDir(),
         [version.original],
         track.cover,
         version.metadata?.audioPolicy !== 2,
-        await demoWavAvailable(version, process.env.DATA_DIR || "data/audio"),
+        await demoWavAvailable(version, dataDir()),
       ),
       { headers: { "Cache-Control": "private, no-store" } },
     );
@@ -45,7 +46,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const file = version.playback;
   if (!file || version.state !== "ready")
     throw new Response("Audio file missing", { status: 404 });
-  const directory = process.env.DATA_DIR || "data/audio";
+  const directory = dataDir();
   const streamed = await streamResponse(request, directory, file);
   if (streamed) return streamed;
   const path = join(directory, file);
