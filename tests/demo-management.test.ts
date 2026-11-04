@@ -22,11 +22,12 @@ import { action } from "../app/routes/manage";
 import { dashboard } from "../app/server/dashboard";
 import { loader } from "../app/routes/track";
 import { loader as analytics } from "../app/routes/analytics";
+import { enabled } from "./database";
 
 after(() => pool.end());
 test(
   "scoped demo editors preserve other fields; deleting links and tracks removes only their content and files",
-  { skip: !process.env.DATABASE_URL?.endsWith("/wavecase_test") },
+  { skip: !enabled },
   async () => {
     const directory = await mkdtemp(join(tmpdir(), "wavecase-delete-"));
     const previous = process.env.DATA_DIR;

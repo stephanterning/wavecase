@@ -15,7 +15,7 @@ import {
   reuploadRequests,
 } from "../app/server/schema";
 import { hash, origin } from "../app/server/security";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 const modules = enabled
   ? {
       track: await import("../app/routes/track"),
@@ -70,46 +70,38 @@ test(
       form.set("visibility", visibility);
       return form;
     };
-    await db
-      .insert(users)
-      .values({
-        id: owner,
-        name: "Review owner",
-        email: owner + "@test.invalid",
-      });
-    await db
-      .insert(sessions)
-      .values({
-        id: hash(session),
-        userId: owner,
-        expires: new Date(Date.now() + 60000),
-      });
+    await db.insert(users).values({
+      id: owner,
+      name: "Review owner",
+      email: owner + "@test.invalid",
+    });
+    await db.insert(sessions).values({
+      id: hash(session),
+      userId: owner,
+      expires: new Date(Date.now() + 60000),
+    });
     await db.insert(tracks).values([
       { id: track, ownerId: owner, title: "Review" },
       { id: empty, ownerId: owner, title: "Empty" },
     ]);
     const trackIds = [track, empty];
     try {
-      await db
-        .insert(versions)
-        .values({
-          id: old,
-          trackId: track,
-          name: "v1",
-          filename: "v1.wav",
-          state: "ready",
-          duration: 60,
-        });
-      await db
-        .insert(versions)
-        .values({
-          id: missing,
-          trackId: track,
-          name: "v2",
-          filename: "v2.wav",
-          state: "missing",
-          duration: 60,
-        });
+      await db.insert(versions).values({
+        id: old,
+        trackId: track,
+        name: "v1",
+        filename: "v1.wav",
+        state: "ready",
+        duration: 60,
+      });
+      await db.insert(versions).values({
+        id: missing,
+        trackId: track,
+        name: "v2",
+        filename: "v2.wav",
+        state: "missing",
+        duration: 60,
+      });
       await modules!.track.action(
         args(post("/tracks/" + track, linkForm("onward"), true), { id: track }),
       );
@@ -124,16 +116,14 @@ test(
         [missing],
       );
       const future = randomUUID();
-      await db
-        .insert(versions)
-        .values({
-          id: future,
-          trackId: track,
-          name: "v3",
-          filename: "v3.wav",
-          state: "ready",
-          duration: 60,
-        });
+      await db.insert(versions).values({
+        id: future,
+        trackId: track,
+        name: "v3",
+        filename: "v3.wav",
+        state: "ready",
+        duration: 60,
+      });
       assert.deepEqual(
         (
           await modules!.track.loader(

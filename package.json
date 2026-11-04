@@ -16,7 +16,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "worker": "tsx app/server/worker.ts",
-    "format": "prettier --write app scripts tests *.ts *.json compose.yaml",
+    "format": "prettier --write app scripts tests *.ts *.js *.json compose.yaml",
+    "format:check": "prettier --check app scripts tests *.ts *.js *.json compose.yaml",
     "lint": "eslint app scripts tests",
     "recover": "tsx scripts/recover.ts",
     "notices": "tsx scripts/notices.ts"

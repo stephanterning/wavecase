@@ -16,12 +16,13 @@ import {
 } from "../app/server/schema";
 import { hash, origin } from "../app/server/security";
 import { loader, action } from "../app/routes/library";
+import { enabled } from "./database";
 
 after(() => pool.end());
 
 test(
   "library counts retained versions and uses the latest successful upload across versions",
-  { skip: !process.env.DATABASE_URL?.endsWith("/wavecase_test") },
+  { skip: !enabled },
   async () => {
     const owner = randomUUID();
     const other = randomUUID();
@@ -161,7 +162,7 @@ test(
 
 test(
   "favorites persist per account on shared demos and enforce current access and origin",
-  { skip: !process.env.DATABASE_URL?.endsWith("/wavecase_test") },
+  { skip: !enabled },
   async () => {
     const accounts = [randomUUID(), randomUUID(), randomUUID()];
     const tokens = accounts.map(() => randomUUID());

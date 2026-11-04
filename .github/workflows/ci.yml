@@ -3,7 +3,7 @@ name: Test and publish image
 on:
   pull_request:
   push:
-    branches: ['**']
+    branches: ["**"]
   workflow_dispatch:
 
 permissions:
@@ -34,11 +34,36 @@ jobs:
           persist-credentials: false
       - name: Check local preview reset safeguards
         run: python3 -B -m unittest discover -s tests -p 'test_local_preview.py'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Check formatting
+        run: npm run format:check
+      - name: Check that migrations match the schema
+        run: |
+          npx drizzle-kit check
+          # generate exits 0 even when a rename prompt fails without a TTY.
+          npx drizzle-kit generate 2>&1 | tee "$RUNNER_TEMP/drizzle-generate.log"
+          if ! grep -q "No schema changes" "$RUNNER_TEMP/drizzle-generate.log"; then
+            echo "::error::app/server/schema.ts has changes without a committed migration. Run npm run db:generate and commit the result."
+            exit 1
+          fi
+      - name: Check third-party notices
+        run: |
+          npm run notices
+          if ! git diff --exit-code -- THIRD_PARTY_NOTICES.md; then
+            echo "::error::THIRD_PARTY_NOTICES.md is out of date. Run npm run notices and commit the result."
+            exit 1
+          fi
       - name: Build application image
         run: docker build --tag wavecase-check .
       - name: Run checks with an isolated database
         run: |
           docker run --rm --network host \
+            -e CI \
             -e DATABASE_URL=postgres://wavecase:ci-only-password@127.0.0.1:5432/wavecase_test \
             -e APP_URL=http://localhost:3000 \
             wavecase-check sh -ec 'npm run lint; npm run typecheck; npm run db:migrate; npm test'

@@ -28,7 +28,7 @@ import {
   loader as artistEditor,
 } from "../app/routes/artist-edit";
 import { action as createRelease } from "../app/routes/releases";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 after(() => pool.end());
 test(
   "dashboard periods, feedback, current inventory and administrator owner isolation",

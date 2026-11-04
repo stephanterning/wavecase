@@ -28,7 +28,7 @@ import { artistChoices } from "../app/server/track-artist";
 import { hash, origin } from "../app/server/security";
 import { loader as feedback, action as comment } from "../app/routes/feedback";
 import { deleteDemo, deleteShareLink } from "../app/server/delete-demo";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 process.env.DATABASE_URL ??= "postgres://localhost/wavecase_test";
 const { action: manage } = await import("../app/routes/manage");
 const { action: createDemo, loader: library } =

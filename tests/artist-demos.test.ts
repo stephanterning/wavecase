@@ -16,12 +16,13 @@ import { hash, origin } from "../app/server/security";
 import { loader as artistEditor } from "../app/routes/artist-edit";
 import { loader as publicArtist } from "../app/routes/artist";
 import { loader as library } from "../app/routes/library";
+import { enabled } from "./database";
 
 after(() => pool.end());
 
 test(
   "artist demos share library playback while respecting profile membership and public privacy",
-  { skip: !process.env.DATABASE_URL?.endsWith("/wavecase_test") },
+  { skip: !enabled },
   async () => {
     const owner = randomUUID(),
       member = randomUUID(),

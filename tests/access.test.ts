@@ -19,7 +19,7 @@ import {
 import { versionAccess } from "../app/server/access";
 import { hash, origin, sameOrigin } from "../app/server/security";
 import { loader as feedback, action as comment } from "../app/routes/feedback";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 after(async () => pool.end());
 test("cross-origin mutations are rejected", () =>
   assert.throws(() =>

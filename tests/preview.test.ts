@@ -26,7 +26,7 @@ import { action as media } from "../app/routes/media";
 import { action as releaseAssets } from "../app/routes/release-assets";
 import { action as telemetry } from "../app/routes/events";
 import { commentTime, parseCommentTime } from "../app/domain/comment-time";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 process.env.DATABASE_URL ??= "postgres://localhost/wavecase_test";
 const { loader: demo } = await import("../app/routes/track");
 const { loader: releasePage } = await import("../app/routes/release-page");
