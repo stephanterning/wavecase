@@ -1,7 +1,14 @@
 import { randomBytes, createHash } from "node:crypto";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, lt } from "drizzle-orm";
 import { db } from "./db";
-import { sessions, users } from "./schema";
+import {
+  artistInvitations,
+  challenges,
+  invitations,
+  recoveries,
+  sessions,
+  users,
+} from "./schema";
 export const origin = new URL(process.env.APP_URL || "http://localhost:5173")
   .origin;
 export const rpID = new URL(origin).hostname;
@@ -55,4 +62,15 @@ export async function newSession(userId: string) {
     expires: new Date(Date.now() + 30 * 86400000),
   });
   return setCookie("session", value, 30 * 86400);
+}
+export async function deleteExpiredTokens() {
+  const now = new Date();
+  for (const table of [
+    challenges,
+    sessions,
+    recoveries,
+    invitations,
+    artistInvitations,
+  ])
+    await db.delete(table).where(lt(table.expires, now));
 }

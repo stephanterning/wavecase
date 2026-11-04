@@ -1,7 +1,9 @@
 import { Form, useLoaderData, useActionData } from "react-router";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "../server/db";
+import { limitedBody } from "../server/request";
 import { invitations, settings, users, recoveries } from "../server/schema";
 import {
   hash,
@@ -14,6 +16,11 @@ async function admin(request: Request) {
   const user = await requireUser(request);
   if (!user.admin) throw new Response("Forbidden", { status: 403 });
   return user;
+}
+function accountId(form: FormData) {
+  const id = z.uuid().safeParse(form.get("id"));
+  if (!id.success) throw new Response("Invalid account", { status: 400 });
+  return id.data;
 }
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await admin(request);
@@ -34,11 +41,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export async function action({ request }: ActionFunctionArgs) {
   sameOrigin(request);
   const user = await admin(request);
-  const form = await request.formData();
+  const form = await (await limitedBody(request, 4096)).formData();
   const intent = form.get("intent");
   if (intent === "recover") {
     const target = await db.query.users.findFirst({
-      where: eq(users.id, String(form.get("id"))),
+      where: eq(users.id, accountId(form)),
     });
     if (!target || target.admin || target.disabled)
       throw new Response("This account must be recovered from the server", {
@@ -69,7 +76,7 @@ export async function action({ request }: ActionFunctionArgs) {
       .delete(invitations)
       .where(eq(invitations.id, String(form.get("id"))));
   else if (intent === "disable") {
-    const id = String(form.get("id"));
+    const id = accountId(form);
     if (id === user.id)
       throw new Response("You cannot disable your own account", {
         status: 400,

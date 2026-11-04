@@ -9,6 +9,7 @@ import { boss, queue } from "./queue";
 import { processAudio, sameDuration } from "./audio";
 import { InvalidAudioError, retryProcessing } from "./processing-errors";
 import { startReleaseWorker, reconcileReleases } from "./release-worker";
+import { deleteExpiredTokens } from "./security";
 const directory = process.env.DATA_DIR || "data/audio";
 await queue();
 await startReleaseWorker();
@@ -103,6 +104,7 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
 });
 // Reconcile pending uploads so a crash between storing a file and queueing it is recoverable.
 async function reconcile() {
+  await deleteExpiredTokens();
   await reconcileReleases();
   const sources = await db
     .select({ key: versions.playback })
