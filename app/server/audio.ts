@@ -133,13 +133,13 @@ export async function processAudio(directory: string, key: string) {
         allPeak = Math.max(allPeak, value);
         total++;
         if (++count >= bin) {
-          peaks.push(peak);
+          peaks.push(Number(peak.toPrecision(3)));
           peak = 0;
           count = 0;
         }
       }
     }
-    if (count) peaks.push(peak);
+    if (count) peaks.push(Number(peak.toPrecision(3)));
     const { stderr } = await exec(
       "ffmpeg",
       [

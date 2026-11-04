@@ -26,6 +26,20 @@ const args = (request: Request, params: Record<string, string>) => ({
   pattern: "/",
 });
 const keys = (value: object) => Object.keys(value).sort();
+const listenerPage = [
+  "artistImageUrl",
+  "artistUrl",
+  "artists",
+  "fingerprint",
+  "links",
+  "owner",
+  "preview",
+  "requests",
+  "share",
+  "shareUrl",
+  "track",
+  "versions",
+];
 const listenerTrack = [
   "artist",
   "cover",
@@ -99,6 +113,10 @@ test(
       await demo(args(request(`/s/${share}?preview=1`, session), { share })),
     ]) {
       assert.equal(data.owner, false);
+      assert.deepEqual(keys(data), listenerPage);
+      assert.deepEqual(data.artists, []);
+      assert.deepEqual(data.requests, []);
+      assert.deepEqual(data.links, []);
       assert.deepEqual(keys(data.track), listenerTrack);
       assert.equal(data.versions.length, 1);
       assert.deepEqual(keys(data.versions[0]), listenerVersion);
