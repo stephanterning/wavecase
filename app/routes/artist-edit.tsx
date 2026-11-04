@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { manageArtistMembers } from "../server/artist-members";
 import { ReleaseCardContent } from "../components/release-card-content";
 import { Icon } from "../components/icons";
@@ -16,8 +17,14 @@ import {
 import { asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../server/db";
-import { artists, releases, artistMembers, users } from "../server/schema";
-import { requireUser, sameOrigin } from "../server/security";
+import {
+  artists,
+  releases,
+  artistMembers,
+  artistInvitations,
+  users,
+} from "../server/schema";
+import { requireUser, sameOrigin, origin } from "../server/security";
 import { limitedBody } from "../server/request";
 import {
   directory,
@@ -31,6 +38,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   return {
     artist,
     membershipManager: artist.ownerId === (await requireUser(request)).id,
+    invitationOrigin: origin,
+    invitations:
+      artist.ownerId === (await requireUser(request)).id
+        ? await db
+            .select()
+            .from(artistInvitations)
+            .where(eq(artistInvitations.artistId, artist.id))
+            .orderBy(desc(artistInvitations.createdAt))
+        : [],
     manager: (await db.query.users.findFirst({
       where: eq(users.id, artist.ownerId),
     }))!.name,
@@ -38,8 +54,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       .select({
         id: artistMembers.id,
         name: users.name,
-        accepted: artistMembers.acceptedAt,
-        expires: artistMembers.expires,
       })
       .from(artistMembers)
       .innerJoin(users, eq(users.id, artistMembers.userId))
@@ -59,9 +73,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const f = await (await limitedBody(request, 11 * 1024 * 1024)).formData();
     const intent = f.get("intent");
     if (
-      ["invite-member", "remove-member", "leave-artist"].includes(
-        String(intent),
-      )
+      [
+        "create-invitation",
+        "revoke-invitation",
+        "remove-member",
+        "leave-artist",
+      ].includes(String(intent))
     ) {
       await ownedArtist(request, params.id!);
       await manageArtistMembers(user.id, params.id!, f);
@@ -115,8 +132,11 @@ export default function ArtistEdit() {
     membershipManager,
     manager,
     members,
+    invitations,
+    invitationOrigin,
   } = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
+  const [copyStatus, setCopyStatus] = useState("");
   return (
     <>
       <div className="editor-toolbar">
@@ -207,12 +227,7 @@ export default function ArtistEdit() {
         {members.map((member) => (
           <div key={member.id}>
             <p>
-              <strong>{member.name}</strong> ·{" "}
-              {member.accepted
-                ? "Co-owner"
-                : new Date(member.expires) > new Date()
-                  ? "Invitation pending"
-                  : "Invitation expired"}
+              <strong>{member.name}</strong> · Co-owner
             </p>
             {membershipManager && (
               <Form
@@ -220,9 +235,7 @@ export default function ArtistEdit() {
                 onSubmit={(event) => {
                   if (
                     !window.confirm(
-                      member.accepted
-                        ? `Remove ${member.name}'s access? Their uploads and comments stay with the artist.`
-                        : `Revoke the invitation for ${member.name}?`,
+                      `Remove ${member.name}'s access? Their uploads and comments stay with the artist.`,
                     )
                   )
                     event.preventDefault();
@@ -234,26 +247,83 @@ export default function ArtistEdit() {
                   name="intent"
                   value="remove-member"
                 >
-                  {member.accepted ? "Remove co-owner" : "Revoke invitation"}
+                  Remove co-owner
                 </button>
               </Form>
             )}
           </div>
         ))}
         {membershipManager ? (
-          <Form method="post">
-            <label>
-              Registered account email
-              <input type="email" name="email" required autoComplete="off" />
-            </label>
-            <p className="muted">
-              Enter the exact account email. The invitation appears on their
-              Artists page and expires after seven days. No email is sent.
+          <>
+            <h3>Invitation links</h3>
+            <p>
+              Each link can connect one account and expires after seven days.
+              Anyone with the link can accept it. Send it directly to the person
+              you want to invite.
             </p>
-            <button name="intent" value="invite-member">
-              Invite co-owner
-            </button>
-          </Form>
+            {invitations.map((invitation) => (
+              <div key={invitation.id}>
+                <p>
+                  <strong>{invitation.label}</strong> ·{" "}
+                  {new Date(invitation.expires) > new Date()
+                    ? `Expires ${new Date(invitation.expires).toISOString().slice(0, 10)}`
+                    : "Expired"}
+                </p>
+                {new Date(invitation.expires) > new Date() && (
+                  <>
+                    <input
+                      aria-label={`Invitation link for ${invitation.label}`}
+                      readOnly
+                      value={`${invitationOrigin}/artist-invitations/${invitation.id}`}
+                      onFocus={(event) => event.currentTarget.select()}
+                    />
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(
+                            `${invitationOrigin}/artist-invitations/${invitation.id}`,
+                          );
+                          setCopyStatus("Invitation link copied.");
+                        } catch {
+                          setCopyStatus(
+                            "Select the invitation link and copy it manually.",
+                          );
+                        }
+                      }}
+                    >
+                      Copy invitation link
+                    </button>
+                  </>
+                )}
+                <Form method="post">
+                  <input
+                    type="hidden"
+                    name="invitation"
+                    value={invitation.id}
+                  />
+                  <button
+                    className="secondary"
+                    name="intent"
+                    value="revoke-invitation"
+                  >
+                    Revoke invitation
+                  </button>
+                </Form>
+              </div>
+            ))}
+            {copyStatus && <p role="status">{copyStatus}</p>}
+            <Form method="post">
+              <label>
+                Invitation label (optional)
+                <input name="label" maxLength={200} placeholder="e.g. Hugo" />
+              </label>
+              <button name="intent" value="create-invitation">
+                Create invitation link
+              </button>
+            </Form>
+          </>
         ) : (
           <Form
             method="post"

@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, sql, type SQLWrapper } from "drizzle-orm";
+import { and, eq, sql, type SQLWrapper } from "drizzle-orm";
 import { db } from "./db";
 import { artists, artistMembers, tracks } from "./schema";
 
@@ -6,7 +6,7 @@ import { artists, artistMembers, tracks } from "./schema";
 export function artistScope(userId: string, artistId: SQLWrapper = artists.id) {
   return sql<boolean>`exists (select 1 from artists a where a.id = ${artistId}
     and (a."ownerId" = ${userId} or exists (select 1 from artist_members m
-      where m."artistId" = a.id and m."userId" = ${userId} and m."acceptedAt" is not null)))`;
+      where m."artistId" = a.id and m."userId" = ${userId})))`;
 }
 export function trackScope(userId: string) {
   return sql<boolean>`((${tracks.artistId} is null and ${tracks.ownerId} = ${userId})
@@ -22,7 +22,6 @@ export async function ownsArtist(
     where: and(
       eq(artistMembers.artistId, artist.id),
       eq(artistMembers.userId, userId),
-      isNotNull(artistMembers.acceptedAt),
     ),
   });
   return !!member;

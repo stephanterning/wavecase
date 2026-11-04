@@ -8,6 +8,7 @@ import {
   users,
   artists,
   artistMembers,
+  artistInvitations,
   tracks,
   versions,
   releases,
@@ -17,8 +18,8 @@ import {
 } from "../app/server/schema";
 import {
   manageArtistMembers,
-  answerArtistInvitation,
-  pendingArtistInvitations,
+  acceptArtistInvitation,
+  artistInvitation,
 } from "../app/server/artist-members";
 import { trackAccess, versionAccess } from "../app/server/access";
 import { releaseAccess } from "../app/server/releases";
@@ -47,6 +48,16 @@ const args = (request: Request, id = "") => ({
   pattern: "/",
   context: new RouterContextProvider(),
 });
+
+async function createInvitation(owner: string, artist: string) {
+  const id = await manageArtistMembers(
+    owner,
+    artist,
+    form({ intent: "create-invitation", label: "For collaborator" }),
+  );
+  assert.ok(id);
+  return id;
+}
 
 test(
   "shared artists: invitations, full content access, internal privacy, moves and revocation",
@@ -116,30 +127,11 @@ test(
       .insert(links)
       .values({ id: link, trackId: demo, label: "Listener" });
     await assert.rejects(trackAccess(request(hugo), demo));
-    await manageArtistMembers(
-      stephan,
-      hust,
-      form({ intent: "invite-member", email: `${hugo}@test.invalid` }),
-    );
-    const [invitation] = await pendingArtistInvitations(hugo);
-    assert.ok(invitation);
+    const invitation = await createInvitation(stephan, hust);
     await assert.rejects(trackAccess(request(hugo), demo));
-    await assert.rejects(
-      answerArtistInvitation(
-        stranger,
-        form({ intent: "accept-invitation", invitation: invitation.id }),
-      ),
-    );
-    await answerArtistInvitation(
-      hugo,
-      form({ intent: "accept-invitation", invitation: invitation.id }),
-    );
-    await assert.rejects(
-      answerArtistInvitation(
-        hugo,
-        form({ intent: "accept-invitation", invitation: invitation.id }),
-      ),
-    );
+    await assert.rejects(acceptArtistInvitation(stephan, invitation));
+    await acceptArtistInvitation(hugo, invitation);
+    await assert.rejects(acceptArtistInvitation(hugo, invitation));
     assert.equal((await versionAccess(request(hugo), version)).owner, true);
     assert.equal(
       (await releaseAccess(request(hugo), release, true)).owner,
@@ -261,7 +253,7 @@ test(
       manageArtistMembers(
         hugo,
         hust,
-        form({ intent: "remove-member", member: invitation.id }),
+        form({ intent: "remove-member", member: randomUUID() }),
       ),
     );
     await assert.rejects(
@@ -333,69 +325,190 @@ test(
     await assert.rejects(trackAccess(request(hugo), hugoDemo)); // Original uploader loses access too.
     assert.equal((await trackAccess(request(stephan), hugoDemo)).owner, true);
     await assert.rejects(releaseAccess(request(hugo), release, true));
-    await manageArtistMembers(
-      stephan,
-      hust,
-      form({ intent: "invite-member", email: `${hugo}@test.invalid` }),
-    );
-    const [again] = await pendingArtistInvitations(hugo);
+    const expired = await createInvitation(stephan, hust);
     await db
-      .update(artistMembers)
+      .update(artistInvitations)
       .set({ expires: new Date(0) })
-      .where(eq(artistMembers.id, again.id));
-    await assert.rejects(
-      answerArtistInvitation(
-        hugo,
-        form({ intent: "accept-invitation", invitation: again.id }),
-      ),
-    );
+      .where(eq(artistInvitations.id, expired));
+    await assert.rejects(acceptArtistInvitation(hugo, expired));
+    const revoked = await createInvitation(stephan, hust);
     await manageArtistMembers(
       stephan,
       hust,
-      form({ intent: "invite-member", email: `${hugo}@test.invalid` }),
+      form({ intent: "revoke-invitation", invitation: revoked }),
     );
-    await manageArtistMembers(
-      stephan,
-      hust,
-      form({ intent: "remove-member", member: again.id }),
-    );
-    await assert.rejects(
-      answerArtistInvitation(
-        hugo,
-        form({ intent: "accept-invitation", invitation: again.id }),
-      ),
-    );
-    await manageArtistMembers(
-      stephan,
-      hust,
-      form({ intent: "invite-member", email: `${hugo}@test.invalid` }),
-    );
-    const [decline] = await pendingArtistInvitations(hugo);
-    await answerArtistInvitation(
-      hugo,
-      form({ intent: "decline-invitation", invitation: decline.id }),
-    );
-    assert.equal((await pendingArtistInvitations(hugo)).length, 0);
-    await manageArtistMembers(
-      stephan,
-      hust,
-      form({ intent: "invite-member", email: `${hugo}@test.invalid` }),
-    );
-    const [remove] = await pendingArtistInvitations(hugo);
-    await answerArtistInvitation(
-      hugo,
-      form({ intent: "accept-invitation", invitation: remove.id }),
-    );
+    await assert.rejects(acceptArtistInvitation(hugo, revoked));
+    await acceptArtistInvitation(hugo, await createInvitation(stephan, hust));
     assert.equal((await trackAccess(request(hugo), hugoDemo)).owner, true);
+    const member = await db.query.artistMembers.findFirst({
+      where: eq(artistMembers.userId, hugo),
+    });
     await manageArtistMembers(
       stephan,
       hust,
-      form({ intent: "remove-member", member: remove.id }),
+      form({ intent: "remove-member", member: member!.id }),
     );
     await assert.rejects(trackAccess(request(hugo), hugoDemo));
     await assert.rejects(releaseAccess(request(hugo), release, true));
     await assert.rejects(
       manageArtistMembers(stephan, hust, form({ intent: "leave-artist" })),
     );
+  },
+);
+
+test(
+  "artist invitation links return through login and confirm the account before single-use acceptance",
+  { skip: !enabled },
+  async () => {
+    const owner = randomUUID(),
+      first = randomUUID(),
+      second = randomUUID(),
+      artist = randomUUID();
+    const firstToken = randomUUID(),
+      secondToken = randomUUID();
+    await db.insert(users).values([
+      { id: owner, name: "Stephan", email: `${owner}@test.invalid` },
+      { id: first, name: "Hugo", email: `${first}@test.invalid` },
+      { id: second, name: "Another account", email: `${second}@test.invalid` },
+    ]);
+    await db
+      .insert(artists)
+      .values({ id: artist, ownerId: owner, name: "HUST", slug: artist });
+    for (const [id, token] of [
+      [first, firstToken],
+      [second, secondToken],
+    ])
+      await db
+        .insert(sessions)
+        .values({
+          id: hash(token),
+          userId: id,
+          expires: new Date(Date.now() + 60000),
+        });
+    const id = await createInvitation(owner, artist);
+    const path = `/artist-invitations/${id}`;
+    const request = (token?: string, body?: FormData) =>
+      new Request(origin + path, {
+        headers: {
+          ...(token ? { cookie: `session=${token}` } : {}),
+          ...(body ? { origin } : {}),
+        },
+        ...(body ? { method: "POST", body } : {}),
+      });
+    const { loader: confirmation, action: accept } =
+      await import("../app/routes/artist-invitation");
+    const { loader: home } = await import("../app/routes/home");
+    const inviteArgs = (req: Request) => ({
+      ...args(req),
+      params: { invitation: id },
+    });
+    const anonymous = await confirmation(inviteArgs(request()));
+    assert.ok(anonymous instanceof Response);
+    assert.equal(
+      anonymous.headers.get("location"),
+      "/?returnTo=" + encodeURIComponent(path),
+    );
+    const login = await home(
+      args(new Request(origin + anonymous.headers.get("location"))),
+    );
+    assert.ok(!(login instanceof Response));
+    assert.equal(login.returnTo, path);
+    const afterLogin = await home(
+      args(
+        new Request(origin + anonymous.headers.get("location"), {
+          headers: { cookie: `session=${firstToken}` },
+        }),
+      ),
+    );
+    assert.ok(afterLogin instanceof Response);
+    assert.equal(afterLogin.headers.get("location"), path);
+    const data = await confirmation(inviteArgs(request(firstToken)));
+    assert.ok(!(data instanceof Response));
+    assert.deepEqual(data.artist, { id: artist, name: "HUST" });
+    assert.deepEqual(data.account, {
+      id: first,
+      name: "Hugo",
+      email: `${first}@test.invalid`,
+    });
+    assert.equal(data.alreadyConnected, false);
+    assert.equal(
+      (
+        await db
+          .select()
+          .from(artistMembers)
+          .where(eq(artistMembers.artistId, artist))
+      ).length,
+      0,
+    );
+    // Switching sessions after rendering must require another confirmation.
+    const stale = await accept(
+      inviteArgs(request(secondToken, form({ account: first }))),
+    );
+    assert.ok(!(stale instanceof Response));
+    assert.match(stale.error || "", /account changed/);
+    await artistInvitation(id);
+    const accepted = await accept(
+      inviteArgs(request(firstToken, form({ account: first }))),
+    );
+    assert.ok(accepted instanceof Response);
+    assert.equal(
+      accepted.headers.get("location"),
+      `/artist-profiles/${artist}`,
+    );
+    await assert.rejects(artistInvitation(id));
+    const extra = await createInvitation(owner, artist);
+    await assert.rejects(acceptArtistInvitation(first, extra));
+    await artistInvitation(extra); // Existing co-owners leave the link usable for someone else.
+    const race = await Promise.allSettled([
+      acceptArtistInvitation(first, extra),
+      acceptArtistInvitation(second, extra),
+    ]);
+    assert.equal(
+      race.filter((result) => result.status === "fulfilled").length,
+      1,
+    );
+    const third = randomUUID();
+    await db
+      .insert(users)
+      .values({ id: third, name: "Third", email: `${third}@test.invalid` });
+    const concurrent = await createInvitation(owner, artist);
+    const fourth = randomUUID();
+    await db
+      .insert(users)
+      .values({ id: fourth, name: "Fourth", email: `${fourth}@test.invalid` });
+    const results = await Promise.allSettled([
+      acceptArtistInvitation(third, concurrent),
+      acceptArtistInvitation(fourth, concurrent),
+    ]);
+    assert.equal(
+      results.filter((result) => result.status === "fulfilled").length,
+      1,
+    );
+    await assert.rejects(
+      manageArtistMembers(first, artist, form({ intent: "create-invitation" })),
+    );
+    const { action: logout } = await import("../app/routes/logout");
+    const switchAccount = await logout(
+      args(
+        new Request(origin + "/logout", {
+          method: "POST",
+          headers: { origin, cookie: `session=${secondToken}` },
+          body: new URLSearchParams({ returnTo: path }),
+        }),
+      ),
+    );
+    assert.equal(
+      switchAccount.headers.get("location"),
+      "/?returnTo=" + encodeURIComponent(path),
+    );
+    const { loginDestination } =
+      await import("../app/domain/login-destination");
+    for (const invalid of [
+      "https://attacker.invalid",
+      "//attacker.invalid",
+      "/artist-invitations/../admin",
+      "/dashboard?returnTo=https://attacker.invalid",
+    ])
+      assert.equal(loginDestination(invalid), "/dashboard");
   },
 );

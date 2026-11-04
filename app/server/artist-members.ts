@@ -1,46 +1,60 @@
-import { and, eq, gt, isNull, asc } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "./db";
-import { artists, artistMembers, users } from "./schema";
+import { artists, artistMembers, artistInvitations } from "./schema";
+import { token } from "./security";
 
-export async function pendingArtistInvitations(userId: string) {
-  return db
-    .select({
-      id: artistMembers.id,
-      artist: artists.name,
-      invitedBy: users.name,
-    })
-    .from(artistMembers)
-    .innerJoin(artists, eq(artists.id, artistMembers.artistId))
-    .innerJoin(users, eq(users.id, artists.ownerId))
+export async function artistInvitation(id: string) {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(id))
+    throw new Response("Invitation unavailable", { status: 404 });
+  const [row] = await db
+    .select({ invitation: artistInvitations, artist: artists })
+    .from(artistInvitations)
+    .innerJoin(artists, eq(artistInvitations.artistId, artists.id))
     .where(
       and(
-        eq(artistMembers.userId, userId),
-        isNull(artistMembers.acceptedAt),
-        gt(artistMembers.expires, new Date()),
+        eq(artistInvitations.id, id),
+        gt(artistInvitations.expires, new Date()),
       ),
-    )
-    .orderBy(asc(artists.name));
+    );
+  if (!row) throw new Response("Invitation unavailable", { status: 404 });
+  return row;
 }
-export async function answerArtistInvitation(userId: string, form: FormData) {
-  const condition = and(
-    eq(artistMembers.id, z.uuid().parse(form.get("invitation"))),
-    eq(artistMembers.userId, userId),
-    isNull(artistMembers.acceptedAt),
-    gt(artistMembers.expires, new Date()),
-  );
-  const rows =
-    form.get("intent") === "accept-invitation"
-      ? await db
-          .update(artistMembers)
-          .set({ acceptedAt: new Date() })
-          .where(condition)
-          .returning()
-      : await db.delete(artistMembers).where(condition).returning();
-  if (!rows.length)
-    throw new Response("Invitation unavailable or expired.", { status: 404 });
-  return rows[0].artistId;
+
+export async function acceptArtistInvitation(userId: string, id: string) {
+  const { artist } = await artistInvitation(id);
+  return db.transaction(async (tx) => {
+    // Membership changes and invitation consumption lock the artist first.
+    // Concurrent acceptance or revocation therefore has exactly one winner.
+    await tx
+      .select({ id: artists.id })
+      .from(artists)
+      .where(eq(artists.id, artist.id))
+      .for("update");
+    const invitation = await tx.query.artistInvitations.findFirst({
+      where: and(
+        eq(artistInvitations.id, id),
+        gt(artistInvitations.expires, new Date()),
+      ),
+    });
+    if (!invitation)
+      throw new Response("Invitation unavailable", { status: 404 });
+    const member = await tx.query.artistMembers.findFirst({
+      where: and(
+        eq(artistMembers.artistId, artist.id),
+        eq(artistMembers.userId, userId),
+      ),
+    });
+    if (artist.ownerId === userId || member)
+      throw new Response("This artist is already connected to your account.", {
+        status: 400,
+      });
+    await tx.insert(artistMembers).values({ artistId: artist.id, userId });
+    await tx.delete(artistInvitations).where(eq(artistInvitations.id, id));
+    return artist.id;
+  });
 }
+
 export async function manageArtistMembers(
   userId: string,
   artistId: string,
@@ -82,35 +96,29 @@ export async function manageArtistMembers(
             eq(artistMembers.id, z.uuid().parse(form.get("member"))),
           ),
         );
-    } else if (intent === "invite-member") {
-      const email = z.email().parse(String(form.get("email") || "").trim());
-      // Exact account address avoids exposing a searchable directory of accounts.
-      const user = await tx.query.users.findFirst({
-        where: and(eq(users.email, email), eq(users.disabled, false)),
+    } else if (intent === "create-invitation") {
+      const id = token();
+      await tx.insert(artistInvitations).values({
+        id,
+        artistId,
+        label:
+          z
+            .string()
+            .trim()
+            .max(200)
+            .parse(form.get("label") || "") || "Co-owner invitation",
+        expires: new Date(Date.now() + 7 * 86400000),
       });
-      if (!user || user.id === userId)
-        throw new Response(
-          "Enter the exact email of another active, registered account.",
-          { status: 400 },
-        );
-      const existing = await tx.query.artistMembers.findFirst({
-        where: and(
-          eq(artistMembers.artistId, artistId),
-          eq(artistMembers.userId, user.id),
-        ),
-      });
-      if (existing?.acceptedAt)
-        throw new Response("This account already co-owns the artist.", {
-          status: 400,
-        });
-      const expires = new Date(Date.now() + 7 * 86400000);
+      return id;
+    } else if (intent === "revoke-invitation") {
       await tx
-        .insert(artistMembers)
-        .values({ artistId, userId: user.id, expires })
-        .onConflictDoUpdate({
-          target: [artistMembers.artistId, artistMembers.userId],
-          set: { expires },
-        });
+        .delete(artistInvitations)
+        .where(
+          and(
+            eq(artistInvitations.artistId, artistId),
+            eq(artistInvitations.id, String(form.get("invitation"))),
+          ),
+        );
     } else throw new Response("Unknown membership action", { status: 400 });
   });
 }

@@ -1,4 +1,3 @@
-import { pendingArtistInvitations } from "../server/artist-members";
 import {
   Form,
   useSubmit,
@@ -11,7 +10,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   return {
     name: user.name,
-    invitations: (await pendingArtistInvitations(user.id)).length,
     ...(await dashboard(
       user.id,
       new URL(request.url).searchParams.get("period"),
@@ -38,14 +36,6 @@ export default function Dashboard() {
   return (
     <>
       <p className="eyebrow">DASHBOARD</p>
-      {!!d.invitations && (
-        <p role="status">
-          <a href="/artist-profiles">
-            You have {d.invitations} pending artist invitation(s). Review
-            invitations
-          </a>
-        </p>
-      )}
       <div className="dashboard-heading">
         <h1>Welcome back, {d.name}.</h1>
         <Form method="get" className="period-form">

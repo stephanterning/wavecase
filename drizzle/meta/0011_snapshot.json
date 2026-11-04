@@ -1,9 +1,67 @@
 {
-  "id": "bf782651-9fa1-43fa-8300-3e407864fe79",
+  "id": "b4f085c6-bbba-4d5d-aca7-3b1d1b97c0e7",
   "prevId": "bc59309f-e035-486e-8b16-08c6fdb81416",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.artist_invitations": {
+      "name": "artist_invitations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "artistId": {
+          "name": "artistId",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires": {
+          "name": "expires",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "artist_invitations_artistId_artists_id_fk": {
+          "name": "artist_invitations_artistId_artists_id_fk",
+          "tableFrom": "artist_invitations",
+          "tableTo": "artists",
+          "columnsFrom": [
+            "artistId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.artist_members": {
       "name": "artist_members",
       "schema": "",
@@ -24,18 +82,6 @@
         "userId": {
           "name": "userId",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "acceptedAt": {
-          "name": "acceptedAt",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "expires": {
-          "name": "expires",
-          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         },

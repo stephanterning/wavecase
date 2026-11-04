@@ -244,7 +244,6 @@ export const releaseEvents = pgTable(
   (table) => [index("release_events_release").on(table.releaseId)],
 );
 
-// Pending invitations and accepted memberships share one unique artist/account pair.
 export const artistMembers = pgTable(
   "artist_members",
   {
@@ -255,11 +254,19 @@ export const artistMembers = pgTable(
     userId: uuid()
       .notNull()
       .references(() => users.id),
-    acceptedAt: timestamp({ withTimezone: true }),
-    expires: timestamp({ withTimezone: true }).notNull(),
     createdAt: created(),
   },
   (table) => [
     uniqueIndex("artist_member_account").on(table.artistId, table.userId),
   ],
 );
+
+export const artistInvitations = pgTable("artist_invitations", {
+  id: text().primaryKey(),
+  artistId: uuid()
+    .notNull()
+    .references(() => artists.id, { onDelete: "cascade" }),
+  label: text().notNull(),
+  expires: timestamp({ withTimezone: true }).notNull(),
+  createdAt: created(),
+});

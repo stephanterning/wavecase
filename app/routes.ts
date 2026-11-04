@@ -31,6 +31,7 @@ export default [
   route("visits/:share", "routes/visits.ts"),
   route("logout", "routes/logout.ts"),
   index("routes/home.tsx"),
+  route("artist-invitations/:invitation", "routes/artist-invitation.tsx"),
   route("auth/:action", "routes/auth.ts"),
   route("s/:share", "routes/share.tsx"),
   route("media/:id", "routes/media.ts"),
