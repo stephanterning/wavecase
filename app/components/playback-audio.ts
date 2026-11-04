@@ -3,6 +3,7 @@
 import { BufferedAudio } from "./buffered-audio";
 import {
   playbackContext,
+  playbackDestination,
   resumePlayback,
   transitionSeconds,
 } from "./audio-context";
@@ -73,7 +74,7 @@ export async function playNormalized(
   if (!graph.connected) {
     graph.source.connect(graph.gain);
     graph.gain.connect(graph.envelope);
-    graph.envelope.connect(context.destination);
+    graph.envelope.connect(playbackDestination(context));
     graph.connected = true;
   }
   try {
