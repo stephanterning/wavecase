@@ -103,13 +103,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
           : `/artist-profiles/${params.id}`,
       );
     }
-    const name = z.string().trim().min(1).max(200).parse(f.get("name"));
     if (intent === "edit-artist" || intent === "artist-links") {
       const previous = await ownedArtist(request, params.id!);
       const values = {
         ...(intent === "edit-artist"
           ? {
-              name,
+              name: z.string().trim().min(1).max(200).parse(f.get("name")),
               ...(f.has("links")
                 ? { links: parseLinks(String(f.get("links") || "")) }
                 : {}),
@@ -171,7 +170,6 @@ export default function ArtistEdit() {
           >
             <input type="hidden" name="intent" value="artist-image" />
             <input type="hidden" name="id" value={a.id} />
-            <input type="hidden" name="name" value={a.name} />
             {a.image && (
               <img
                 className="artist-image"
@@ -301,7 +299,6 @@ export default function ArtistEdit() {
               actions={<button className="button-primary">Save links</button>}
             >
               <input type="hidden" name="intent" value="artist-links" />
-              <input type="hidden" name="name" value={a.name} />
               <LinkFields links={a.links} />
             </EditForm>
           </div>

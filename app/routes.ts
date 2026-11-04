@@ -26,7 +26,6 @@ export default [
   route("artist-images/:id", "routes/artist-image.ts"),
   route("health", "routes/health.ts"),
   route("cover/:id", "routes/cover.ts"),
-  route("tracks/:id/manage", "routes/manage.ts"),
   route("tracks/:id/status", "routes/track-status.ts"),
   route("s/:share/status", "routes/track-status.ts", { id: "share-status" }),
   route("events/:id", "routes/events.ts"),

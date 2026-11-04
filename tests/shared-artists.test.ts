@@ -29,8 +29,9 @@ import { hash, origin } from "../app/server/security";
 import { loader as feedback, action as comment } from "../app/routes/feedback";
 import { deleteDemo, deleteShareLink } from "../app/server/delete-demo";
 import { enabled } from "./database";
+import { formFailure } from "./form-failure";
 process.env.DATABASE_URL ??= "postgres://localhost/wavecase_test";
-const { action: manage } = await import("../app/routes/manage");
+const { action: manage } = await import("../app/routes/track");
 const { action: createDemo, loader: library } =
   await import("../app/routes/library");
 const { action: createRelease, loader: releaseList } =
@@ -263,13 +264,20 @@ test(
         form({ intent: "remove-member", member: randomUUID() }),
       ),
     );
-    await assert.rejects(
-      manage(
-        args(
-          request(hugo, { intent: "metadata", field: "artist", artistId: hgo }),
-          demo,
+    assert.equal(
+      formFailure(
+        await manage(
+          args(
+            request(hugo, {
+              intent: "metadata",
+              field: "artist",
+              artistId: hgo,
+            }),
+            demo,
+          ),
         ),
-      ),
+      ).status,
+      400,
     );
     await manage(
       args(

@@ -203,13 +203,13 @@ test(
       });
       assert.ok(
         (await editArtist(
-          args({ intent: "artist-image", name: "Renamed", image }, id),
+          args({ intent: "artist-image", image }, id),
         )) instanceof Response,
       );
       const first = (await artistEditor(args({}, id))).artist.image!;
       assert.ok(
         (await editArtist(
-          args({ intent: "artist-image", name: "Renamed", image }, id),
+          args({ intent: "artist-image", image }, id),
         )) instanceof Response,
       );
       const second = (await artistEditor(args({}, id))).artist.image!;

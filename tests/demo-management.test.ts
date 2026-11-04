@@ -18,11 +18,11 @@ import {
   sessions,
 } from "../app/server/schema";
 import { hash, origin } from "../app/server/security";
-import { action } from "../app/routes/manage";
 import { dashboard } from "../app/server/dashboard";
-import { loader } from "../app/routes/track";
+import { action, loader } from "../app/routes/track";
 import { loader as analytics } from "../app/routes/analytics";
 import { enabled } from "./database";
+import { formFailure } from "./form-failure";
 
 after(() => pool.end());
 test(
@@ -57,10 +57,10 @@ test(
     ) =>
       action(
         args(
-          new Request(`${origin}/tracks/${id}/manage`, {
+          new Request(`${origin}/tracks/${id}`, {
             method: "POST",
             headers: { origin, cookie: `session=${session}` },
-            body: new URLSearchParams({ _inline: "1", ...fields }),
+            body: new URLSearchParams(fields),
           }),
           id,
         ),
@@ -125,6 +125,23 @@ test(
         post({ intent: "remove-cover" }, track, outsider),
         (error: unknown) => error instanceof Response && error.status === 404,
       );
+      assert.deepEqual(formFailure(await post({ intent: "remove-track" })), {
+        status: 400,
+        error: "Unknown action",
+      });
+      assert.equal(
+        (await db.query.versions.findFirst({ where: eq(versions.id, version) }))
+          ?.original,
+        "master",
+      );
+      for (const invalid of [
+        { intent: "version", version: "not-a-version" },
+        { intent: "metadata", title: " ", description: "" },
+      ] as Record<string, string>[]) {
+        const failure = formFailure(await post(invalid));
+        assert.equal(failure.status, 400);
+        assert.ok(failure.error);
+      }
       assert.deepEqual(await post({ intent: "remove-cover" }), { saved: true });
       assert.equal(
         (await db.query.tracks.findFirst({ where: eq(tracks.id, track) }))
@@ -256,15 +273,13 @@ test(
         intent: "delete-track",
         confirmation: "Audit test - Keep me",
       });
-      assert.ok(!(wrong instanceof Response) && "error" in wrong);
+      assert.equal(formFailure(wrong).status, 400);
       const forbiddenLink = await post({
         intent: "delete-link",
         link: foreignLink,
         confirm: "delete",
       });
-      assert.ok(
-        !(forbiddenLink instanceof Response) && "error" in forbiddenLink,
-      );
+      assert.equal(formFailure(forbiddenLink).status, 404);
       assert.ok(
         await db.query.links.findFirst({ where: eq(links.id, foreignLink) }),
       );

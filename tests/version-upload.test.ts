@@ -39,6 +39,7 @@ test(
       track = randomUUID();
     const upload = async (filename: string) => {
       const form = new FormData();
+      form.set("intent", "upload-version");
       form.set("audio", new File(["not audio"], filename));
       const request = new Request(`${origin}/tracks/${track}`, {
         method: "POST",

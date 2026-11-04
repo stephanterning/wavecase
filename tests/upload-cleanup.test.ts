@@ -18,10 +18,11 @@ import {
   releaseTracks,
 } from "../app/server/schema";
 import { hash, origin } from "../app/server/security";
-import { action as manage } from "../app/routes/manage";
+import { action as manage } from "../app/routes/track";
 import { action as editRelease } from "../app/routes/release-edit";
 import { action as createTrack } from "../app/routes/library";
 import { enabled } from "./database";
+import { formFailure } from "./form-failure";
 
 after(async () => {
   if (enabled) await boss.stop();
@@ -99,8 +100,8 @@ test(
         });
       };
       assert.deepEqual(
-        await post(manage, track, { intent: "replace", version }),
-        { error: "This version is already processing an upload" },
+        formFailure(await post(manage, track, { intent: "replace", version })),
+        { status: 409, error: "This version is already processing an upload" },
       );
       assert.deepEqual(
         await post(editRelease, release, {

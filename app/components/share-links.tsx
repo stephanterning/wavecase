@@ -116,7 +116,7 @@ export function ShareLinks({
           action={`/tracks/${trackId}`}
           actions={<button className="button-primary">Create link</button>}
         >
-          <input type="hidden" name="intent" value="link" />
+          <input type="hidden" name="intent" value="create-link" />
           <label>
             Private label
             <input name="label" required maxLength={200} />
@@ -231,7 +231,7 @@ export function ShareLinks({
                   )}
                   <EditForm
                     label={`Share link: ${link.label}`}
-                    action={`/tracks/${trackId}/manage`}
+                    action={`/tracks/${trackId}`}
                     actions={
                       <button className="button-primary">Save link</button>
                     }
@@ -273,7 +273,7 @@ export function ShareLinks({
                   </EditForm>
                   <EditForm
                     label={`Delete share link: ${link.label}`}
-                    action={`/tracks/${trackId}/manage`}
+                    action={`/tracks/${trackId}`}
                     actions={
                       <button className="button-danger">
                         Delete link permanently

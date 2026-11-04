@@ -277,7 +277,6 @@ test(
         });
       await editArtist({
         intent: "artist-links",
-        name: "Martin Dice",
         links: "Website | https://example.test/music",
       });
       await editArtist({

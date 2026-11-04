@@ -398,7 +398,7 @@ export default function Analytics() {
       {!downloads.length && (
         <p className="muted">No downloads for this selection.</p>
       )}
-      <Form method="post" action={"/tracks/" + data.track.id + "/manage"}>
+      <Form method="post" action={"/tracks/" + data.track.id}>
         <ConfirmButton
           name="intent"
           value="clear-analytics"
