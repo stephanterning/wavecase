@@ -7,7 +7,8 @@ import { streamChunkFrames, streamRate } from "../domain/audio-stream";
 
 // Wavecase encodes MPEG-1 Layer III at 32, 44.1 or 48 kHz: 1152 samples/frame.
 const samplesPerFrame = 1152;
-const indexes = new Map<string, ReturnType<typeof indexFile>>();
+const indexes = new Map<string, Awaited<ReturnType<typeof indexFile>>>();
+const building = new Map<string, ReturnType<typeof indexFile>>();
 
 async function indexFile(path: string, revision: string) {
   const { stdout } = await promisify(execFile)(
@@ -73,6 +74,29 @@ async function indexFile(path: string, revision: string) {
   };
 }
 
+// Public releases share builds. Limit concurrent ffprobe processes even when
+// many different tracks are opened before any of their indexes are cached.
+async function getIndex(path: string, revision: string) {
+  for (;;) {
+    const cached = indexes.get(revision);
+    if (cached) return cached;
+    const pending = building.get(revision);
+    if (pending) return pending;
+    if (building.size < 2) break;
+    await Promise.race(building.values()).catch(() => {});
+  }
+  const pending = indexFile(path, revision);
+  building.set(revision, pending);
+  try {
+    const result = await pending;
+    indexes.set(revision, result);
+    if (indexes.size > 16) indexes.delete(indexes.keys().next().value!);
+    return result;
+  } finally {
+    building.delete(revision);
+  }
+}
+
 /** The calling release route authorizes the track on each request. */
 export async function releaseMp3Response(
   request: Request,
@@ -93,23 +117,14 @@ export async function releaseMp3Response(
   const revision = createHash("sha256")
     .update([path, info.size, info.mtimeMs].join("|"))
     .digest("hex");
-  let pending = indexes.get(revision);
-  if (!pending) {
-    pending = indexFile(path, revision);
-    indexes.set(revision, pending);
-    if (indexes.size > 16) indexes.delete(indexes.keys().next().value!);
-    void pending.catch(() => {
-      if (indexes.get(revision) === pending) indexes.delete(revision);
-    });
-  }
-  const { manifest, parts } = await pending;
   const headers = new Headers({
     "Cache-Control": "private, no-store",
     "X-Content-Type-Options": "nosniff",
   });
-  if (part === "manifest") return Response.json(manifest, { headers });
-  if (query.get("revision") !== revision)
+  if (part !== "manifest" && query.get("revision") !== revision)
     throw new Response("Audio changed", { status: 409, headers });
+  const { manifest, parts } = await getIndex(path, revision);
+  if (part === "manifest") return Response.json(manifest, { headers });
   const range = parts[Number(part)];
   if (!range)
     throw new Response("Audio part not found", { status: 404, headers });

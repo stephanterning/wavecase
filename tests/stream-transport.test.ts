@@ -163,3 +163,37 @@ test("revoked or malformed parts fail closed and release the audio output", asyn
     nodes[0].port.commands.some((message) => message.type === "dispose"),
   );
 });
+
+test("returning to a seek target starts a fresh transfer while its aborted fetch settles", async (t) => {
+  const { audio } = fixture(t);
+  let settle: (() => void) | undefined;
+  let attempts = 0;
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const part = new URL(String(input)).searchParams.get("stream");
+      if (part === "manifest")
+        return Response.json({ ...manifest, frames: 120 * 48_000 });
+      if (part === "20" && ++attempts === 1)
+        return new Promise<Response>((_, reject) => {
+          settle = () => reject(init!.signal!.reason);
+        });
+      return new Response(new ArrayBuffer(96_000 * 4));
+    },
+  );
+  audio.src = "/audio";
+  await tick();
+  audio.currentTime = 40;
+  await tick();
+  audio.currentTime = 90;
+  await tick();
+  audio.currentTime = 40;
+  await tick();
+  settle!();
+  await tick();
+  assert.equal(attempts, 2);
+  assert.equal(audio.seeking, false);
+  assert.equal(audio.currentTime, 40);
+  assert.equal(audio.error, null);
+});

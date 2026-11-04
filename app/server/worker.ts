@@ -124,10 +124,8 @@ async function reconcile() {
       continue;
     }
     // Old deployments prepared PCM for releases. Only remove the derived pair.
-    if (await streamManifest(directory, key)) {
-      await rm(join(directory, key + streamSuffix + ".pcm"), { force: true });
-      await rm(join(directory, key + streamSuffix + ".json"), { force: true });
-    }
+    await rm(join(directory, key + streamSuffix + ".json"), { force: true });
+    await rm(join(directory, key + streamSuffix + ".pcm"), { force: true });
   }
   for (const { key } of sources) {
     if (!key || (await streamManifest(directory, key))) continue;

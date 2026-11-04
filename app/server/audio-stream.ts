@@ -28,6 +28,8 @@ export async function streamManifest(
       await readFile(join(directory, key + streamSuffix + ".json"), "utf8"),
     );
     if (!validStreamManifest(manifest)) return null;
+    const pcm = await stat(join(directory, key + streamSuffix + ".pcm"));
+    if (pcm.size !== manifest.frames * manifest.channels * 4) return null;
     return manifest;
   } catch (error) {
     if (

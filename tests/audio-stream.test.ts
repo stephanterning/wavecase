@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, readFile, stat } from "node:fs/promises";
+import { mkdtemp, rm, readFile, stat, truncate } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { gunzip } from "node:zlib";
@@ -83,6 +83,14 @@ test("stream parts reconstruct continuous 44.1-to-48 kHz decoding, including pea
       await prepareStream(directory, "source.wav"),
       manifest,
       "prepared data is reusable",
+    );
+    const derivative = join(directory, "source.wav" + streamSuffix + ".pcm");
+    await truncate(derivative, 4);
+    await prepareStream(directory, "source.wav");
+    assert.deepEqual(
+      await readFile(derivative),
+      all,
+      "repair a truncated PCM derivative even when its manifest survived",
     );
     for (const [query, status] of [
       ["stream=-1", 400],

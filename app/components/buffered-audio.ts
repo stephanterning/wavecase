@@ -199,7 +199,12 @@ export class BufferedAudio extends EventTarget {
     )
       return Promise.resolve();
     const pending = this.pending.get(index);
-    if (pending && pending.priority <= priority) return pending.promise;
+    if (
+      pending &&
+      !pending.request.signal.aborted &&
+      pending.priority <= priority
+    )
+      return pending.promise;
     pending?.request.abort();
     const request = new AbortController();
     const signal = AbortSignal.any([this.request.signal, request.signal]);
@@ -259,7 +264,8 @@ export class BufferedAudio extends EventTarget {
     for (const index of evicted) this.loaded.delete(index);
     for (const [index, item] of this.pending)
       if (!keep(index)) item.request.abort();
-    this.node?.port.postMessage({ type: "evict", indices: evicted });
+    if (evicted.length)
+      this.node?.port.postMessage({ type: "evict", indices: evicted });
   }
   private async seek(position: number, userSeek = false) {
     const generation = ++this.generation;
