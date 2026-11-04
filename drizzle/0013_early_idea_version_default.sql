@@ -1,0 +1,1 @@
+ALTER TABLE "versions" ALTER COLUMN "status" SET DEFAULT 'early idea';

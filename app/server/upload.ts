@@ -4,12 +4,18 @@ import { randomUUID } from "node:crypto";
 import { db } from "./db";
 import { versions } from "./schema";
 import { boss, queue } from "./queue";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { versionStatuses } from "../domain/versions";
+import {
+  defaultVersionStatus,
+  nextVersionName,
+  versionNameFromFile,
+  versionStatuses,
+} from "../domain/versions";
 export async function uploadVersion(trackId: string, form: FormData) {
   const status = z
     .enum(versionStatuses)
-    .parse(form.get("status") || "work in progress");
+    .parse(form.get("status") || defaultVersionStatus);
   const file = form.get("audio");
   if (
     !(file instanceof File) ||
@@ -19,6 +25,17 @@ export async function uploadVersion(trackId: string, form: FormData) {
     throw new Response("Choose an audio file within the upload size limit.", {
       status: 400,
     });
+  const name =
+    String(form.get("name") || "") ||
+    versionNameFromFile(file.name) ||
+    nextVersionName(
+      (
+        await db
+          .select({ name: versions.name })
+          .from(versions)
+          .where(eq(versions.trackId, trackId))
+      ).map((version) => version.name),
+    );
   const id = randomUUID(),
     directory = process.env.DATA_DIR || "data/audio";
   await mkdir(directory, { recursive: true });
@@ -29,11 +46,7 @@ export async function uploadVersion(trackId: string, form: FormData) {
       id,
       trackId,
       status,
-      name: String(
-        form.get("name") ||
-          file.name.match(/(?:^|[ _-])(v\d+(?:\.\d+)*)/i)?.[1] ||
-          "v1",
-      ).slice(0, 100),
+      name: name.slice(0, 100),
       description: String(form.get("description") || "").slice(0, 5000),
       download: form.has("download"),
       filename: file.name,

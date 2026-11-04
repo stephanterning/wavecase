@@ -92,11 +92,13 @@ function FormContents({
   children,
   resetOnSave = false,
   modal = false,
+  onSuccess,
   ...props
 }: FormProps & {
   label: string;
   resetOnSave?: boolean;
   modal?: boolean;
+  onSuccess?: (data: object) => void;
 }) {
   const dialogActions = useContext(DialogActions);
   const onSaved = modal ? dialogActions?.complete : undefined;
@@ -158,11 +160,12 @@ function FormContents({
       setDirty(snapshot(ref.current!) !== baseline.current);
       setSaved(true);
       onSaved?.();
+      onSuccess?.(fetcher.data!);
     }
     submitted.current = "";
     resolveSave.current?.(ok);
     resolveSave.current = null;
-  }, [fetcher.state, fetcher.data, resetOnSave, onSaved]);
+  }, [fetcher.state, fetcher.data, resetOnSave, onSaved, onSuccess]);
   const parts = Children.toArray(children);
   const submit = (child: ReactNode) =>
     isValidElement<{ type?: string }>(child) &&
@@ -407,6 +410,7 @@ export function EditForm({
   trigger?: ReactNode;
   triggerLabel?: string;
   modal?: boolean;
+  onSuccess?: (data: object) => void;
 }) {
   return trigger ? (
     <EditorDialog

@@ -26,7 +26,12 @@ import {
 } from "react-router";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { and, count, desc, eq, getTableColumns, sql } from "drizzle-orm";
-import { versionStatuses } from "../domain/versions";
+import {
+  defaultVersionStatus,
+  nextVersionName,
+  versionNameFromFile,
+  versionStatuses,
+} from "../domain/versions";
 import { recordVisit } from "../components/telemetry";
 import { useEffect, useRef, useState } from "react";
 import { db } from "../server/db";
@@ -173,7 +178,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
   } else {
     try {
-      await uploadVersion(track.id, form);
+      return { ok: true, version: await uploadVersion(track.id, form) };
     } catch (error) {
       return formError(error);
     }
@@ -257,6 +262,7 @@ function TrackContents() {
     previousVersion.current = current?.id;
   }, [current, data.owner, data.versions]);
   const revalidator = useRevalidator();
+  const nextName = nextVersionName(data.versions.map((v) => v.name));
   const artwork = data.track.cover
     ? `/cover/${data.track.id}?v=${data.track.coverRevision}${data.share ? "&share=" + data.share : ""}${data.preview ? "&preview=1" : ""}`
     : undefined;
@@ -289,6 +295,10 @@ function TrackContents() {
             resetOnSave
             encType="multipart/form-data"
             className="panel"
+            onSuccess={(saved) => {
+              if ("version" in saved && typeof saved.version === "string")
+                setSelection(saved.version);
+            }}
           >
             <h2 id="upload-version" tabIndex={-1}>
               Upload a version
@@ -303,21 +313,19 @@ function TrackContents() {
                   const file = e.target.files?.[0];
                   const field = e.target.form?.elements.namedItem("name");
                   if (file && field instanceof HTMLInputElement)
-                    field.value =
-                      file.name.match(/(?:^|[ _-])(v\d+(?:\.\d+)*)/i)?.[1] ||
-                      "v1";
+                    field.value = versionNameFromFile(file.name) || nextName;
                 }}
               />
             </label>
             <label>
               Version name
-              <input name="name" required defaultValue="v1" />
+              <input name="name" required defaultValue={nextName} />
             </label>
             <label>
               Status
               <select
                 name="status"
-                defaultValue={data.versions[0]?.status ?? "early idea"}
+                defaultValue={data.versions[0]?.status ?? defaultVersionStatus}
               >
                 {versionStatuses.map((status) => (
                   <option key={status}>{status}</option>

@@ -13,6 +13,7 @@ import {
   bigserial,
   doublePrecision,
 } from "drizzle-orm/pg-core";
+import { defaultVersionStatus } from "../domain/versions";
 const id = () => uuid("id").primaryKey().defaultRandom();
 const created = () =>
   timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -98,7 +99,7 @@ export const versions = pgTable("versions", {
     .references(() => tracks.id),
   name: text().notNull(),
   description: text().notNull().default(""),
-  status: text().notNull().default("work in progress"),
+  status: text().notNull().default(defaultVersionStatus),
   download: boolean().notNull().default(false),
   state: text().notNull().default("processing"),
   pendingOriginal: text(),
