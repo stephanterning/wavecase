@@ -128,7 +128,14 @@ async function reconcile() {
     await rm(join(directory, key + streamSuffix + ".pcm"), { force: true });
   }
   for (const { key } of sources) {
-    if (!key || (await streamManifest(directory, key))) continue;
+    if (!key) continue;
+    const prepared = await streamManifest(directory, key);
+    if (prepared?.flacRate) {
+      // Recover a crash between publishing the FLAC index and retiring the PCM.
+      await rm(join(directory, key + streamSuffix + ".pcm"), { force: true });
+      continue;
+    }
+    if (prepared?.pcmCodecChecked) continue;
     try {
       await stat(join(directory, key));
     } catch (error) {

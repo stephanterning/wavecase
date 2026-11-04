@@ -2,6 +2,8 @@ export const streamRate = 48_000;
 export const streamChannels = 2;
 export const streamChunkFrames = streamRate * 2;
 export type StreamManifest = {
+  flacRate?: number;
+  flacSamples?: number;
   mp3Rate?: number;
   mp3Samples?: number;
   revision: string;
@@ -18,6 +20,14 @@ export function validStreamManifest(value: StreamManifest) {
     (value.channels === 1 || value.channels === 2) &&
     Number.isSafeInteger(value.frames) &&
     value.frames > 0 &&
+    (value.flacRate === undefined ||
+      (value.mp3Rate === undefined &&
+        Number.isInteger(value.flacRate) &&
+        value.flacRate > 0 &&
+        value.flacRate <= streamRate &&
+        Number.isSafeInteger(value.flacSamples) &&
+        value.frames ===
+          Math.ceil((value.flacSamples! * streamRate) / value.flacRate))) &&
     (value.mp3Rate === undefined ||
       ([32000, 44100, 48000].includes(value.mp3Rate) &&
         Number.isSafeInteger(value.mp3Samples) &&

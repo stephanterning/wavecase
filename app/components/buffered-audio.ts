@@ -216,7 +216,11 @@ export class BufferedAudio extends EventTarget {
       if (!response.ok || response.status === 202)
         throw new Error("Audio is unavailable. Reload the player.");
       let bytes = await response.arrayBuffer();
-      if (manifest.mp3Rate) {
+      if (manifest.flacRate) {
+        signal.throwIfAborted();
+        const { decodeDemoFlac } = await import("./decode-demo-flac");
+        bytes = await decodeDemoFlac(this.context, bytes, manifest, index);
+      } else if (manifest.mp3Rate) {
         signal.throwIfAborted();
         const { decodeReleasePart } = await import("./decode-release-mp3");
         bytes = await decodeReleasePart(

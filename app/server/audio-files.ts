@@ -12,9 +12,15 @@ export async function removeAudioFiles(
       .flatMap((key) => [
         key,
         ...[key, key + ".mp3"].flatMap((base) =>
-          [".pcm", ".pcm.tmp", ".json", ".json.tmp"].map(
-            (suffix) => base + ".stream-v1" + suffix,
-          ),
+          [
+            ".pcm",
+            ".pcm.tmp",
+            ".json",
+            ".json.tmp",
+            ".flac",
+            ".flac.tmp",
+            ".part.tmp",
+          ].map((suffix) => base + ".stream-v1" + suffix),
         ),
         key + ".mp3",
         key + ".mp3.tmp",

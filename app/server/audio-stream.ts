@@ -18,16 +18,35 @@ import {
   type StreamManifest,
 } from "../domain/audio-stream";
 
+import { encodeFlacParts } from "./demo-flac";
+type Prepared = StreamManifest & {
+  flacEnds?: number[];
+  pcmCodecChecked?: boolean;
+};
 export const streamSuffix = ".stream-v1";
 export async function streamManifest(
   directory: string,
   key: string,
-): Promise<StreamManifest | null> {
+): Promise<Prepared | null> {
   try {
     const manifest = JSON.parse(
       await readFile(join(directory, key + streamSuffix + ".json"), "utf8"),
     );
-    if (!validStreamManifest(manifest)) return null;
+    if (!validStreamManifest(manifest) || manifest.mp3Rate !== undefined)
+      return null;
+    if (manifest.flacRate) {
+      const ends = manifest.flacEnds as number[] | undefined;
+      if (
+        !Array.isArray(ends) ||
+        ends.length !== Math.ceil(manifest.frames / streamChunkFrames) ||
+        !ends.every((n, i) => Number.isSafeInteger(n) && n > (ends[i - 1] ?? 0))
+      )
+        return null;
+      const size = (await stat(join(directory, key + streamSuffix + ".flac")))
+        .size;
+      return ends.at(-1) === size ? manifest : null;
+    }
+    if (manifest.flacEnds !== undefined) return null;
     const pcm = await stat(join(directory, key + streamSuffix + ".pcm"));
     if (pcm.size !== manifest.frames * manifest.channels * 4) return null;
     return manifest;
@@ -41,12 +60,11 @@ export async function streamManifest(
   }
 }
 
-// Decode/resample continuously, once, before slicing. Float PCM preserves
-// decoded lossy peaks above 0 dBFS; quantizing to integer FLAC could clip them.
-// Gzip is only transport compression, not another lossy audio encode.
+// Only integer masters use FLAC. Other playback files keep continuous float
+// PCM so decoded peaks above full scale are not clipped or requantized.
 export async function prepareStream(directory: string, key: string) {
   const existing = await streamManifest(directory, key);
-  if (existing) return existing;
+  if (existing?.flacRate || existing?.pcmCodecChecked) return existing;
   const file = join(directory, key + streamSuffix);
   const { stdout } = await promisify(execFile)(
     "ffprobe",
@@ -58,17 +76,62 @@ export async function prepareStream(directory: string, key: string) {
       "-select_streams",
       "a:0",
       "-show_entries",
-      "stream=channels",
+      "stream=codec_name,channels,sample_rate,duration_ts,time_base",
       "-of",
       "json",
       join(directory, key),
     ],
     { timeout: 120_000, maxBuffer: 4096 },
   );
-  const channels = Number(JSON.parse(stdout).streams[0]?.channels);
+  const stream = JSON.parse(stdout).streams[0];
+  const channels = Number(stream?.channels);
   if (channels !== 1 && channels !== 2)
     throw new Error("Unsupported audio channels");
+  const rate = Number(stream.sample_rate),
+    samples = Number(stream.duration_ts);
+  const flac =
+    /^pcm_(?:u8|s(?:16|24)(?:le|be))$/.test(stream.codec_name) &&
+    Number.isSafeInteger(rate) &&
+    rate > 0 &&
+    rate <= streamRate &&
+    stream.time_base === "1/" + rate &&
+    Number.isSafeInteger(samples) &&
+    samples > 0;
   try {
+    if (flac) {
+      const flacEnds = await encodeFlacParts(
+        join(directory, key),
+        file,
+        rate,
+        samples,
+      );
+      const manifest: Prepared = {
+        revision: createHash("sha256")
+          .update(key + streamSuffix + "-flac-v1")
+          .digest("hex"),
+        frames: Math.ceil((samples * streamRate) / rate),
+        sampleRate: streamRate,
+        channels,
+        chunkFrames: streamChunkFrames,
+        flacRate: rate,
+        flacSamples: samples,
+        flacEnds,
+      };
+      await stat(join(directory, key));
+      await rename(file + ".flac.tmp", file + ".flac");
+      await writeFile(file + ".json.tmp", JSON.stringify(manifest));
+      await rename(file + ".json.tmp", file + ".json");
+      await unlink(file + ".pcm").catch((e) => {
+        if (e.code !== "ENOENT") throw e;
+      });
+      return manifest;
+    }
+    if (existing) {
+      existing.pcmCodecChecked = true;
+      await writeFile(file + ".json.tmp", JSON.stringify(existing));
+      await rename(file + ".json.tmp", file + ".json");
+      return existing;
+    }
     await promisify(execFile)(
       "ffmpeg",
       [
@@ -98,7 +161,8 @@ export async function prepareStream(directory: string, key: string) {
       throw new Error("Empty prepared audio");
     // A deletion while preparing must not publish a new cache for that source.
     await stat(join(directory, key));
-    const manifest: StreamManifest = {
+    const manifest: Prepared = {
+      pcmCodecChecked: true,
       revision: createHash("sha256")
         .update(key + streamSuffix)
         .digest("hex"),
@@ -113,7 +177,7 @@ export async function prepareStream(directory: string, key: string) {
     return manifest;
   } finally {
     await Promise.all(
-      [".pcm.tmp", ".json.tmp"].map((suffix) =>
+      [".pcm.tmp", ".json.tmp", ".flac.tmp"].map((suffix) =>
         unlink(file + suffix).catch(() => {}),
       ),
     );
@@ -154,7 +218,12 @@ export async function streamResponse(
     headers.set("Retry-After", "1");
     return new Response(null, { status: 202, headers });
   }
-  if (part === "manifest") return Response.json(manifest, { headers });
+  if (part === "manifest") {
+    return Response.json(
+      { ...manifest, flacEnds: undefined, pcmCodecChecked: undefined },
+      { headers },
+    );
+  }
   if (query.get("revision") !== manifest.revision)
     throw new Response("Audio changed. Reload the player.", {
       status: 409,
@@ -164,30 +233,41 @@ export async function streamResponse(
   const start = index * manifest.chunkFrames;
   if (start >= manifest.frames)
     throw new Response("Audio part not found", { status: 404, headers });
-  headers.set("Content-Type", "application/octet-stream");
+  headers.set(
+    "Content-Type",
+    manifest.flacRate ? "audio/flac" : "application/octet-stream",
+  );
   if (request.method === "HEAD") return new Response(null, { headers });
-  const length =
-    Math.min(manifest.chunkFrames, manifest.frames - start) *
-    manifest.channels *
-    4;
+  const offset = manifest.flacEnds
+    ? (manifest.flacEnds[index - 1] ?? 0)
+    : start * manifest.channels * 4;
+  const length = manifest.flacEnds
+    ? manifest.flacEnds[index] - offset
+    : Math.min(manifest.chunkFrames, manifest.frames - start) *
+      manifest.channels *
+      4;
   const bytes = Buffer.alloc(length);
-  const file = await open(join(directory, key + streamSuffix + ".pcm"), "r");
+  const file = await open(
+    join(
+      directory,
+      key + streamSuffix + (manifest.flacRate ? ".flac" : ".pcm"),
+    ),
+    "r",
+  );
   try {
     let read = 0;
     while (read < length) {
-      const result = await file.read(
-        bytes,
-        read,
-        length - read,
-        start * manifest.channels * 4 + read,
-      );
+      const result = await file.read(bytes, read, length - read, offset + read);
       if (!result.bytesRead) throw new Error("Incomplete prepared audio");
       read += result.bytesRead;
     }
   } finally {
     await file.close();
   }
-  if (/\bgzip\b/.test(request.headers.get("accept-encoding") || "")) {
+  if (
+    !manifest.flacRate &&
+    /\bgzip\b/.test(request.headers.get("accept-encoding") || "")
+  ) {
     headers.set("Content-Encoding", "gzip");
     headers.set("Vary", "Accept-Encoding");
     return new Response(await promisify(gzip)(bytes, { level: 3 }), {
