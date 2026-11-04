@@ -71,7 +71,7 @@ export function LinkFields({
           </label>
           <button
             type="button"
-            className="icon-button danger"
+            className="icon-button button-danger"
             title="Remove link"
             aria-label={`Remove link ${index + 1}`}
             onClick={() => setRows(rows.filter((item) => item.id !== row.id))}

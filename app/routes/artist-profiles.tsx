@@ -83,7 +83,7 @@ export default function ArtistProfiles() {
             value={slug}
             onChange={setSlug}
           />
-          <button>Create artist</button>
+          <button className="button-primary">Create artist</button>
         </Form>
       </CreateDialog>
       <div className="catalog-grid">

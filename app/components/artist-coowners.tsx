@@ -81,7 +81,7 @@ export function ArtistCoOwners({ data }: { data: Data }) {
               Invitation label (optional)
               <input name="label" maxLength={200} placeholder="e.g. Hugo" />
             </label>
-            <button>Create invitation link</button>
+            <button className="button-primary">Create invitation link</button>
           </EditForm>
         )}
       </div>
@@ -112,7 +112,7 @@ export function ArtistCoOwners({ data }: { data: Data }) {
                     discussions and statistics. Their uploads and comments will
                     stay with the artist.
                   </p>
-                  <button className="danger">Remove co-owner</button>
+                  <button className="button-danger">Remove co-owner</button>
                 </EditForm>
               </div>
             )}
@@ -204,7 +204,7 @@ export function ArtistCoOwners({ data }: { data: Data }) {
               to its music and discussions. Your uploads and comments will stay
               with the artist.
             </p>
-            <button className="danger">Leave artist</button>
+            <button className="button-danger">Leave artist</button>
           </EditForm>
         </div>
       )}

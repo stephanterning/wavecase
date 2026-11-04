@@ -203,7 +203,7 @@ function FormContents({
           <>
             {parts.filter((child) => !submit(child))}
             <div className="editor-footer">
-              <button type="button" onClick={onCancel}>
+              <button type="button" className="secondary" onClick={onCancel}>
                 Cancel
               </button>
               {parts.filter(submit)}
@@ -426,7 +426,7 @@ export function CloseEditor() {
   const actions = useContext(DialogActions);
   return (
     <div className="editor-footer">
-      <button type="button" onClick={actions?.cancel}>
+      <button type="button" className="secondary" onClick={actions?.cancel}>
         Close
       </button>
     </div>

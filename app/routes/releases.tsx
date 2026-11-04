@@ -136,7 +136,9 @@ export default function Releases() {
               <option value="album">Album</option>
             </select>
           </label>
-          <button disabled={!data.artists.length}>Create draft</button>
+          <button className="button-primary" disabled={!data.artists.length}>
+            Create draft
+          </button>
           {!data.artists.length && (
             <p>
               <Link to="/artist-profiles?create=1">

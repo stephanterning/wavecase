@@ -335,7 +335,7 @@ function TrackContents() {
               <input type="checkbox" name="download" />
               Allow downloads
             </label>
-            <button>Upload new version</button>
+            <button className="button-primary">Upload new version</button>
           </EditForm>
         </nav>
       )}

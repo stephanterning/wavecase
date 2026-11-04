@@ -133,6 +133,23 @@ button:disabled {
   background: #101412;
   color: #f6f7f5;
 }
+.button-primary {
+  background: #b2e0cd;
+  border-color: #b2e0cd;
+  color: #102219;
+}
+.button-primary:hover:not(:disabled) {
+  background: #c5f7df;
+  border-color: #c5f7df;
+}
+.button-danger {
+  color: #ff9696;
+  border-color: #ff9696;
+}
+.button-danger:hover:not(:disabled) {
+  background: #ff969626;
+  border-color: #ff9696;
+}
 .check {
   display: flex;
   align-items: center;
@@ -1244,12 +1261,6 @@ body:has(.release-mini) {
 .editor-dialog .edit-fields > h2 {
   display: none;
 }
-.editor-dialog .edit-fields > button:last-child {
-  display: block;
-  margin: 24px 0 0 auto;
-  background: #b2e0cd;
-  color: #102219;
-}
 .editor-dialog .edit-fields > label:has(input[name="name"]),
 .editor-dialog .edit-fields > label:has(input[name="title"]) {
   max-width: 480px;
@@ -1292,9 +1303,6 @@ button:has(svg) {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-}
-.danger {
-  color: #ff9696;
 }
 .stat-card {
   padding: 12px 16px;
@@ -1417,10 +1425,6 @@ button:has(svg) {
 }
 .editor-footer button {
   margin: 0;
-}
-.editor-footer button:last-child {
-  background: #b2e0cd;
-  color: #102219;
 }
 .workspace-content:has(> h1:first-child) > .panel {
   max-width: 900px;
