@@ -56,13 +56,11 @@ test(
       .insert(users)
       .values({ id: owner, name: "Owner", email: `${owner}@test.invalid` });
     try {
-      await db
-        .insert(sessions)
-        .values({
-          id: hash(session),
-          userId: owner,
-          expires: new Date(Date.now() + 60000),
-        });
+      await db.insert(sessions).values({
+        id: hash(session),
+        userId: owner,
+        expires: new Date(Date.now() + 60000),
+      });
       await db.insert(tracks).values([
         { id: track, ownerId: owner, title: "Pinned demo" },
         { id: foreign, ownerId: owner, title: "Another demo" },
@@ -243,14 +241,12 @@ test(
           denied,
         );
       }
-      await db
-        .insert(comments)
-        .values({
-          versionId: selected.id,
-          linkId: link.id,
-          name: "Listener",
-          body: "Keep this feedback",
-        });
+      await db.insert(comments).values({
+        versionId: selected.id,
+        linkId: link.id,
+        name: "Listener",
+        body: "Keep this feedback",
+      });
       await db
         .update(versions)
         .set({ state: "missing" })
