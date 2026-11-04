@@ -36,6 +36,7 @@ test("worker produces playable WAV, measurements, exact duration and waveform fr
     assert.equal(result.original, result.playback);
     assert.equal(result.peaks.length, 300);
     assert.ok(result.peaks.every((v) => v > 0 && v < 1));
+    assert.ok(result.peaks.every((v) => String(v).length <= 5));
     assert.equal(typeof result.metadata.lufs, "number");
     const { stdout } = await exec("ffprobe", [
       "-v",
