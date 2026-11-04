@@ -75,7 +75,11 @@ export async function demoList(userId: string, artistId?: string) {
       ),
     );
   return {
-    tracks: rows.map((track) => ({ ...track, cover: !!track.cover })),
+    tracks: rows.map((track) => ({
+      ...track,
+      cover: !!track.cover,
+      updatedAt: track.updatedAt ? new Date(track.updatedAt).toISOString() : null,
+    })),
     availableSources: playable.map((version) => version.id + version.revision),
     playable: playable.filter(
       (version, index) =>

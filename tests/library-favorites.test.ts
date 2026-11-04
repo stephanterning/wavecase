@@ -80,7 +80,7 @@ test(
       assert.equal(kiosken.latestStatus, "to finish");
       assert.equal(kiosken.favorite, false);
       assert.equal(kiosken.versionCount, 2);
-      assert.equal(new Date(kiosken.updatedAt!).getTime(), uploaded.getTime());
+      assert.equal(kiosken.updatedAt, uploaded.toISOString());
       const unversioned = result.tracks.find((row) => row.id === empty)!;
       assert.equal(unversioned.latestVersion, null);
       assert.equal(unversioned.latestStatus, null);
