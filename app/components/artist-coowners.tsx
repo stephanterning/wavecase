@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useFetcher } from "react-router";
 import type { loader } from "../routes/artist-edit";
+import { CopyButton } from "./copy-button";
 import { EditForm } from "./editing";
 import { Icon } from "./icons";
 
@@ -145,26 +146,15 @@ export function ArtistCoOwners({ data }: { data: Data }) {
                       : "Copy invitation link"
                   }
                 >
-                  <button
-                    type="button"
+                  <CopyButton
                     className="artist-icon-action"
                     aria-label={`Copy invitation for ${invitation.label}`}
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(
-                          `${invitationOrigin}/artist-invitations/${invitation.id}`,
-                        );
-                        setCopyNotice({ id: invitation.id, message: "Copied" });
-                      } catch {
-                        setCopyNotice({
-                          id: invitation.id,
-                          message: "Could not copy the link. Please try again.",
-                        });
-                      }
-                    }}
-                  >
-                    <Icon name="copy" />
-                  </button>
+                    url={`${invitationOrigin}/artist-invitations/${invitation.id}`}
+                    copiedMessage="Copied"
+                    onResult={(message) =>
+                      setCopyNotice({ id: invitation.id, message })
+                    }
+                  />
                 </span>
                 <revoke.Form method="post">
                   <input type="hidden" name="_inline" value="1" />

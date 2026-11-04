@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { linkVersionScope } from "../domain/share-links";
+import { CopyButton } from "./copy-button";
 import { EditForm, PreviewLink } from "./editing";
 import { Icon } from "./icons";
 
@@ -46,15 +47,11 @@ function ShareVersionFields({
           onChange={(event) => setVisibility(event.target.value)}
         >
           <option value="all">All versions</option>
-          <option value="onward">
-            {link
-              ? "Starting version and future versions"
-              : "Latest and future versions"}
-          </option>
+          <option value="onward">Starting version and future versions</option>
           <option value="single">Specific version only</option>
         </select>
       </label>
-      {(visibility === "single" || (link && visibility === "onward")) && (
+      {visibility !== "all" && (
         <label>
           {visibility === "single" ? "Version to share" : "Starting version"}
           <select
@@ -161,17 +158,26 @@ export function ShareLinks({
                   {link.label}
                 </th>
                 <td data-label="Status">
-                  {link.active ? "Active" : "Disabled"}
+                  {link.active ? (
+                    "Active"
+                  ) : (
+                    <>
+                      Disabled{" "}
+                      <small className="muted">
+                        · Listeners can’t open it. Enable it to preview.
+                      </small>
+                    </>
+                  )}
                 </td>
                 <td data-label="Download access">
                   <span
                     title={
                       link.download
                         ? "Downloads allowed when the version permits"
-                        : "Downloads disabled"
+                        : "Downloads not allowed"
                     }
                   >
-                    {link.download ? "Allowed" : "Disabled"}
+                    {link.download ? "Allowed" : "Not allowed"}
                   </span>
                 </td>
                 <td data-label="Versions">
@@ -195,24 +201,14 @@ export function ShareLinks({
                   </a>
                 </td>
                 <td className="share-link-actions">
-                  <button
-                    type="button"
+                  <CopyButton
                     className="icon-button"
                     title={`Copy link: ${link.label}`}
                     aria-label={`Copy link: ${link.label}`}
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(
-                          `${window.location.origin}/s/${link.id}`,
-                        );
-                        setNotice(`Link copied: ${link.label}`);
-                      } catch {
-                        setNotice("Could not copy the link. Please try again.");
-                      }
-                    }}
-                  >
-                    <Icon name="copy" />
-                  </button>
+                    url={`/s/${link.id}`}
+                    copiedMessage={`Link copied: ${link.label}`}
+                    onResult={setNotice}
+                  />
                   {link.active ? (
                     <PreviewLink iconOnly href={`/s/${link.id}?preview=1`}>
                       <span title={`Preview as listener: ${link.label}`}>
