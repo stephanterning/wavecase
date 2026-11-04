@@ -75,15 +75,27 @@ export async function action({ request }: ActionFunctionArgs) {
   });
   return { saved: false, error: undefined };
 }
-const day = (value: Date | null) =>
-  value
-    ? new Date(value).toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        timeZone: "UTC",
-      })
-    : "unknown";
+const day = (value: Date) =>
+  new Date(value).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+function passkeyDates(key: {
+  createdAt: Date | null;
+  lastUsedAt: Date | null;
+}) {
+  const added = key.createdAt
+    ? "Added " + day(key.createdAt)
+    : "Date added unknown";
+  const used = key.lastUsedAt
+    ? "Last used " + day(key.lastUsedAt)
+    : key.createdAt
+      ? "Not used to sign in yet"
+      : "Last use unknown";
+  return `${added} · ${used}`;
+}
 export default function Account() {
   const { user, keys } = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
@@ -115,7 +127,11 @@ export default function Account() {
   return (
     <>
       <h1>Your account</h1>
-      <Form method="post" className="panel settings-panel">
+      <Form
+        method="post"
+        className="panel settings-panel"
+        key={user.name + "\n" + user.email}
+      >
         <h2>Profile</h2>
         <input type="hidden" name="intent" value="details" />
         <label>
@@ -159,20 +175,20 @@ export default function Account() {
             <p>
               Passkey {i + 1} · {key.id.slice(0, 8)}
               <br />
-              <span className="muted">
-                Added {day(key.createdAt)} · Last used {day(key.lastUsedAt)}
-              </span>
+              <span className="muted">{passkeyDates(key)}</span>
             </p>
             <ConfirmButton
               disabled={keys.length <= 1}
               confirmTitle={`Remove passkey ${i + 1} · ${key.id.slice(0, 8)}?`}
               confirmMessage={
-                <p>
-                  Added {day(key.createdAt)}, last used {day(key.lastUsedAt)}.
-                  You will no longer be able to sign in with this passkey. Make
-                  sure you can sign in with one of your other passkeys first.
-                  This cannot be undone.
-                </p>
+                <>
+                  <p className="muted">{passkeyDates(key)}</p>
+                  <p>
+                    You will no longer be able to sign in with this passkey.
+                    Make sure you can sign in with one of your other passkeys
+                    first. This cannot be undone.
+                  </p>
+                </>
               }
               confirmLabel="Remove passkey"
             >
