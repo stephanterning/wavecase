@@ -535,7 +535,7 @@ test(
           );
           assert.match(
             entries.get(`${folder}/release-info.txt`)!.toString(),
-            /SEAAA2600001/,
+            /^ISRC: SEAAA2600001$/m,
           );
           assert.match(
             entries.get(`${folder}/release-info.txt`)!.toString(),
