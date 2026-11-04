@@ -24,11 +24,12 @@ import { versionAccess } from "../app/server/access";
 import { action } from "../app/routes/manage";
 import { loader } from "../app/routes/track";
 import { dashboard } from "../app/server/dashboard";
+import { enabled } from "./database";
 
 after(() => pool.end());
 test(
   "version deletion cleans only that version, respects shared ownership, and preserves link boundaries through future uploads",
-  { skip: !process.env.DATABASE_URL?.endsWith("/wavecase_test") },
+  { skip: !enabled },
   async () => {
     const directory = await mkdtemp(join(tmpdir(), "wavecase-delete-version-"));
     const previous = process.env.DATA_DIR;

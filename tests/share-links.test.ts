@@ -19,11 +19,12 @@ import { action as manage } from "../app/routes/manage";
 import { versionAccess } from "../app/server/access";
 import { loader as media, action as download } from "../app/routes/media";
 import { loader as feedback, action as comment } from "../app/routes/feedback";
+import { enabled } from "./database";
 
 after(() => pool.end());
 test(
   "specific-version links stay pinned through uploads, missing audio, restoration and edits",
-  { skip: !process.env.DATABASE_URL?.endsWith("/wavecase_test") },
+  { skip: !enabled },
   async () => {
     const owner = randomUUID(),
       track = randomUUID(),
@@ -339,7 +340,7 @@ test(
 
 test(
   "share link play totals include all versions and disabled links, exclude other activity, and stay private",
-  { skip: !process.env.DATABASE_URL?.endsWith("/wavecase_test") },
+  { skip: !enabled },
   async () => {
     const owner = randomUUID(),
       other = randomUUID(),

@@ -29,7 +29,7 @@ import { processAudio } from "../app/server/audio";
 import { inflateRawSync } from "node:zlib";
 import { action as download, loader as media } from "../app/routes/media";
 import { hash, origin } from "../app/server/security";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 after(() => pool.end());
 
 function unzip(buffer: ArrayBuffer) {

@@ -15,7 +15,7 @@ import {
   reuploadRequests,
 } from "../app/server/schema";
 import { hash, origin } from "../app/server/security";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 const modules = enabled
   ? {
       track: await import("../app/routes/track"),

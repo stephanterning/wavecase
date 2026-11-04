@@ -32,7 +32,7 @@ import {
   invalidAudio,
   retryProcessing,
 } from "../app/server/processing-errors";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 const queueModule = enabled ? await import("../app/server/queue") : null;
 after(async () => {
   if (queueModule) await queueModule.boss.stop();

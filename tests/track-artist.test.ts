@@ -16,7 +16,7 @@ import { resolveTrackArtist } from "../app/server/track-artist";
 import { hash, origin } from "../app/server/security";
 import { loader as artistPage } from "../app/routes/artist";
 import { TrackArtistField } from "../app/components/track-artist-field";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 process.env.DATABASE_URL ??= "postgres://localhost/wavecase_test";
 const { default: DemoPage, loader: demoPage } =
   await import("../app/routes/track");

@@ -38,7 +38,7 @@ import {
 import { action as artistEditAction } from "../app/routes/artist-edit";
 import { loader as artistLoader } from "../app/routes/artist";
 import { loader as releaseLoader } from "../app/routes/release-page";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 process.env.DATABASE_URL ??= "postgres://localhost/wavecase_test";
 const { action: editAction } = await import("../app/routes/release-edit");
 after(() => pool.end());

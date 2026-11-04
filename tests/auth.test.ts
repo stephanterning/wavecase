@@ -12,7 +12,7 @@ import { eq } from "drizzle-orm";
 import { db, pool } from "../app/server/db";
 import { settings, invitations } from "../app/server/schema";
 import { hash, origin, rpID, viewer } from "../app/server/security";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 after(() => pool.end());
 function post(action: string, body: unknown, cookie = "") {
   return auth(

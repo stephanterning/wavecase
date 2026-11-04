@@ -18,6 +18,7 @@ import PublicMusic from "../app/routes/public-music";
 import { db, pool } from "../app/server/db";
 import { artists, releases, releaseTracks, users } from "../app/server/schema";
 import { origin } from "../app/server/security";
+import { enabled } from "./database";
 
 after(() => pool.end());
 
@@ -106,7 +107,7 @@ test("release metadata links each songwriter to their generated page", () => {
 test(
   "songwriter pages list each published release across artists once and reflect metadata/publication edits",
   {
-    skip: !process.env.DATABASE_URL?.endsWith("/wavecase_test"),
+    skip: !enabled,
   },
   async () => {
     const ownerIds = [randomUUID(), randomUUID()];

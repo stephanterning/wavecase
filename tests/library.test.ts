@@ -7,12 +7,13 @@ import { db, pool } from "../app/server/db";
 import { users, tracks, versions, sessions } from "../app/server/schema";
 import { hash, origin } from "../app/server/security";
 import { loader } from "../app/routes/library";
+import { enabled } from "./database";
 
 after(() => pool.end());
 
 test(
   "library separates newest upload metadata from the newest playable owned version",
-  { skip: !process.env.DATABASE_URL?.endsWith("/wavecase_test") },
+  { skip: !enabled },
   async () => {
     const owner = randomUUID();
     const other = randomUUID();
