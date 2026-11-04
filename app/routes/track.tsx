@@ -237,6 +237,18 @@ function TrackContents() {
     data.versions.find((v) => v.id === selection) ||
     data.versions.find((v) => v.state === "ready") ||
     data.versions[0];
+  const previousVersion = useRef(current?.id);
+  useEffect(() => {
+    if (
+      data.owner &&
+      previousVersion.current &&
+      !data.versions.some((v) => v.id === previousVersion.current)
+    )
+      document
+        .getElementById(current ? "edit-version" : "upload-new-version")
+        ?.focus();
+    previousVersion.current = current?.id;
+  }, [current, data.owner, data.versions]);
   const revalidator = useRevalidator();
   const artwork = data.track.cover
     ? `/cover/${data.track.id}?v=${data.track.coverRevision}${data.share ? "&share=" + data.share : ""}${data.preview ? "&preview=1" : ""}`
@@ -264,6 +276,7 @@ function TrackContents() {
       {data.owner && (
         <nav className="section-nav" aria-label="Track actions">
           <EditForm
+            id="upload-new-version"
             label="New version"
             trigger="Upload new version"
             resetOnSave
@@ -516,7 +529,9 @@ function TrackContents() {
           share={data.share}
           owner={data.owner}
           preview={data.preview}
-          draft={draft}
+          draft={
+            data.versions.some((v) => v.id === draft?.versionId) ? draft : null
+          }
           onDraftChange={setDraft}
           onSeek={(id, time) => {
             if (current.id !== id && !selectVersion(id)) return;

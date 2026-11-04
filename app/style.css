@@ -1601,6 +1601,9 @@ button:has(svg) {
 .demo-description {
   white-space: pre-wrap;
 }
+.version-filename {
+  overflow-wrap: anywhere;
+}
 .demo-artwork {
   width: 160px;
   flex-shrink: 0;

@@ -1,6 +1,10 @@
 import { versionStatuses } from "../domain/versions";
 import { shareVersionScope } from "../server/share-links";
-import { deleteDemo, deleteShareLink } from "../server/delete-demo";
+import {
+  deleteDemo,
+  deleteDemoVersion,
+  deleteShareLink,
+} from "../server/delete-demo";
 import { formError } from "../server/releases";
 import { resolveTrackArtist } from "../server/track-artist";
 import { execFile } from "node:child_process";
@@ -48,6 +52,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
         String(form.get("confirmation") || ""),
       );
       return redirect("/library");
+    } else if (intent === "delete-version") {
+      await deleteDemoVersion(
+        access.track.id,
+        z.uuid().parse(form.get("version")),
+        user.id,
+        String(form.get("confirmation") || ""),
+      );
     } else if (intent === "delete-link") {
       if (form.get("confirm") !== "delete")
         throw new Response("Confirm link deletion.", { status: 400 });
@@ -216,11 +227,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
           { status: 409 },
         );
     } else if (intent === "link") {
-      const scope = await shareVersionScope(
-        access.track.id,
-        form.get("visibility") || (form.get("from") ? "onward" : "all"),
-        form.get("from"),
-      );
+      const scope =
+        form.get("from") === "unchanged"
+          ? {}
+          : await shareVersionScope(
+              access.track.id,
+              form.get("visibility") || (form.get("from") ? "onward" : "all"),
+              form.get("from"),
+            );
       await db
         .update(links)
         .set({
