@@ -8,7 +8,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "react-router dev --host 127.0.0.1",
+    "dev": "react-router dev --host localhost",
     "build": "react-router build",
     "start": "tsx scripts/serve.ts",
     "typecheck": "react-router typegen && tsc --noEmit",
