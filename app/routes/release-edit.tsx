@@ -418,6 +418,7 @@ export default function ReleaseEditor() {
               </p>
               <Form method="post">
                 <button
+                  className="button-primary"
                   name="intent"
                   value="publish"
                   disabled={!d.release.cover || !d.tracks.length}
@@ -457,7 +458,7 @@ export default function ReleaseEditor() {
                     event.preventDefault();
                 }}
               >
-                <button className="danger" name="intent" value="delete">
+                <button className="button-danger" name="intent" value="delete">
                   Delete draft
                 </button>
               </Form>
@@ -529,7 +530,7 @@ export default function ReleaseEditor() {
                 />
                 Enable playback and email-gated downloads together
               </label>
-              <button>Save release</button>
+              <button className="button-primary">Save release</button>
             </EditForm>
             <EditForm
               label="Artwork"
@@ -556,7 +557,7 @@ export default function ReleaseEditor() {
                   required
                 />
               </label>
-              <button>Upload artwork</button>
+              <button className="button-primary">Upload artwork</button>
             </EditForm>
           </div>
           <h2 id="release-tracks" tabIndex={-1}>
@@ -624,7 +625,7 @@ export default function ReleaseEditor() {
                   />
                   Explicit
                 </label>
-                <button>Save track</button>
+                <button className="button-primary">Save track</button>
               </EditForm>
               <p>
                 {t.original
@@ -656,7 +657,10 @@ export default function ReleaseEditor() {
                     disabled={!!t.pendingOriginal}
                   />
                 </label>
-                <button disabled={!!t.pendingOriginal}>
+                <button
+                  className="button-primary"
+                  disabled={!!t.pendingOriginal}
+                >
                   {t.original ? "Replace master" : "Upload master"}
                 </button>
               </EditForm>
@@ -681,7 +685,7 @@ export default function ReleaseEditor() {
               New track title
               <input name="title" required maxLength={200} />
             </label>
-            <button>Add track</button>
+            <button className="button-primary">Add track</button>
             <p>
               Audio is optional. Add all tracks, including those without
               downloadable audio.

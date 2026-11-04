@@ -43,7 +43,7 @@ export function DownloadDialog({
   return (
     <dialog
       ref={dialog}
-      className="comment-dialog"
+      className="comment-dialog download-dialog"
       aria-labelledby={heading}
       onCancel={(event) => {
         event.preventDefault();
@@ -85,7 +85,9 @@ export function DownloadDialog({
           <button type="button" className="secondary" onClick={onClose}>
             Close
           </button>
-          <button type="submit">Download ZIP</button>
+          <button type="submit" className="button-primary">
+            Download ZIP
+          </button>
         </div>
       </form>
     </dialog>

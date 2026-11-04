@@ -73,7 +73,7 @@ export function DemoIdentity({
                       maxLength={5000}
                     />
                   </label>
-                  <button>Save track</button>
+                  <button className="button-primary">Save track</button>
                 </EditForm>
                 <div className="track-delete-section">
                   <EditForm
@@ -91,7 +91,9 @@ export function DemoIdentity({
                       Type the track title to confirm
                       <input name="confirmation" required autoComplete="off" />
                     </label>
-                    <button className="danger">Delete track permanently</button>
+                    <button className="button-danger">
+                      Delete track permanently
+                    </button>
                   </EditForm>
                 </div>
               </EditorDialog>
@@ -134,12 +136,12 @@ export function DemoIdentity({
                   required
                 />
               </label>
-              <button name="intent" value="cover">
+              <button className="button-primary" name="intent" value="cover">
                 Save cover
               </button>
               {artwork && (
                 <button
-                  className="danger"
+                  className="button-danger"
                   name="intent"
                   value="remove-cover"
                   formNoValidate
@@ -215,7 +217,7 @@ export function VersionEditor({
         <p className="muted">
           Listener downloads also require permission on the share link.
         </p>
-        <button>Save version</button>
+        <button className="button-primary">Save version</button>
       </EditForm>
       <div className="track-delete-section">
         <EditForm
@@ -239,7 +241,7 @@ export function VersionEditor({
             Type the version name to confirm
             <input name="confirmation" required autoComplete="off" />
           </label>
-          <button className="danger">Delete version permanently</button>
+          <button className="button-danger">Delete version permanently</button>
         </EditForm>
       </div>
     </EditorDialog>
@@ -307,7 +309,12 @@ export function ReplaceAudio({
           </p>
         )}
         {version.error && <p role="alert">{version.error}</p>}
-        <button name="intent" value="replace" disabled={version.processing}>
+        <button
+          className="button-primary"
+          name="intent"
+          value="replace"
+          disabled={version.processing}
+        >
           Upload replacement
         </button>
         {(version.state === "ready" || version.processing) && (
@@ -315,7 +322,7 @@ export function ReplaceAudio({
             name="intent"
             value="remove"
             formNoValidate
-            className="danger"
+            className="button-danger"
           >
             Remove audio file
           </button>

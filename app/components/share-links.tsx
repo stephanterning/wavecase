@@ -127,7 +127,7 @@ export function ShareLinks({
             <input type="checkbox" name="download" />
             Allow downloads
           </label>
-          <button>Create link</button>
+          <button className="button-primary">Create link</button>
         </EditForm>
         <p className="muted" id="share-plays-help">
           Plays count listener playback starts across all versions, for all
@@ -274,7 +274,7 @@ export function ShareLinks({
                       Allow downloads
                     </label>
                     <ShareVersionFields versions={versions} link={link} />
-                    <button>Save link</button>
+                    <button className="button-primary">Save link</button>
                   </EditForm>
                   <EditForm
                     label={`Delete share link: ${link.label}`}
@@ -300,7 +300,9 @@ export function ShareLinks({
                       The shared URL will stop working. Other links and the
                       track will remain.
                     </p>
-                    <button className="danger">Delete link permanently</button>
+                    <button className="button-danger">
+                      Delete link permanently
+                    </button>
                   </EditForm>
                 </td>
               </tr>

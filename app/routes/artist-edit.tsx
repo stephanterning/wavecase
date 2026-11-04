@@ -184,7 +184,7 @@ export default function ArtistEdit() {
                 required
               />
             </label>
-            <button>Save image</button>
+            <button className="button-primary">Save image</button>
           </EditForm>
         </div>
         <div>
@@ -213,7 +213,7 @@ export default function ArtistEdit() {
               <p className="muted">
                 Saved changes appear immediately on your public artist page.
               </p>
-              <button>Save profile</button>
+              <button className="button-primary">Save profile</button>
             </EditForm>
           </div>
         </div>
@@ -296,7 +296,7 @@ export default function ArtistEdit() {
               <input type="hidden" name="intent" value="artist-links" />
               <input type="hidden" name="name" value={a.name} />
               <LinkFields links={a.links} />
-              <button>Save links</button>
+              <button className="button-primary">Save links</button>
             </EditForm>
           </div>
           <ul className="artist-service-links">

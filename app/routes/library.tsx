@@ -163,7 +163,10 @@ export default function Library() {
             >
               Cancel
             </button>
-            <button disabled={navigation.state !== "idle"}>
+            <button
+              className="button-primary"
+              disabled={navigation.state !== "idle"}
+            >
               {navigation.state !== "idle" ? "Creating…" : "Create track"}
             </button>
           </div>

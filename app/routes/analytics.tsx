@@ -408,7 +408,7 @@ export default function Analytics() {
             e.preventDefault();
         }}
       >
-        <button name="intent" value="clear-analytics" className="secondary">
+        <button name="intent" value="clear-analytics" className="button-danger">
           Delete all track statistics
         </button>
       </Form>

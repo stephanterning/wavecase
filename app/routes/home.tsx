@@ -108,7 +108,7 @@ export default function Home() {
             )}
           </>
         )}
-        <button disabled={busy}>
+        <button className="button-primary" disabled={busy}>
           {busy
             ? "Waiting for your passkey…"
             : register
