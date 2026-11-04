@@ -26,7 +26,8 @@ export function ArtistCoOwners({ data }: { data: Data }) {
     invitations,
     invitationOrigin,
   } = data;
-  const [now, setNow] = useState(data.loadedAt);
+  const [clock, setClock] = useState(data.loadedAt);
+  const now = Math.max(clock, data.loadedAt);
   const [copyNotice, setCopyNotice] = useState<{
     id: string;
     message: string;
@@ -46,7 +47,7 @@ export function ArtistCoOwners({ data }: { data: Data }) {
       0,
       Math.min(60000, Math.min(...deadlines) - Date.now()),
     );
-    const timer = window.setTimeout(() => setNow(Date.now()), delay);
+    const timer = window.setTimeout(() => setClock(Date.now()), delay);
     return () => window.clearTimeout(timer);
   }, [invitations, now]);
 

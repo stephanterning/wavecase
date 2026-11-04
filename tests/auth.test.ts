@@ -4,13 +4,22 @@ import {
   generateKeyPairSync,
   randomBytes,
   createHash,
+  randomUUID,
   sign,
 } from "node:crypto";
 import { encodeCBOR } from "@levischuck/tiny-cbor";
+import { RouterContextProvider } from "react-router";
 import { auth } from "../app/server/auth";
 import { eq } from "drizzle-orm";
 import { db, pool } from "../app/server/db";
-import { settings, invitations } from "../app/server/schema";
+import {
+  invitations,
+  passkeys,
+  recoveries,
+  sessions,
+  settings,
+  users,
+} from "../app/server/schema";
 import { hash, origin, rpID, viewer } from "../app/server/security";
 import { enabled } from "./database";
 after(() => pool.end());
@@ -214,5 +223,133 @@ test(
     await assert.rejects(
       post("register-options", { ...enroll, invitation: expired }),
     );
+  },
+);
+const home = async (query: string) => {
+  const { loader } = await import("../app/routes/home");
+  const request = new Request(origin + "/?" + query);
+  const result = await loader({
+    request,
+    params: {},
+    url: new URL(request.url),
+    pattern: "/",
+    context: new RouterContextProvider(),
+  });
+  assert.ok(!(result instanceof Response));
+  return result;
+};
+test(
+  "link states are shown on page load without consuming the links",
+  { skip: !enabled },
+  async () => {
+    const used = randomBytes(32).toString("base64url");
+    const open = randomBytes(32).toString("base64url");
+    await db.insert(invitations).values([
+      { id: hash(used), used: true, expires: new Date(Date.now() + 60000) },
+      { id: hash(open), expires: new Date(Date.now() + 60000) },
+    ]);
+    const usedPage = await home("invitation=" + used);
+    assert.equal(usedPage.invitation, undefined);
+    assert.equal(usedPage.invitationUnavailable, true);
+    const openPage = await home("invitation=" + open);
+    assert.equal(openPage.invitation, open);
+    assert.equal(openPage.invitationUnavailable, false);
+    assert.equal(
+      (await db.query.invitations.findFirst({
+        where: eq(invitations.id, hash(open)),
+      }))!.used,
+      false,
+    );
+
+    const [user, disabled] = await db
+      .insert(users)
+      .values([
+        { name: "Recovered", email: randomUUID() + "@test.invalid" },
+        {
+          name: "Disabled",
+          email: randomUUID() + "@test.invalid",
+          disabled: true,
+        },
+      ])
+      .returning();
+    const [valid, expired, blocked] = ["valid", "expired", "blocked"].map(() =>
+      randomBytes(32).toString("base64url"),
+    );
+    await db.insert(recoveries).values([
+      {
+        id: hash(valid),
+        userId: user.id,
+        expires: new Date(Date.now() + 60000),
+      },
+      {
+        id: hash(expired),
+        userId: user.id,
+        expires: new Date(Date.now() - 1000),
+      },
+      {
+        id: hash(blocked),
+        userId: disabled.id,
+        expires: new Date(Date.now() + 60000),
+      },
+    ]);
+    for (const value of [expired, blocked, "unknown"]) {
+      const page = await home("recovery=" + value);
+      assert.deepEqual(page.recovery, { id: value, account: null });
+    }
+    for (let i = 0; i < 2; i++)
+      assert.deepEqual((await home("recovery=" + valid)).recovery, {
+        id: valid,
+        account: { name: user.name, email: user.email },
+      });
+
+    const oldKey = randomBytes(32).toString("base64url");
+    await db.insert(passkeys).values({
+      id: oldKey,
+      userId: user.id,
+      publicKey: "old",
+      counter: 0,
+      transports: [],
+    });
+    const oldSession = randomUUID();
+    await db.insert(sessions).values({
+      id: hash(oldSession),
+      userId: user.id,
+      expires: new Date(Date.now() + 60000),
+    });
+    const options = await post("register-options", { recovery: valid });
+    const replacement = credential((await options.json()).challenge);
+    const recovered = await post(
+      "register-verify",
+      replacement.response,
+      cookieOf(options),
+    );
+    assert.deepEqual(
+      (
+        await db.query.passkeys.findMany({
+          where: eq(passkeys.userId, user.id),
+        })
+      ).map((key) => key.id),
+      [replacement.id],
+    );
+    assert.equal(
+      await viewer(
+        new Request(origin, { headers: { cookie: "session=" + oldSession } }),
+      ),
+      null,
+    );
+    assert.equal(
+      (
+        await viewer(
+          new Request(origin, { headers: { cookie: cookieOf(recovered) } }),
+        )
+      )?.id,
+      user.id,
+    );
+    assert.deepEqual((await home("recovery=" + valid)).recovery, {
+      id: valid,
+      account: null,
+    });
+    await assert.rejects(post("register-options", { recovery: valid }));
+    await assert.rejects(post("register-options", { recovery: blocked }));
   },
 );

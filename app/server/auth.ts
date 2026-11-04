@@ -30,6 +30,31 @@ const enrollment = z.object({
   invitation: z.string().max(100).optional(),
   open: z.boolean().optional(),
 });
+export async function validInvitation(value: string) {
+  if (value.length > 100) return false;
+  return !!(await db.query.invitations.findFirst({
+    where: and(
+      eq(invitations.id, hash(value)),
+      eq(invitations.used, false),
+      gt(invitations.expires, new Date()),
+    ),
+  }));
+}
+export async function recoveryAccount(value: string) {
+  if (value.length > 100) return null;
+  const [account] = await db
+    .select({ id: users.id, name: users.name, email: users.email })
+    .from(recoveries)
+    .innerJoin(users, eq(recoveries.userId, users.id))
+    .where(
+      and(
+        eq(recoveries.id, hash(value)),
+        gt(recoveries.expires, new Date()),
+        eq(users.disabled, false),
+      ),
+    );
+  return account || null;
+}
 export async function auth(request: Request, action: string) {
   sameOrigin(request);
   if (Number(request.headers.get("content-length")) > 65536)
@@ -37,47 +62,32 @@ export async function auth(request: Request, action: string) {
   const body = await (await limitedBody(request, 65536)).json();
   if (action.endsWith("-options")) {
     const register = action === "register-options";
-    const payload: Partial<z.infer<typeof enrollment>> = register
-      ? enrollment.parse(body)
-      : {};
     const configured = await db.query.settings.findFirst();
-    let target = register ? await viewer(request) : null;
+    let target: { id: string; name: string; email: string } | null = register
+      ? await viewer(request)
+      : null;
     let recovery: string | undefined;
     if (register && body.recovery) {
-      recovery = hash(z.string().max(100).parse(body.recovery));
-      const entry = await db.query.recoveries.findFirst({
-        where: and(
-          eq(recoveries.id, recovery),
-          gt(recoveries.expires, new Date()),
-        ),
-      });
-      if (!entry) throw new Response("Recovery link expired", { status: 403 });
-      target =
-        (await db.query.users.findFirst({
-          where: and(eq(users.id, entry.userId), eq(users.disabled, false)),
-        })) || null;
-      if (!target) throw new Response("Account unavailable", { status: 403 });
+      const value = z.string().max(100).parse(body.recovery);
+      target = await recoveryAccount(value);
+      if (!target)
+        throw new Response("This recovery link is no longer valid", {
+          status: 403,
+        });
+      recovery = hash(value);
     }
-    if (target) {
-      payload.name = target.name;
-      payload.email = target.email;
-    }
-
+    const payload: Partial<z.infer<typeof enrollment>> = !register
+      ? {}
+      : target
+        ? { name: target.name, email: target.email }
+        : enrollment.parse(body);
     if (
       register &&
       !target &&
-      (payload.invitation || (configured && !configured.openRegistration))
-    ) {
-      const invite = await db.query.invitations.findFirst({
-        where: and(
-          eq(invitations.id, hash(payload.invitation || "")),
-          eq(invitations.used, false),
-          gt(invitations.expires, new Date()),
-        ),
-      });
-      if (!invite)
-        throw new Response("A valid invitation is required", { status: 403 });
-    }
+      (payload.invitation || (configured && !configured.openRegistration)) &&
+      !(await validInvitation(payload.invitation || ""))
+    )
+      throw new Response("A valid invitation is required", { status: 403 });
     const options = register
       ? await generateRegistrationOptions({
           rpName: "Wavecase",
