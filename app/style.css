@@ -423,7 +423,7 @@ button:hover:not(:disabled),
   opacity: 1;
   visibility: visible;
 }
-.comment-dialog {
+.modal {
   width: min(560px, calc(100% - 32px));
   max-height: calc(100dvh - 48px);
   overflow-y: auto;
@@ -435,7 +435,7 @@ button:hover:not(:disabled),
   background: #090b0a;
   box-shadow: 0 24px 100px #000;
 }
-.comment-dialog::backdrop {
+.modal::backdrop {
   background: #000c;
   backdrop-filter: blur(4px);
 }
@@ -458,11 +458,11 @@ button:hover:not(:disabled),
   gap: 12px;
   margin-top: 24px;
 }
-.comment-dialog textarea {
+.modal textarea {
   resize: vertical;
 }
 @media (max-width: 600px) {
-  .comment-dialog {
+  .modal {
     padding: 20px;
   }
   .player-controls {
@@ -1271,16 +1271,6 @@ body:has(.release-mini) {
   max-height: calc(100dvh - 32px);
   padding: 24px;
 }
-.editor-dialog .panel,
-.comment-dialog > form.panel {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-.editor-dialog .edit-fields > h2 {
-  display: none;
-}
 .editor-dialog .edit-fields > label:has(input[name="name"]),
 .editor-dialog .edit-fields > label:has(input[name="title"]) {
   max-width: 480px;
@@ -1386,7 +1376,7 @@ button:has(svg) {
 .download-formats .check {
   margin: 0;
 }
-.comment-dialog .dialog-actions {
+.modal .dialog-actions {
   position: sticky;
   bottom: 0;
   background: #0b100d;
@@ -1399,9 +1389,6 @@ button:has(svg) {
 .confirm-dialog {
   width: min(480px, calc(100% - 32px));
   overflow-wrap: anywhere;
-}
-.confirm-dialog h2 {
-  margin-top: 0;
 }
 .confirm-dialog .dialog-actions {
   position: static;

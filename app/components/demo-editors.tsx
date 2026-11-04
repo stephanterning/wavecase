@@ -79,7 +79,14 @@ export function DemoIdentity({
           {data.owner && (
             <div className="track-edit-control">
               <EditorDialog title="Edit track" trigger="Edit track">
-                <EditForm label="Track details" action={action} modal>
+                <EditForm
+                  label="Track details"
+                  action={action}
+                  modal
+                  actions={
+                    <button className="button-primary">Save track</button>
+                  }
+                >
                   <input type="hidden" name="intent" value="metadata" />
                   <label>
                     Title
@@ -104,13 +111,17 @@ export function DemoIdentity({
                       maxLength={5000}
                     />
                   </label>
-                  <button className="button-primary">Save track</button>
                 </EditForm>
                 <div className="track-delete-section">
                   <EditForm
                     label="Delete track"
                     action={action}
                     trigger="Delete track"
+                    actions={
+                      <button className="button-danger">
+                        Delete track permanently
+                      </button>
+                    }
                   >
                     <input type="hidden" name="intent" value="delete-track" />
                     <p>
@@ -122,9 +133,6 @@ export function DemoIdentity({
                       label="Type the track title to confirm"
                       expected={data.track.title}
                     />
-                    <button className="button-danger">
-                      Delete track permanently
-                    </button>
                   </EditForm>
                 </div>
               </EditorDialog>
@@ -157,6 +165,36 @@ export function DemoIdentity({
               }
               encType="multipart/form-data"
               action={action}
+              actions={
+                <>
+                  <button
+                    className="button-primary"
+                    name="intent"
+                    value="cover"
+                  >
+                    Save cover
+                  </button>
+                  {artwork && (
+                    <ConfirmButton
+                      className="button-danger"
+                      name="intent"
+                      value="remove-cover"
+                      formNoValidate
+                      confirmTitle="Remove cover image?"
+                      confirmMessage={
+                        <p>
+                          The cover of <strong>{data.track.title}</strong> will
+                          be deleted from the workspace and all share links.
+                          This cannot be undone.
+                        </p>
+                      }
+                      confirmLabel="Remove cover"
+                    >
+                      Remove cover
+                    </ConfirmButton>
+                  )}
+                </>
+              }
             >
               <label>
                 Cover image
@@ -167,28 +205,6 @@ export function DemoIdentity({
                   required
                 />
               </label>
-              <button className="button-primary" name="intent" value="cover">
-                Save cover
-              </button>
-              {artwork && (
-                <ConfirmButton
-                  className="button-danger"
-                  name="intent"
-                  value="remove-cover"
-                  formNoValidate
-                  confirmTitle="Remove cover image?"
-                  confirmMessage={
-                    <p>
-                      The cover of <strong>{data.track.title}</strong> will be
-                      deleted from the workspace and all share links. This
-                      cannot be undone.
-                    </p>
-                  }
-                  confirmLabel="Remove cover"
-                >
-                  Remove cover
-                </ConfirmButton>
-              )}
             </EditForm>
           ) : (
             <img src={artwork} alt="Track cover" />
@@ -214,7 +230,12 @@ export function VersionEditor({
       trigger="Edit version"
       id="edit-version"
     >
-      <EditForm label="Edit version" action={action} modal>
+      <EditForm
+        label="Edit version"
+        action={action}
+        modal
+        actions={<button className="button-primary">Save version</button>}
+      >
         <input type="hidden" name="intent" value="version" />
         <input type="hidden" name="version" value={version.id} />
         <p className="version-filename">
@@ -257,13 +278,17 @@ export function VersionEditor({
         <p className="muted">
           Listener downloads also require permission on the share link.
         </p>
-        <button className="button-primary">Save version</button>
       </EditForm>
       <div className="track-delete-section">
         <EditForm
           label="Delete version"
           action={action}
           trigger="Delete version"
+          actions={
+            <button className="button-danger">
+              Delete version permanently
+            </button>
+          }
         >
           <input type="hidden" name="intent" value="delete-version" />
           <input type="hidden" name="version" value={version.id} />
@@ -281,7 +306,6 @@ export function VersionEditor({
             label="Type the version name to confirm"
             expected={version.name}
           />
-          <button className="button-danger">Delete version permanently</button>
         </EditForm>
       </div>
     </EditorDialog>
@@ -305,6 +329,37 @@ export function ReplaceAudio({
         label={missing ? "Restore audio" : "Replace audio"}
         encType="multipart/form-data"
         action={`/tracks/${trackId}/manage`}
+        actions={
+          <>
+            <button
+              className="button-primary"
+              name="intent"
+              value="replace"
+              disabled={version.processing}
+            >
+              Upload replacement
+            </button>
+            {(version.state === "ready" || version.processing) && (
+              <ConfirmButton
+                name="intent"
+                value="remove"
+                formNoValidate
+                className="button-danger"
+                confirmTitle="Remove audio file?"
+                confirmMessage={
+                  <p>
+                    The audio of <strong>{version.name}</strong> will be
+                    deleted. The version, share links, feedback and statistics
+                    will remain.
+                  </p>
+                }
+                confirmLabel="Remove audio file"
+              >
+                Remove audio file
+              </ConfirmButton>
+            )}
+          </>
+        }
         trigger={
           <span title={missing ? "Restore audio" : "Replace audio"}>
             <Icon name="upload" />
@@ -338,32 +393,6 @@ export function ReplaceAudio({
           </p>
         )}
         {version.error && <p role="alert">{version.error}</p>}
-        <button
-          className="button-primary"
-          name="intent"
-          value="replace"
-          disabled={version.processing}
-        >
-          Upload replacement
-        </button>
-        {(version.state === "ready" || version.processing) && (
-          <ConfirmButton
-            name="intent"
-            value="remove"
-            formNoValidate
-            className="button-danger"
-            confirmTitle="Remove audio file?"
-            confirmMessage={
-              <p>
-                The audio of <strong>{version.name}</strong> will be deleted.
-                The version, share links, feedback and statistics will remain.
-              </p>
-            }
-            confirmLabel="Remove audio file"
-          >
-            Remove audio file
-          </ConfirmButton>
-        )}
       </EditForm>
     </div>
   );

@@ -6,7 +6,7 @@ import {
 import { ShareLinks } from "../components/share-links";
 import { linkVersionScope } from "../domain/share-links";
 import { shareVersionScope } from "../server/share-links";
-import { EditForm, useConfirmDiscard } from "../components/editing";
+import { EditForm } from "../components/editing";
 import { demoWavAvailable } from "../server/download";
 import { artistChoices } from "../server/track-artist";
 import { trackPage } from "../server/track-page";
@@ -181,13 +181,6 @@ function TrackContents() {
     }
   }, [data.share, data.owner, data.preview]);
   const [search] = useSearchParams();
-  const confirmDiscard = useConfirmDiscard();
-  const selectVersion = (id: string) => {
-    if (!confirmDiscard(["Edit version", "Replace audio", "Restore audio"]))
-      return false;
-    setSelection(id);
-    return true;
-  };
   const [selection, setSelection] = useState(
     () =>
       search.get("version") ||
@@ -199,9 +192,11 @@ function TrackContents() {
       "",
   );
   const requestedVersion = search.get("version");
-  useEffect(() => {
+  const [appliedVersion, setAppliedVersion] = useState(requestedVersion);
+  if (requestedVersion !== appliedVersion) {
+    setAppliedVersion(requestedVersion);
     if (requestedVersion) setSelection(requestedVersion);
-  }, [requestedVersion]);
+  }
   const cursor = useRef<Playback>({
     position: 0,
     playing: false,
@@ -272,15 +267,14 @@ function TrackContents() {
             trigger="Upload new version"
             resetOnSave
             encType="multipart/form-data"
-            className="panel"
             onSuccess={(saved) => {
               if ("version" in saved && typeof saved.version === "string")
                 setSelection(saved.version);
             }}
+            actions={
+              <button className="button-primary">Upload new version</button>
+            }
           >
-            <h2 id="upload-version" tabIndex={-1}>
-              Upload a version
-            </h2>
             <label>
               Audio file
               <input
@@ -318,7 +312,6 @@ function TrackContents() {
               <input type="checkbox" name="download" />
               Allow downloads
             </label>
-            <button className="button-primary">Upload new version</button>
           </EditForm>
         </nav>
       )}
@@ -380,7 +373,8 @@ function TrackContents() {
                   <select
                     value={current.id}
                     onChange={(e) => {
-                      if (selectVersion(e.target.value)) setDraft(null);
+                      setSelection(e.target.value);
+                      setDraft(null);
                     }}
                   >
                     {data.versions.map((v) => (
@@ -541,7 +535,7 @@ function TrackContents() {
           }
           onDraftChange={setDraft}
           onSeek={(id, time) => {
-            if (current.id !== id && !selectVersion(id)) return;
+            if (current.id !== id) setSelection(id);
             cursor.current.position = time;
             setSeekRequest({ versionId: id, position: time });
           }}

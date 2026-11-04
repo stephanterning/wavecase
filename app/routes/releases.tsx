@@ -3,7 +3,6 @@ import { Link } from "react-router";
 import { useState } from "react";
 import { AddressField } from "../components/address-field";
 import {
-  Form,
   redirect,
   useActionData,
   useLoaderData,
@@ -93,60 +92,62 @@ export default function Releases() {
     <>
       <p className="eyebrow">YOUR RELEASES</p>
       <h1>Releases</h1>
-      <CreateDialog title="Add release" error={result?.error}>
-        <Form method="post" className="panel">
-          <input type="hidden" name="intent" value="release" />
-
-          <label>
-            Artist
-            <select
-              name="artist"
-              required
-              value={artist}
-              onChange={(event) => setArtist(event.target.value)}
-            >
-              {data.artists.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Title
-            <input
-              name="name"
-              required
-              maxLength={200}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
-          <AddressField
-            name={name}
-            prefix={`/artists/${data.artists.find((a) => a.id === artist)?.slug || "…"}`}
-            value={slug}
-            onChange={setSlug}
-          />
-          <label>
-            Type
-            <select name="kind">
-              <option value="single">Single</option>
-              <option value="ep">EP</option>
-              <option value="album">Album</option>
-            </select>
-          </label>
+      <CreateDialog
+        title="Add release"
+        error={result?.error}
+        submit={
           <button className="button-primary" disabled={!data.artists.length}>
             Create draft
           </button>
-          {!data.artists.length && (
-            <p>
-              <Link to="/artist-profiles?create=1">
-                Create an artist profile first.
-              </Link>
-            </p>
-          )}
-        </Form>
+        }
+      >
+        <input type="hidden" name="intent" value="release" />
+        <label>
+          Artist
+          <select
+            name="artist"
+            required
+            value={artist}
+            onChange={(event) => setArtist(event.target.value)}
+          >
+            {data.artists.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Title
+          <input
+            name="name"
+            required
+            maxLength={200}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </label>
+        <AddressField
+          name={name}
+          prefix={`/artists/${data.artists.find((a) => a.id === artist)?.slug || "…"}`}
+          value={slug}
+          onChange={setSlug}
+        />
+        <label>
+          Type
+          <select name="kind">
+            <option value="single">Single</option>
+            <option value="ep">EP</option>
+            <option value="album">Album</option>
+          </select>
+        </label>
+        {!data.artists.length && (
+          <p>
+            <Link to="/artist-profiles?create=1">
+              Create an artist profile first.
+            </Link>
+          </p>
+        )}
       </CreateDialog>
       <div className="filter-toolbar">
         <label>

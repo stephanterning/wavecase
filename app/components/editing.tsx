@@ -1,6 +1,4 @@
 import {
-  Children,
-  isValidElement,
   createContext,
   useContext,
   useEffect,
@@ -9,7 +7,8 @@ import {
   type ReactNode,
 } from "react";
 import { useBlocker, useFetcher, type FormProps } from "react-router";
-import { ConfirmButton, ConfirmDialog } from "./confirm-dialog";
+import { ConfirmDialog } from "./confirm-dialog";
+import { Modal } from "./modal";
 
 const DialogActions = createContext<{
   cancel: () => void;
@@ -64,21 +63,6 @@ export function EditingProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useConfirmDiscard() {
-  const editors = useContext(Editing);
-  return (labels: string[]) => {
-    const changed = [...(editors?.values() || [])].some(
-      (editor) => labels.includes(editor.label) && editor.dirty(),
-    );
-    return (
-      !changed ||
-      window.confirm(
-        "Switch version? Unsaved version settings and audio selections will be lost.",
-      )
-    );
-  };
-}
-
 function snapshot(form: HTMLFormElement) {
   return JSON.stringify(
     [...new FormData(form)]
@@ -103,19 +87,24 @@ function snapshot(form: HTMLFormElement) {
   );
 }
 
+type FormContentsProps = FormProps & {
+  label: string;
+  /** Submit and other form buttons, placed after Cancel in a modal's footer. */
+  actions?: ReactNode;
+  resetOnSave?: boolean;
+  modal?: boolean;
+  onSuccess?: (data: object) => void;
+};
+
 function FormContents({
   label,
+  actions,
   children,
   resetOnSave = false,
   modal = false,
   onSuccess,
   ...props
-}: FormProps & {
-  label: string;
-  resetOnSave?: boolean;
-  modal?: boolean;
-  onSuccess?: (data: object) => void;
-}) {
+}: FormContentsProps) {
   const dialogActions = useContext(DialogActions);
   const onSaved = modal ? dialogActions?.complete : undefined;
   const onCancel = modal ? dialogActions?.cancel : undefined;
@@ -182,11 +171,6 @@ function FormContents({
     resolveSave.current?.(ok);
     resolveSave.current = null;
   }, [fetcher.state, fetcher.data, resetOnSave, onSaved, onSuccess]);
-  const parts = Children.toArray(children);
-  const submit = (child: ReactNode) =>
-    isValidElement<{ type?: string }>(child) &&
-    (child.type === "button" || child.type === ConfirmButton) &&
-    child.props.type !== "button";
   const refresh = () =>
     queueMicrotask(() => {
       if (!ref.current) return;
@@ -218,18 +202,16 @@ function FormContents({
       <input type="hidden" name="_inline" value="1" />
       <fieldset disabled={busy} className="edit-fields">
         <legend className="sr-only">{label}</legend>
+        {children}
         {onCancel ? (
-          <>
-            {parts.filter((child) => !submit(child))}
-            <div className="editor-footer">
-              <button type="button" className="secondary" onClick={onCancel}>
-                Cancel
-              </button>
-              {parts.filter(submit)}
-            </div>
-          </>
+          <div className="editor-footer">
+            <button type="button" className="secondary" onClick={onCancel}>
+              Cancel
+            </button>
+            {actions}
+          </div>
         ) : (
-          children
+          actions
         )}
       </fieldset>
       <p className="save-status" role="status">
@@ -256,12 +238,14 @@ export function PreviewLink({
   iconOnly?: boolean;
 }) {
   const editors = useContext(Editing);
-  const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLAnchorElement>(null);
+  const [labels, setLabels] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [labels, setLabels] = useState<string[]>([]);
   const open = () => window.open(href, "_blank", "noopener,noreferrer");
+  const close = () => {
+    if (!busy) setLabels(null);
+  };
   return (
     <>
       <a
@@ -277,36 +261,31 @@ export function PreviewLink({
           event.preventDefault();
           setLabels(dirty.map((editor) => editor.label));
           setError("");
-          dialog.current?.showModal();
         }}
       >
         {children} {!iconOnly && <span aria-hidden="true">↗</span>}
         <span className="sr-only"> (opens in a new tab)</span>
       </a>
-      <dialog
-        ref={dialog}
-        className="comment-dialog"
-        aria-label="Unsaved changes before preview"
-        onCancel={(event) => {
-          if (busy) event.preventDefault();
-        }}
-        onClose={() => trigger.current?.focus()}
+      <Modal
+        open={!!labels}
+        onClose={close}
+        title="Unsaved changes"
+        trigger={trigger}
       >
-        <h2>Unsaved changes</h2>
         <p>
           Preview shows saved content. These sections have changes:{" "}
-          {labels.join(", ")}.
+          {labels?.join(", ")}.
         </p>
         {error && <p role="alert">{error}</p>}
         <div className="dialog-actions">
-          <button disabled={busy} onClick={() => dialog.current?.close()}>
+          <button disabled={busy} onClick={close}>
             Cancel
           </button>
           <button
             disabled={busy}
             onClick={() => {
               open();
-              dialog.current?.close();
+              setLabels(null);
             }}
           >
             Preview saved version
@@ -330,7 +309,7 @@ export function PreviewLink({
                 }
                 if (preview) preview.location.replace(href);
                 else open();
-                dialog.current?.close();
+                setLabels(null);
               } finally {
                 setBusy(false);
               }
@@ -339,7 +318,7 @@ export function PreviewLink({
             {busy ? "Saving…" : "Save and preview"}
           </button>
         </div>
-      </dialog>
+      </Modal>
     </>
   );
 }
@@ -362,13 +341,7 @@ export function EditorDialog({
   const [discarding, setDiscarding] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const button = useRef<HTMLButtonElement>(null);
-  const wasOpen = useRef(false);
   const editors = useContext(Editing);
-  useEffect(() => {
-    if (open) dialog.current?.showModal();
-    else if (wasOpen.current) button.current?.focus();
-    wasOpen.current = open;
-  }, [open]);
   const complete = () => {
     setDiscarding(false);
     setOpen(false);
@@ -395,22 +368,15 @@ export function EditorDialog({
         {trigger}
       </button>
       {open && (
-        <dialog
+        <Modal
+          open
+          onClose={cancel}
+          title={title}
+          closeLabel="Close editor"
+          trigger={button}
           ref={dialog}
-          className="comment-dialog editor-dialog"
-          aria-label={title}
-          onCancel={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            cancel();
-          }}
+          className="editor-dialog"
         >
-          <div className="dialog-heading">
-            <h2>{title}</h2>
-            <button type="button" aria-label="Close editor" onClick={cancel}>
-              ×
-            </button>
-          </div>
           <DialogActions.Provider value={{ cancel, complete }}>
             {children}
           </DialogActions.Provider>
@@ -424,7 +390,7 @@ export function EditorDialog({
           >
             <p>Your changes in “{title}” will not be saved.</p>
           </ConfirmDialog>
-        </dialog>
+        </Modal>
       )}
     </>
   );
@@ -434,13 +400,9 @@ export function EditForm({
   triggerLabel,
   id,
   ...props
-}: FormProps & {
-  label: string;
-  resetOnSave?: boolean;
+}: FormContentsProps & {
   trigger?: ReactNode;
   triggerLabel?: string;
-  modal?: boolean;
-  onSuccess?: (data: object) => void;
 }) {
   return trigger ? (
     <EditorDialog
@@ -453,16 +415,5 @@ export function EditForm({
     </EditorDialog>
   ) : (
     <FormContents {...props} id={id} />
-  );
-}
-
-export function CloseEditor() {
-  const actions = useContext(DialogActions);
-  return (
-    <div className="editor-footer">
-      <button type="button" className="secondary" onClick={actions?.cancel}>
-        Close
-      </button>
-    </div>
   );
 }

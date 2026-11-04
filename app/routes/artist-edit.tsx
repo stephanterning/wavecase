@@ -167,6 +167,7 @@ export default function ArtistEdit() {
             trigger={<Icon name="image-plus" />}
             triggerLabel="Change image"
             encType="multipart/form-data"
+            actions={<button className="button-primary">Save image</button>}
           >
             <input type="hidden" name="intent" value="artist-image" />
             <input type="hidden" name="id" value={a.id} />
@@ -187,7 +188,6 @@ export default function ArtistEdit() {
                 required
               />
             </label>
-            <button className="button-primary">Save image</button>
           </EditForm>
         </div>
         <div>
@@ -197,7 +197,11 @@ export default function ArtistEdit() {
             {a.bio || "Add a biography to introduce your music."}
           </p>
           <div className="editor-controls">
-            <EditForm label="Artist profile" trigger="Edit profile">
+            <EditForm
+              label="Artist profile"
+              trigger="Edit profile"
+              actions={<button className="button-primary">Save profile</button>}
+            >
               <input type="hidden" name="intent" value="edit-artist" />
               <input type="hidden" name="id" value={a.id} />
               <label>
@@ -216,7 +220,6 @@ export default function ArtistEdit() {
               <p className="muted">
                 Saved changes appear immediately on your public artist page.
               </p>
-              <button className="button-primary">Save profile</button>
             </EditForm>
           </div>
         </div>
@@ -295,11 +298,11 @@ export default function ArtistEdit() {
               label="Artist links"
               trigger={<Icon name="edit" />}
               triggerLabel="Edit links"
+              actions={<button className="button-primary">Save links</button>}
             >
               <input type="hidden" name="intent" value="artist-links" />
               <input type="hidden" name="name" value={a.name} />
               <LinkFields links={a.links} />
-              <button className="button-primary">Save links</button>
             </EditForm>
           </div>
           <ul className="artist-service-links">

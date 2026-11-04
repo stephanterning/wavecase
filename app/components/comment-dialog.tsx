@@ -1,6 +1,6 @@
 import { commentTime } from "../domain/comment-time";
 import { useEffect, useRef, useState } from "react";
-import { Icon } from "./icons";
+import { Modal } from "./modal";
 export type CommentDraft = {
   versionId: string;
   threadId?: string;
@@ -24,63 +24,27 @@ export function CommentDialog({
   onSubmit: (form: HTMLFormElement, draft: CommentDraft) => Promise<boolean>;
   onClose: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const form = useRef<HTMLFormElement>(null);
   const [pending, setPending] = useState(false);
   const [name] = useState(() => localStorage.getItem("wavecase.name") || "");
   useEffect(() => {
-    const element = dialog.current!;
-    const previous = document.activeElement;
-    element.showModal();
     const nameField =
-      element.querySelector<HTMLInputElement>('input[name="name"]');
+      form.current!.querySelector<HTMLInputElement>('input[name="name"]');
     if (nameField && !nameField.value.trim()) nameField.focus();
-    else element.querySelector<HTMLTextAreaElement>("textarea")?.focus();
-    return () => {
-      element.close();
-      if (previous instanceof HTMLElement && previous.isConnected)
-        previous.focus({ preventScroll: true });
-    };
+    else form.current!.querySelector("textarea")?.focus();
   }, []);
   return (
-    <dialog
-      ref={dialog}
-      className="comment-dialog"
-      aria-labelledby="comment-dialog-title"
-      onCancel={(event) => {
-        event.preventDefault();
+    <Modal
+      open
+      onClose={() => {
         if (!pending) onClose();
       }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget && !pending) {
-          const bounds = event.currentTarget.getBoundingClientRect();
-          if (
-            event.clientX < bounds.left ||
-            event.clientX > bounds.right ||
-            event.clientY < bounds.top ||
-            event.clientY > bounds.bottom
-          )
-            onClose();
-        }
-      }}
+      title={draft.threadId ? "Reply" : "Add comment"}
+      eyebrow={versionName}
+      closeLabel="Close comment"
     >
-      <div className="dialog-heading">
-        <div>
-          <p className="eyebrow">{versionName}</p>
-          <h2 id="comment-dialog-title">
-            {draft.threadId ? "Reply" : "Add comment"}
-          </h2>
-        </div>
-        <button
-          type="button"
-          className="icon-action"
-          aria-label="Close comment"
-          disabled={pending}
-          onClick={onClose}
-        >
-          <Icon name="close" />
-        </button>
-      </div>
       <form
+        ref={form}
         onSubmit={async (event) => {
           event.preventDefault();
           if (pending) return;
@@ -160,6 +124,6 @@ export function CommentDialog({
           </button>
         </div>
       </form>
-    </dialog>
+    </Modal>
   );
 }
