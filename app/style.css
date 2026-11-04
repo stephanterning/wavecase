@@ -736,7 +736,7 @@ body:has(.release-mini) {
 .table-scroll th,
 .table-scroll td {
   padding: 12px 8px;
-  border-bottom: 1px solid #344038;
+  border-bottom: 1px solid var(--color-divider);
   vertical-align: top;
 }
 .table-scroll td {
@@ -1083,10 +1083,10 @@ body:has(.release-mini) {
   padding: 8px 0;
 }
 .section-nav a[aria-current="page"] {
-  color: #f6f7f5;
+  color: var(--color-text);
   font-weight: 600;
   text-decoration: none;
-  border-bottom: 2px solid #b2e0cd;
+  border-bottom: 2px solid var(--color-accent);
 }
 .filter-toolbar label {
   flex: 0 1 220px;
