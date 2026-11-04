@@ -7,6 +7,7 @@ This describes the implementation as of October 31, 2026. The repository include
 - Passkey setup/sign-in, invitations, multiple passkeys, account disablement, and administrator/server recovery.
 - Private libraries with versions, linked artist profiles, named share links, waveform feedback, audio replacement/restoration, and owner-only listening analytics.
 - Demo playback with a 24-bit/48 kHz ceiling and loudness normalization, preserved originals on new uploads, and email-gated original/WAV/FLAC/MP3 ZIP downloads. WAV/FLAC exports use 16 bit/44.1 kHz with triangular dither for uncompressed/lossless sources; older single-master uploads cannot recover discarded original resolution.
+- Shared artist workspaces with account-specific invitations, full co-owner content access, membership management, and internal version discussions isolated from external share links.
 - Multiple artist profiles, draft/published singles/EPs/albums, generated songwriter pages, credits, service links, original-WAV or 16-bit/44.1-kHz WAV/FLAC and 320 kbps MP3 ZIPs, shared MP3 playback/download files with background migration of existing AAC, and release statistics.
 - One release player across public artist, songwriter, and release pages, including queue progression, Space controls, normalization, and media-session metadata.
 - Durable processing jobs, database migrations, persistent files, and tested image publishing for amd64/arm64.

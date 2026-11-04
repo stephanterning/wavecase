@@ -1,3 +1,4 @@
+import { artistScope } from "../server/ownership";
 import { useState } from "react";
 import { AddressField } from "../components/address-field";
 import {
@@ -24,13 +25,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     artists: await db
       .select()
       .from(artists)
-      .where(eq(artists.ownerId, user.id))
+      .where(artistScope(user.id))
       .orderBy(asc(artists.name)),
     releases: await db
       .select({ release: releases, artist: artists })
       .from(releases)
       .innerJoin(artists, eq(releases.artistId, artists.id))
-      .where(eq(artists.ownerId, user.id))
+      .where(artistScope(user.id))
       .orderBy(desc(releases.createdAt)),
   };
 }

@@ -1,3 +1,4 @@
+import { manageArtistMembers } from "../server/artist-members";
 import { ReleaseCardContent } from "../components/release-card-content";
 import { Icon } from "../components/icons";
 import { EditForm, PreviewLink } from "../components/editing";
@@ -5,16 +6,17 @@ import { LinkFields } from "../components/link-fields";
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  Form,
   redirect,
   useActionData,
   useLoaderData,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "react-router";
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../server/db";
-import { artists, releases } from "../server/schema";
+import { artists, releases, artistMembers, users } from "../server/schema";
 import { requireUser, sameOrigin } from "../server/security";
 import { limitedBody } from "../server/request";
 import {
@@ -28,6 +30,21 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const artist = await ownedArtist(request, params.id!);
   return {
     artist,
+    membershipManager: artist.ownerId === (await requireUser(request)).id,
+    manager: (await db.query.users.findFirst({
+      where: eq(users.id, artist.ownerId),
+    }))!.name,
+    members: await db
+      .select({
+        id: artistMembers.id,
+        name: users.name,
+        accepted: artistMembers.acceptedAt,
+        expires: artistMembers.expires,
+      })
+      .from(artistMembers)
+      .innerJoin(users, eq(users.id, artistMembers.userId))
+      .where(eq(artistMembers.artistId, artist.id))
+      .orderBy(asc(users.name)),
     releases: await db
       .select()
       .from(releases)
@@ -37,10 +54,23 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 }
 export async function action({ request, params }: ActionFunctionArgs) {
   sameOrigin(request);
-  await requireUser(request);
+  const user = await requireUser(request);
   try {
     const f = await (await limitedBody(request, 11 * 1024 * 1024)).formData();
     const intent = f.get("intent");
+    if (
+      ["invite-member", "remove-member", "leave-artist"].includes(
+        String(intent),
+      )
+    ) {
+      await ownedArtist(request, params.id!);
+      await manageArtistMembers(user.id, params.id!, f);
+      return redirect(
+        intent === "leave-artist"
+          ? "/artist-profiles"
+          : `/artist-profiles/${params.id}`,
+      );
+    }
     const name = z.string().trim().min(1).max(200).parse(f.get("name"));
     if (intent === "edit-artist" || intent === "artist-links") {
       const previous = await ownedArtist(request, params.id!);
@@ -79,7 +109,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 }
 export default function ArtistEdit() {
-  const { artist: a, releases: rows } = useLoaderData<typeof loader>();
+  const {
+    artist: a,
+    releases: rows,
+    membershipManager,
+    manager,
+    members,
+  } = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
   return (
     <>
@@ -158,6 +194,84 @@ export default function ArtistEdit() {
         </div>
       </header>
       {result?.error && <p role="alert">{result.error}</p>}
+      <section className="panel">
+        <h2>Co-owners</h2>
+        <p>
+          All co-owners can upload, edit, publish and delete music, manage share
+          links, and see discussions, feedback and statistics, including
+          download email addresses.
+        </p>
+        <p>
+          <strong>{manager}</strong> · Membership manager
+        </p>
+        {members.map((member) => (
+          <div key={member.id}>
+            <p>
+              <strong>{member.name}</strong> ·{" "}
+              {member.accepted
+                ? "Co-owner"
+                : new Date(member.expires) > new Date()
+                  ? "Invitation pending"
+                  : "Invitation expired"}
+            </p>
+            {membershipManager && (
+              <Form
+                method="post"
+                onSubmit={(event) => {
+                  if (
+                    !window.confirm(
+                      member.accepted
+                        ? `Remove ${member.name}'s access? Their uploads and comments stay with the artist.`
+                        : `Revoke the invitation for ${member.name}?`,
+                    )
+                  )
+                    event.preventDefault();
+                }}
+              >
+                <input type="hidden" name="member" value={member.id} />
+                <button
+                  className="secondary"
+                  name="intent"
+                  value="remove-member"
+                >
+                  {member.accepted ? "Remove co-owner" : "Revoke invitation"}
+                </button>
+              </Form>
+            )}
+          </div>
+        ))}
+        {membershipManager ? (
+          <Form method="post">
+            <label>
+              Registered account email
+              <input type="email" name="email" required autoComplete="off" />
+            </label>
+            <p className="muted">
+              Enter the exact account email. The invitation appears on their
+              Artists page and expires after seven days. No email is sent.
+            </p>
+            <button name="intent" value="invite-member">
+              Invite co-owner
+            </button>
+          </Form>
+        ) : (
+          <Form
+            method="post"
+            onSubmit={(event) => {
+              if (
+                !window.confirm(
+                  "Leave this artist? You will lose access to its private music and discussions. Your uploads and comments will remain.",
+                )
+              )
+                event.preventDefault();
+            }}
+          >
+            <button className="secondary" name="intent" value="leave-artist">
+              Leave artist
+            </button>
+          </Form>
+        )}
+      </section>
       <div className="artist-editor-columns">
         <section>
           <div className="artist-section-heading">

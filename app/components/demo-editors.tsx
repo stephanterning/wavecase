@@ -59,6 +59,7 @@ export function DemoIdentity({
                     />
                   </label>
                   <TrackArtistField
+                    confirmMove
                     profiles={data.artists}
                     artistId={data.track.artistId}
                     name={data.track.artist}

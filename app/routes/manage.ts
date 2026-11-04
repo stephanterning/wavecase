@@ -20,13 +20,15 @@ import {
   events,
   reuploadRequests,
 } from "../server/schema";
+import { artistScope, trackScope } from "../server/ownership";
 import { trackAccess } from "../server/access";
-import { sameOrigin } from "../server/security";
+import { sameOrigin, requireUser } from "../server/security";
 import { limitedBody } from "../server/request";
 import { removeAudioFiles } from "../server/audio-files";
 import { boss, queue } from "../server/queue";
 export async function action({ request, params }: ActionFunctionArgs) {
   sameOrigin(request);
+  const user = await requireUser(request);
   const access = await trackAccess(request, params.id!);
   if (!access.owner) throw new Response("Forbidden", { status: 403 });
   const form = await (
@@ -42,7 +44,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     if (intent === "delete-track") {
       await deleteDemo(
         access.track.id,
-        access.track.ownerId,
+        user.id,
         String(form.get("confirmation") || ""),
       );
       return redirect("/library");
@@ -154,7 +156,20 @@ export async function action({ request, params }: ActionFunctionArgs) {
       const field = z
         .enum(["title", "artist", "description", "all"])
         .parse(form.get("field") || "all");
-      await db
+      const artist =
+        field === "artist" || field === "all"
+          ? await resolveTrackArtist(user.id, form)
+          : null;
+      if (
+        artist &&
+        artist.artistId !== access.track.artistId &&
+        form.get("confirmArtistMove") !== "yes"
+      )
+        throw new Response(
+          "Confirm the artist change: access changes and all versions, discussions, links and statistics move with the demo.",
+          { status: 400 },
+        );
+      const [saved] = await db
         .update(tracks)
         .set({
           ...(field === "title" || field === "all"
@@ -167,8 +182,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
                   .parse(form.get("title")),
               }
             : {}),
-          ...(field === "artist" || field === "all"
-            ? await resolveTrackArtist(access.track.ownerId, form)
+          ...(artist
+            ? {
+                ...artist,
+                ...(artist.artistId !== access.track.artistId
+                  ? { ownerId: user.id }
+                  : {}),
+              }
             : {}),
           ...(field === "description" || field === "all"
             ? {
@@ -179,7 +199,22 @@ export async function action({ request, params }: ActionFunctionArgs) {
               }
             : {}),
         })
-        .where(eq(tracks.id, access.track.id));
+        .where(
+          and(
+            eq(tracks.id, access.track.id),
+            trackScope(user.id),
+            sql`${tracks.artistId} is not distinct from ${access.track.artistId}::uuid`,
+            artist?.artistId
+              ? artistScope(user.id, sql`${artist.artistId}::uuid`)
+              : undefined,
+          ),
+        )
+        .returning({ id: tracks.id });
+      if (!saved)
+        throw new Response(
+          "Artist access changed. Reload the demo before saving.",
+          { status: 409 },
+        );
     } else if (intent === "link") {
       const scope = await shareVersionScope(
         access.track.id,

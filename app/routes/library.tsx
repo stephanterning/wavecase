@@ -1,3 +1,4 @@
+import { trackScope } from "../server/ownership";
 import { useState, useRef, useEffect } from "react";
 import { TrackArtistField } from "../components/track-artist-field";
 import { artistChoices, resolveTrackArtist } from "../server/track-artist";
@@ -39,7 +40,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
           .limit(1)})`,
       })
       .from(tracks)
-      .where(eq(tracks.ownerId, user.id)),
+      .where(trackScope(user.id)),
   };
 }
 export async function action({ request }: ActionFunctionArgs) {

@@ -8,7 +8,7 @@ type Comment = {
   id: string;
   versionId: string;
   threadId: string | null;
-  linkId: string;
+  linkId: string | null;
   name: string;
   body: string | null;
   start: number | null;
@@ -43,9 +43,11 @@ export function Feedback({
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const [requestedFilter, setFilter] = useState("all");
-  const filter = links.some((link) => link.id === requestedFilter)
-    ? requestedFilter
-    : "all";
+  const filter =
+    requestedFilter === "internal" ||
+    links.some((link) => link.id === requestedFilter)
+      ? requestedFilter
+      : "all";
   const [allVersions, setAllVersions] = useState(false);
   const versionIds =
     allVersions && owner ? versions.map((v) => v.id).join(",") : versionId;
@@ -103,7 +105,7 @@ export function Feedback({
     (item) =>
       versionIds.split(",").includes(item.versionId) &&
       (owner
-        ? links.some((link) => link.id === item.linkId)
+        ? item.linkId === null || links.some((link) => link.id === item.linkId)
         : item.linkId === share),
   );
   async function send(form: HTMLFormElement, draft: CommentDraft) {
@@ -190,9 +192,10 @@ export function Feedback({
       )}
       {owner && (
         <label>
-          Share link
+          Conversation
           <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-            <option value="all">All links</option>
+            <option value="all">All conversations</option>
+            <option value="internal">Internal only</option>
             {links.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.label}
@@ -203,13 +206,22 @@ export function Feedback({
       )}
       {error && <p role="alert">{error}</p>}
       {visibleItems
-        .filter((c) => !c.threadId && (filter === "all" || c.linkId === filter))
+        .filter(
+          (c) =>
+            !c.threadId &&
+            (filter === "all" ||
+              (filter === "internal"
+                ? c.linkId === null
+                : c.linkId === filter)),
+        )
         .map((c) => (
           <article className="panel" key={c.id}>
             {owner && (
               <p className="eyebrow">
                 {versions.find((v) => v.id === c.versionId)?.name} ·{" "}
-                {links.find((l) => l.id === c.linkId)?.label}
+                {c.linkId === null
+                  ? "Internal · artist members only"
+                  : `External · ${links.find((l) => l.id === c.linkId)?.label}`}
               </p>
             )}
             <p>
@@ -243,7 +255,7 @@ export function Feedback({
                   <strong>
                     {r.name}
                     {r.isNew ? " · New" : ""}
-                    {r.owner ? " · Uploader" : ""}
+                    {r.owner ? " · Artist member" : ""}
                   </strong>
                   <p>{r.body || "deleted"}</p>
                   {r.canDelete && r.body && (
@@ -282,6 +294,14 @@ export function Feedback({
           owner={owner}
           versionName={
             versions.find((v) => v.id === draft.versionId)?.name || "Version"
+          }
+          visibility={
+            owner
+              ? !draft.threadId ||
+                items.find((c) => c.id === draft.threadId)?.linkId === null
+                ? "Internal: visible only to people with access to this demo."
+                : "External: your reply is visible to listeners using this thread’s share link."
+              : undefined
           }
           error={error}
           onSubmit={send}

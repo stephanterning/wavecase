@@ -1,3 +1,8 @@
+import {
+  pendingArtistInvitations,
+  answerArtistInvitation,
+} from "../server/artist-members";
+import { artistScope } from "../server/ownership";
 import { useState } from "react";
 import { AddressField } from "../components/address-field";
 import {
@@ -20,6 +25,7 @@ import { CreateDialog } from "../components/create-dialog";
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   return {
+    invitations: await pendingArtistInvitations(user.id),
     artists: await db
       .select({
         id: artists.id,
@@ -29,7 +35,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       })
       .from(artists)
       .leftJoin(releases, eq(releases.artistId, artists.id))
-      .where(eq(artists.ownerId, user.id))
+      .where(artistScope(user.id))
       .groupBy(artists.id)
       .orderBy(asc(artists.name), asc(artists.id)),
   };
@@ -39,6 +45,17 @@ export async function action({ request }: ActionFunctionArgs) {
   const user = await requireUser(request);
   try {
     const f = await (await limitedBody(request, 65536)).formData();
+    if (
+      f.get("intent") === "accept-invitation" ||
+      f.get("intent") === "decline-invitation"
+    ) {
+      const artistId = await answerArtistInvitation(user.id, f);
+      return redirect(
+        f.get("intent") === "accept-invitation"
+          ? `/artist-profiles/${artistId}`
+          : "/artist-profiles",
+      );
+    }
     const name = z.string().trim().min(1).max(200).parse(f.get("name"));
     const [artist] = await db
       .insert(artists)
@@ -62,6 +79,36 @@ export default function ArtistProfiles() {
     <>
       <p className="eyebrow">YOUR ARTISTS</p>
       <h1>Artists</h1>
+      {!!data.invitations.length && (
+        <section className="panel">
+          <h2>Artist invitations</h2>
+          {data.invitations.map((invitation) => (
+            <Form method="post" key={invitation.id}>
+              <p>
+                <strong>{invitation.invitedBy}</strong> invited you to co-own{" "}
+                <strong>{invitation.artist}</strong>.
+              </p>
+              <p>
+                You will share all existing and future demos, releases,
+                discussions, links, feedback and statistics, with full editing
+                and deletion rights.
+              </p>
+              <input type="hidden" name="invitation" value={invitation.id} />
+              <button name="intent" value="accept-invitation">
+                Accept invitation
+              </button>{" "}
+              <button
+                className="secondary"
+                name="intent"
+                value="decline-invitation"
+              >
+                Decline
+              </button>
+            </Form>
+          ))}
+        </section>
+      )}
+      {result?.error && <p role="alert">{result.error}</p>}
       <CreateDialog title="Add artist" error={result?.error}>
         <Form method="post" className="panel">
           <label>

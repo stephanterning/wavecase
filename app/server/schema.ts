@@ -116,9 +116,8 @@ export const comments = pgTable("comments", {
   versionId: uuid()
     .notNull()
     .references(() => versions.id),
-  linkId: text()
-    .notNull()
-    .references(() => links.id),
+  linkId: text().references(() => links.id),
+  authorId: uuid().references(() => users.id),
   threadId: uuid(),
   name: text().notNull(),
   secretHash: text(),
@@ -243,4 +242,24 @@ export const releaseEvents = pgTable(
     createdAt: created(),
   },
   (table) => [index("release_events_release").on(table.releaseId)],
+);
+
+// Pending invitations and accepted memberships share one unique artist/account pair.
+export const artistMembers = pgTable(
+  "artist_members",
+  {
+    id: id(),
+    artistId: uuid()
+      .notNull()
+      .references(() => artists.id, { onDelete: "cascade" }),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id),
+    acceptedAt: timestamp({ withTimezone: true }),
+    expires: timestamp({ withTimezone: true }).notNull(),
+    createdAt: created(),
+  },
+  (table) => [
+    uniqueIndex("artist_member_account").on(table.artistId, table.userId),
+  ],
 );

@@ -74,8 +74,7 @@ export async function downloadDemo(
     });
   const { track, owner, link } = access;
   const current = access.version;
-  const artist =
-    (await linkedArtist(track.ownerId, track.artistId))?.name || track.artist;
+  const artist = (await linkedArtist(track.artistId))?.name || track.artist;
   const folder = downloadName(
     [artist, track.title, current.name].filter(Boolean).join(" - "),
   );

@@ -1,3 +1,4 @@
+import { artistScope, ownsArtist } from "./ownership";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { mkdir, writeFile, unlink } from "node:fs/promises";
@@ -12,10 +13,7 @@ export const directory = () => process.env.DATA_DIR || "data/audio";
 export async function ownedArtist(request: Request, id: string) {
   const user = await requireUser(request);
   const artist = await db.query.artists.findFirst({
-    where: and(
-      eq(artists.id, z.uuid().parse(id)),
-      eq(artists.ownerId, user.id),
-    ),
+    where: and(eq(artists.id, z.uuid().parse(id)), artistScope(user.id)),
   });
   if (!artist) throw new Response("Artist not found", { status: 404 });
   return artist;
@@ -33,7 +31,7 @@ export async function releaseAccess(
     .innerJoin(artists, eq(releases.artistId, artists.id))
     .where(eq(releases.id, id));
   const user = await viewer(request);
-  const owner = !!user && row?.artist.ownerId === user.id;
+  const owner = !!row && (await ownsArtist(user?.id, row.artist));
   if (!row || (ownerOnly ? !owner : !row.release.published && !owner))
     throw new Response("Release not found", { status: 404 });
   const tracks = await db

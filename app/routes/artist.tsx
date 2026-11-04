@@ -1,3 +1,4 @@
+import { ownsArtist } from "../server/ownership";
 import { ReleaseCardContent } from "../components/release-card-content";
 import { isPreview } from "../server/preview";
 import { PublicLink } from "../components/public-links";
@@ -37,7 +38,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       links: artist.links,
     },
     releases: rows,
-    owner: user?.id === artist.ownerId,
+    owner: await ownsArtist(user?.id, artist),
     preview: isPreview(request),
     canonical: `${origin}/artists/${artist.slug}`,
   };

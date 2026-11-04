@@ -46,7 +46,7 @@ Create the database only once. Building the image also checks the production bui
 
 | Coverage | Tests |
 | --- | --- |
-| Passkeys, setup races, invitations, access boundaries, and regression cases | `auth`, `access`, `review-regressions` |
+| Passkeys, setup races, invitations, access boundaries, and regression cases | `auth`, `access`, `shared-artists`, `review-regressions` |
 | Demo masters, dither, exact duration, invalid input, ZIP/email permissions, and worker replacement | `audio-policy`, `audio`, `audio-exports`, `downloads`, `worker` |
 | Scoped demo editing, permanent track/link deletion, file cleanup, and aggregate exclusion | `demo-management`, `share-links`, `library` |
 | Playback counts, intervals, retries, normalization, gestures, and media sessions | `activity`, `listening`, `playback-events`, `telemetry`, `playback-audio`, `waveform-gestures`, `media-session` |
@@ -68,5 +68,7 @@ Use synthetic media and disposable accounts. Test listeners in a separate/privat
 8. **Operations:** restart containers and verify metadata/files persist; restart the worker with pending uploads. Exercise backup and restore on a disposable installation.
 
 9. **Management and listener previews:** edit several sections, save one without losing the others, and exercise unsaved navigation/version warnings. Check Save and preview, Preview saved version, invalid fields, new-tab focus, and saved feedback. Filter releases, create one from an artist, and verify stable address suggestions and link rows. Follow artist/release/songwriter links in preview; no owner controls or return buttons should appear. Demo preview follows its active share permissions. Comments, reupload requests, downloads, and analytics must not be submitted in preview; draft releases remain private. Confirm draft deletion and refusal to delete a published release.
+
+10. **Shared artists:** invite an existing account, accept/decline/revoke/expire invitations, and check that both accounts see existing and new material only for their shared artist. Exercise uploads, releases, links, internal and external replies, and statistics. Verify internal discussions never appear through external links. Move a demo between artists or unlink it with confirmation; verify access follows the destination while versions, links and discussions remain. Remove a member or leave; uploads stay and private access is revoked.
 
 On a physical iPhone with HTTPS and the configured `APP_URL`, check uploads, actual audio, repeat pinch/pan/hold gestures, narrow layouts, downloads, background playback, interruptions, automatic release progression, and lock-screen resume. Verify title/artist/artwork updates, a demo without artwork, release cover replacement, and metadata cleanup after errors or leaving the player. Public navigation keeps the media session; private covers still require authorization. Browser automation cannot replace these device checks.
