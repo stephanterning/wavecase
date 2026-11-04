@@ -26,12 +26,13 @@ After schema changes, run `npm run db:generate`, review the generated SQL, and c
 
 ```sh
 npm run lint
+npm run format:check
 npm run typecheck
 npm test
 npm run build
 ```
 
-`npm test` uses Node's test runner through `tsx`, including real FFmpeg fixtures. Database cases run only when `DATABASE_URL` ends **exactly** in `/wavecase_test`; otherwise they are skipped. Use a disposable database: tests change setup state, create accounts, and exercise migrations. Never point them at an installation's database or run concurrent suites against the same test database. Temporary test media is cleaned up by the tests.
+`npm test` uses Node's test runner through `tsx`, including real FFmpeg fixtures. Database cases run only when `DATABASE_URL` ends **exactly** in `/wavecase_test`; otherwise they are skipped, except when `CI` is set, where the run fails instead. Use a disposable database: tests change setup state, create accounts, and exercise migrations. Never point them at an installation's database or run concurrent suites against the same test database. Temporary test media is cleaned up by the tests.
 
 For local integration tests, create `wavecase_test`, export its connection URL, apply migrations, and run `npm test`. Alternatively, in a disposable checkout with Compose configured:
 
@@ -42,7 +43,7 @@ docker compose build web
 docker compose run --rm --no-deps web sh -ec 'export DATABASE_URL="${DATABASE_URL%/wavecase}/wavecase_test"; npm run lint; npm run typecheck; npm run db:migrate; npm test'
 ```
 
-Create the database only once. Building the image also checks the production build. The URL substitution assumes the supplied Compose database name, `wavecase`. Use a separate checkout and Compose project from a running installation; set `COMPOSE_PROJECT_NAME=wavecase-check` for these commands if checkout names collide. [CI](../.github/workflows/ci.yml) uses its own PostgreSQL service and runs the complete suite.
+Create the database only once. Building the image also checks the production build. The URL substitution assumes the supplied Compose database name, `wavecase`. Use a separate checkout and Compose project from a running installation; set `COMPOSE_PROJECT_NAME=wavecase-check` for these commands if checkout names collide. [CI](../.github/workflows/ci.yml) uses its own PostgreSQL service and runs the complete suite. It also checks formatting and fails when `app/server/schema.ts` has changes without a generated migration or when `THIRD_PARTY_NOTICES.md` is out of date.
 
 | Coverage | Tests |
 | --- | --- |
