@@ -64,21 +64,6 @@ export function EditingProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useConfirmDiscard() {
-  const editors = useContext(Editing);
-  return (labels: string[]) => {
-    const changed = [...(editors?.values() || [])].some(
-      (editor) => labels.includes(editor.label) && editor.dirty(),
-    );
-    return (
-      !changed ||
-      window.confirm(
-        "Switch version? Unsaved version settings and audio selections will be lost.",
-      )
-    );
-  };
-}
-
 function snapshot(form: HTMLFormElement) {
   return JSON.stringify(
     [...new FormData(form)]
