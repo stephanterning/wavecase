@@ -31,6 +31,7 @@
     "express-rate-limit": "8.7.2",
     "isbot": "5.2.2",
     "maxmind": "5.0.7",
+    "mpg123-decoder": "1.0.3",
     "pg": "8.23.1",
     "pg-boss": "12.38.0",
     "react": "19.3.1",

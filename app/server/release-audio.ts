@@ -1,4 +1,3 @@
-import { prepareStream } from "./audio-stream";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
@@ -84,7 +83,6 @@ export async function processReleaseAudio(directory: string, key: string) {
       "Upload a mono or stereo PCM WAV within the duration limit.",
     );
   const playback = await encodeMp3(directory, key);
-  await prepareStream(directory, playback);
   return {
     playback,
     audioMeasurements: await measureReleasePlayback(directory, playback),

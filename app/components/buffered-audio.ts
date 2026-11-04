@@ -210,7 +210,17 @@ export class BufferedAudio extends EventTarget {
       });
       if (!response.ok || response.status === 202)
         throw new Error("Audio is unavailable. Reload the player.");
-      const bytes = await response.arrayBuffer();
+      let bytes = await response.arrayBuffer();
+      if (manifest.mp3Rate) {
+        signal.throwIfAborted();
+        const { decodeReleasePart } = await import("./decode-release-mp3");
+        bytes = await decodeReleasePart(
+          bytes,
+          manifest,
+          index,
+          Number(response.headers.get("X-Wavecase-Sample-Offset") ?? NaN),
+        );
+      }
       signal.throwIfAborted();
       const frames = Math.min(
         streamChunkFrames,

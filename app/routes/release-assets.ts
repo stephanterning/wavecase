@@ -1,3 +1,4 @@
+import { releaseMp3Response } from "../server/release-mp3-stream";
 import { streamResponse } from "../server/audio-stream";
 import { downloadDetails } from "../server/download-details";
 import { rejectPreviewMutation } from "../server/preview";
@@ -97,7 +98,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   );
   if (!track?.playback)
     throw new Response("Audio unavailable", { status: 404 });
-  const streamed = await streamResponse(request, directory(), track.playback);
+  const streamed = await (
+    track.playback.endsWith(".mp3") ? releaseMp3Response : streamResponse
+  )(request, directory(), track.playback);
   if (streamed) return streamed;
   const path = join(directory(), track.playback);
   const { size } = await stat(path);

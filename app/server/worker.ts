@@ -1,9 +1,9 @@
-import { stat } from "node:fs/promises";
+import { stat, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { eq, and, sql, isNotNull } from "drizzle-orm";
 import { removeAudioFiles } from "./audio-files";
 import { db } from "./db";
-import { prepareStream, streamManifest } from "./audio-stream";
+import { prepareStream, streamManifest, streamSuffix } from "./audio-stream";
 import { versions, comments, releaseTracks } from "./schema";
 import { boss, queue } from "./queue";
 import { processAudio, sameDuration } from "./audio";
@@ -108,16 +108,27 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
 // Reconcile pending uploads so a crash between storing a file and queueing it is recoverable.
 async function reconcile() {
   await reconcileReleases();
-  const sources = [
-    ...(await db
-      .select({ key: versions.playback })
-      .from(versions)
-      .where(and(isNotNull(versions.playback), eq(versions.state, "ready")))),
-    ...(await db
-      .select({ key: releaseTracks.playback })
-      .from(releaseTracks)
-      .where(isNotNull(releaseTracks.playback))),
-  ];
+  const sources = await db
+    .select({ key: versions.playback })
+    .from(versions)
+    .where(and(isNotNull(versions.playback), eq(versions.state, "ready")));
+  const demos = new Set(sources.map((source) => source.key));
+  const releases = await db
+    .select({ key: releaseTracks.playback })
+    .from(releaseTracks)
+    .where(isNotNull(releaseTracks.playback));
+  for (const { key } of releases) {
+    if (!key || demos.has(key)) continue;
+    if (!key.endsWith(".mp3")) {
+      sources.push({ key });
+      continue;
+    }
+    // Old deployments prepared PCM for releases. Only remove the derived pair.
+    if (await streamManifest(directory, key)) {
+      await rm(join(directory, key + streamSuffix + ".pcm"), { force: true });
+      await rm(join(directory, key + streamSuffix + ".json"), { force: true });
+    }
+  }
   for (const { key } of sources) {
     if (!key || (await streamManifest(directory, key))) continue;
     try {
