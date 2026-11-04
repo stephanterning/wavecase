@@ -344,6 +344,31 @@ test(
       .set({ expires: new Date(0) })
       .where(eq(artistInvitations.id, expired));
     await assert.rejects(acceptArtistInvitation(hugo, expired));
+    const { loader: artistEditor, action: editArtist } =
+      await import("../app/routes/artist-edit");
+    assert.equal(
+      (await artistEditor(args(request(stephan), hust))).invitations.some(
+        (entry) => entry.id === expired,
+      ),
+      false,
+    );
+    const saved = await editArtist(
+      args(
+        request(stephan, {
+          intent: "create-invitation",
+          label: "Modal invitation",
+          _inline: "1",
+        }),
+        hust,
+      ),
+    );
+    assert.deepEqual(saved, { saved: true, error: undefined });
+    assert.ok(
+      (await artistEditor(args(request(stephan), hust))).invitations.some(
+        (entry) => entry.label === "Modal invitation",
+      ),
+    );
+
     const revoked = await createInvitation(stephan, hust);
     await manageArtistMembers(
       stephan,

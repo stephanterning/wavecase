@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ArtistCoOwners } from "../components/artist-coowners";
 import { manageArtistMembers } from "../server/artist-members";
 import { Link } from "react-router";
 import { ReleaseCardContent } from "../components/release-card-content";
@@ -8,14 +8,13 @@ import { LinkFields } from "../components/link-fields";
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  Form,
   redirect,
   useActionData,
   useLoaderData,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "react-router";
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gt } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../server/db";
 import {
@@ -36,16 +35,24 @@ import {
 import { parseLinks } from "../domain/releases";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const artist = await ownedArtist(request, params.id!);
+  const user = await requireUser(request);
+  const now = new Date();
   return {
+    loadedAt: now.getTime(),
     artist,
-    membershipManager: artist.ownerId === (await requireUser(request)).id,
+    membershipManager: artist.ownerId === user.id,
     invitationOrigin: origin,
     invitations:
-      artist.ownerId === (await requireUser(request)).id
+      artist.ownerId === user.id
         ? await db
             .select()
             .from(artistInvitations)
-            .where(eq(artistInvitations.artistId, artist.id))
+            .where(
+              and(
+                eq(artistInvitations.artistId, artist.id),
+                gt(artistInvitations.expires, now),
+              ),
+            )
             .orderBy(desc(artistInvitations.createdAt))
         : [],
     manager: (await db.query.users.findFirst({
@@ -83,6 +90,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
     ) {
       await ownedArtist(request, params.id!);
       await manageArtistMembers(user.id, params.id!, f);
+      if (f.has("_inline") && intent !== "leave-artist")
+        return { saved: true, error: undefined };
       return redirect(
         intent === "leave-artist"
           ? "/artist-profiles"
@@ -127,17 +136,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 }
 export default function ArtistEdit() {
-  const {
-    artist: a,
-    releases: rows,
-    membershipManager,
-    manager,
-    members,
-    invitations,
-    invitationOrigin,
-  } = useLoaderData<typeof loader>();
+  const data = useLoaderData<typeof loader>();
+  const { artist: a, releases: rows } = data;
   const result = useActionData<typeof action>();
-  const [copyStatus, setCopyStatus] = useState("");
   return (
     <>
       <div className="editor-toolbar">
@@ -215,134 +216,6 @@ export default function ArtistEdit() {
         </div>
       </header>
       {result?.error && <p role="alert">{result.error}</p>}
-      <section className="panel">
-        <h2>Co-owners</h2>
-        <p>
-          All co-owners can upload, edit, publish and delete music, manage share
-          links, and see discussions, feedback and statistics, including
-          download email addresses.
-        </p>
-        <p>
-          <strong>{manager}</strong> · Membership manager
-        </p>
-        {members.map((member) => (
-          <div key={member.id}>
-            <p>
-              <strong>{member.name}</strong> · Co-owner
-            </p>
-            {membershipManager && (
-              <Form
-                method="post"
-                onSubmit={(event) => {
-                  if (
-                    !window.confirm(
-                      `Remove ${member.name}'s access? Their uploads and comments stay with the artist.`,
-                    )
-                  )
-                    event.preventDefault();
-                }}
-              >
-                <input type="hidden" name="member" value={member.id} />
-                <button
-                  className="secondary"
-                  name="intent"
-                  value="remove-member"
-                >
-                  Remove co-owner
-                </button>
-              </Form>
-            )}
-          </div>
-        ))}
-        {membershipManager ? (
-          <>
-            <h3>Invitation links</h3>
-            <p>
-              Each link can connect one account and expires after seven days.
-              Anyone with the link can accept it. Send it directly to the person
-              you want to invite.
-            </p>
-            {invitations.map((invitation) => (
-              <div key={invitation.id}>
-                <p>
-                  <strong>{invitation.label}</strong> ·{" "}
-                  {new Date(invitation.expires) > new Date()
-                    ? `Expires ${new Date(invitation.expires).toISOString().slice(0, 10)}`
-                    : "Expired"}
-                </p>
-                {new Date(invitation.expires) > new Date() && (
-                  <>
-                    <input
-                      aria-label={`Invitation link for ${invitation.label}`}
-                      readOnly
-                      value={`${invitationOrigin}/artist-invitations/${invitation.id}`}
-                      onFocus={(event) => event.currentTarget.select()}
-                    />
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(
-                            `${invitationOrigin}/artist-invitations/${invitation.id}`,
-                          );
-                          setCopyStatus("Invitation link copied.");
-                        } catch {
-                          setCopyStatus(
-                            "Select the invitation link and copy it manually.",
-                          );
-                        }
-                      }}
-                    >
-                      Copy invitation link
-                    </button>
-                  </>
-                )}
-                <Form method="post">
-                  <input
-                    type="hidden"
-                    name="invitation"
-                    value={invitation.id}
-                  />
-                  <button
-                    className="secondary"
-                    name="intent"
-                    value="revoke-invitation"
-                  >
-                    Revoke invitation
-                  </button>
-                </Form>
-              </div>
-            ))}
-            {copyStatus && <p role="status">{copyStatus}</p>}
-            <Form method="post">
-              <label>
-                Invitation label (optional)
-                <input name="label" maxLength={200} placeholder="e.g. Hugo" />
-              </label>
-              <button name="intent" value="create-invitation">
-                Create invitation link
-              </button>
-            </Form>
-          </>
-        ) : (
-          <Form
-            method="post"
-            onSubmit={(event) => {
-              if (
-                !window.confirm(
-                  "Leave this artist? You will lose access to its private music and discussions. Your uploads and comments will remain.",
-                )
-              )
-                event.preventDefault();
-            }}
-          >
-            <button className="secondary" name="intent" value="leave-artist">
-              Leave artist
-            </button>
-          </Form>
-        )}
-      </section>
       <div className="artist-editor-columns">
         <section>
           <div className="artist-section-heading">
@@ -390,6 +263,7 @@ export default function ArtistEdit() {
           )}
         </section>
         <aside>
+          <ArtistCoOwners data={data} />
           <div className="artist-section-heading">
             <h2>Links</h2>
             <EditForm
