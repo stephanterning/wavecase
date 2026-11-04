@@ -63,10 +63,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     .orderBy(desc(versions.position));
   return {
     track: {
-      ...access.track,
+      id: access.track.id,
+      title: access.track.title,
       artist: artist?.name || access.track.artist,
+      description: access.track.description,
       cover: !!access.track.cover,
       coverRevision: access.track.cover ? hash(access.track.cover) : null,
+      ...(access.owner ? { artistId: access.track.artistId } : {}),
     },
     artistUrl: artist
       ? access.owner
@@ -90,26 +93,33 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     versions: await Promise.all(
       all
         .filter((v) => access.owner || visibleThroughLink(v, access.link!))
-        .map(
-          async ({
-            original,
-            playback,
-            pendingOriginal,
-            pendingFilename,
-            ...v
-          }) => ({
-            wavDownload: await demoWavAvailable(
-              { original, metadata: v.metadata },
-              process.env.DATA_DIR || "data/audio",
-            ).catch(() => false),
-            ...v,
-            processing: !!pendingOriginal,
-            revision: original ? hash(original) : "missing",
-            canDownload:
-              !!original &&
-              (access.owner || (!!access.link?.download && v.download)),
-          }),
-        ),
+        .map(async (v) => ({
+          id: v.id,
+          name: v.name,
+          description: v.description,
+          status: v.status,
+          state: v.state,
+          duration: v.duration,
+          metadata: v.metadata,
+          peaks: v.peaks,
+          revision: v.original ? hash(v.original) : "missing",
+          canDownload:
+            !!v.original &&
+            (access.owner || (!!access.link?.download && v.download)),
+          wavDownload: await demoWavAvailable(
+            v,
+            process.env.DATA_DIR || "data/audio",
+          ).catch(() => false),
+          ...(access.owner
+            ? {
+                position: v.position,
+                filename: v.filename,
+                error: v.error,
+                download: v.download,
+                processing: !!v.pendingOriginal,
+              }
+            : {}),
+        })),
     ),
     links: access.owner
       ? await db
