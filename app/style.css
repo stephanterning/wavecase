@@ -1372,6 +1372,10 @@ button:has(svg) {
   background: #0b100d;
   padding: 12px 0;
 }
+/* A sticky footer would cover the required email disclosure. */
+.download-dialog .dialog-actions {
+  position: static;
+}
 @media (min-width: 900px) {
   .workspace-content:has(> h1):has(> section > h2) {
     min-width: 0;

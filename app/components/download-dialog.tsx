@@ -43,7 +43,7 @@ export function DownloadDialog({
   return (
     <dialog
       ref={dialog}
-      className="comment-dialog"
+      className="comment-dialog download-dialog"
       aria-labelledby={heading}
       onCancel={(event) => {
         event.preventDefault();
