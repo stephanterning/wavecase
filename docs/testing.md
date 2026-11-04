@@ -2,23 +2,26 @@
 
 ## Local development
 
-Use Node.js 24, PostgreSQL 17, and FFmpeg/ffprobe on `PATH`. Create a disposable development database and export these values in **both** web and worker terminals:
+Use Node.js 24 (`nvm use` or `fnm use` reads `.nvmrc`), PostgreSQL 17, and FFmpeg/ffprobe on `PATH`. The supplied Compose database is not exposed to the host. Without a local PostgreSQL 17, start a disposable one with development and test databases:
+
+```sh
+docker run -d --name wavecase-dev-db -p 127.0.0.1:5432:5432 \
+  -e POSTGRES_USER=wavecase -e POSTGRES_PASSWORD=development-password \
+  -e POSTGRES_DB=wavecase_dev postgres:17
+until docker exec wavecase-dev-db pg_isready -q -h 127.0.0.1 -U wavecase; do sleep 1; done
+docker exec wavecase-dev-db createdb -U wavecase wavecase_test
+```
+
+Remove it with `docker rm -f wavecase-dev-db`. Export the connection URL in **both** web and worker terminals; the Compose `.env` is not read by these scripts:
 
 ```sh
 export DATABASE_URL='postgres://wavecase:development-password@127.0.0.1:5432/wavecase_dev'
-export APP_URL='http://localhost:5173'
-export DATA_DIR="$PWD/data/dev-audio"
-```
-
-Replace the example credentials with your local database credentials. The supplied Compose database is not exposed to the host; use an accessible local database or run the whole app [in Docker](../README.md#run-with-docker). The Compose `.env` is not a substitute for exporting the environment to standalone scripts.
-
-```sh
 npm ci
 npm run db:migrate
 npm run dev
 ```
 
-In the second terminal, run `npm run worker`. Open [localhost:5173](http://localhost:5173); keep `APP_URL` aligned with the exact origin if the dev-server port changes. For a local production build, run `npm run build`, then use `APP_URL=http://localhost:3000 npm start` and set the worker's origin accordingly. The production server applies proxy/header/rate-limit handling that Vite development does not.
+In the second terminal, run `npm run worker`. Open [localhost:5173](http://localhost:5173), the origin `APP_URL` defaults to; set `APP_URL` in both terminals if the dev-server port changes. Media is stored in the ignored `data/audio`; set `DATA_DIR` to keep it apart from a Compose installation in the same checkout. For a local production build, run `npm run build`, then use `APP_URL=http://localhost:3000 npm start` and set the worker's origin accordingly. The production server applies proxy/header/rate-limit handling that Vite development does not.
 
 After schema changes, run `npm run db:generate`, review the generated SQL, and commit migrations with the schema. Keep exact dependency pins and `package-lock.json` together; regenerate [third-party notices](../THIRD_PARTY_NOTICES.md) with `npm run notices` after dependency changes.
 
@@ -33,7 +36,13 @@ npm run build
 
 `npm test` uses Node's test runner through `tsx`, including real FFmpeg fixtures. Database cases run only when `DATABASE_URL` ends **exactly** in `/wavecase_test`; otherwise they are skipped. Use a disposable database: tests change setup state, create accounts, and exercise migrations. Never point them at an installation's database or run concurrent suites against the same test database. Temporary test media is cleaned up by the tests.
 
-For local integration tests, create `wavecase_test`, export its connection URL, apply migrations, and run `npm test`. Alternatively, in a disposable checkout with Compose configured:
+For local integration tests against the database above:
+
+```sh
+DATABASE_URL="${DATABASE_URL%/wavecase_dev}/wavecase_test" sh -c 'npm run db:migrate && npm test'
+```
+
+Alternatively, in a disposable checkout with Compose configured:
 
 ```sh
 docker compose up -d --wait db
@@ -43,6 +52,8 @@ docker compose run --rm --no-deps web sh -ec 'export DATABASE_URL="${DATABASE_UR
 ```
 
 Create the database only once. Building the image also checks the production build. The URL substitution assumes the supplied Compose database name, `wavecase`. Use a separate checkout and Compose project from a running installation; set `COMPOSE_PROJECT_NAME=wavecase-check` for these commands if checkout names collide. [CI](../.github/workflows/ci.yml) uses its own PostgreSQL service and runs the complete suite.
+
+CI also runs `python3 -B -m unittest discover -s tests -p 'test_local_preview.py'`, which covers the reset safeguards in `scripts/local-test-data.py` ([local preview](local-preview.md)). Run it after changing that script.
 
 | Coverage | Tests |
 | --- | --- |
