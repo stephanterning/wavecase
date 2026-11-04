@@ -1439,6 +1439,9 @@ button:has(svg) {
   color: #aebdb3;
   margin-top: 6px;
 }
+.track-summary-failed {
+  color: #ffb7b0;
+}
 .artist-page .service-links {
   display: flex;
   flex-wrap: wrap;

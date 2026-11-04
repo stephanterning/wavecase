@@ -4,7 +4,7 @@ import {
   ReplaceAudio,
 } from "../components/demo-editors";
 import { ShareLinks } from "../components/share-links";
-import { visibleThroughLink } from "../domain/share-links";
+import { linkVersionScope, visibleThroughLink } from "../domain/share-links";
 import { shareVersionScope } from "../server/share-links";
 import { EditForm, useConfirmDiscard } from "../components/editing";
 import { demoWavAvailable } from "../server/download";
@@ -26,7 +26,12 @@ import {
 } from "react-router";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { and, count, desc, eq, getTableColumns, sql } from "drizzle-orm";
-import { versionStatuses } from "../domain/versions";
+import {
+  defaultVersionStatus,
+  nextVersionName,
+  versionNameFromFile,
+  versionStatuses,
+} from "../domain/versions";
 import { recordVisit } from "../components/telemetry";
 import { useEffect, useRef, useState } from "react";
 import { db } from "../server/db";
@@ -173,7 +178,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
   } else {
     try {
-      await uploadVersion(track.id, form);
+      return { ok: true, version: await uploadVersion(track.id, form) };
     } catch (error) {
       return formError(error);
     }
@@ -212,7 +217,8 @@ function TrackContents() {
   const [search] = useSearchParams();
   const confirmDiscard = useConfirmDiscard();
   const selectVersion = (id: string) => {
-    if (!confirmDiscard(["Edit version", "Replace audio"])) return false;
+    if (!confirmDiscard(["Edit version", "Replace audio", "Restore audio"]))
+      return false;
     setSelection(id);
     return true;
   };
@@ -257,6 +263,7 @@ function TrackContents() {
     previousVersion.current = current?.id;
   }, [current, data.owner, data.versions]);
   const revalidator = useRevalidator();
+  const nextName = nextVersionName(data.versions.map((v) => v.name));
   const artwork = data.track.cover
     ? `/cover/${data.track.id}?v=${data.track.coverRevision}${data.share ? "&share=" + data.share : ""}${data.preview ? "&preview=1" : ""}`
     : undefined;
@@ -289,6 +296,10 @@ function TrackContents() {
             resetOnSave
             encType="multipart/form-data"
             className="panel"
+            onSuccess={(saved) => {
+              if ("version" in saved && typeof saved.version === "string")
+                setSelection(saved.version);
+            }}
           >
             <h2 id="upload-version" tabIndex={-1}>
               Upload a version
@@ -303,21 +314,19 @@ function TrackContents() {
                   const file = e.target.files?.[0];
                   const field = e.target.form?.elements.namedItem("name");
                   if (file && field instanceof HTMLInputElement)
-                    field.value =
-                      file.name.match(/(?:^|[ _-])(v\d+(?:\.\d+)*)/i)?.[1] ||
-                      "v1";
+                    field.value = versionNameFromFile(file.name) || nextName;
                 }}
               />
             </label>
             <label>
               Version name
-              <input name="name" required defaultValue="v1" />
+              <input name="name" required defaultValue={nextName} />
             </label>
             <label>
               Status
               <select
                 name="status"
-                defaultValue={data.versions[0]?.status ?? "early idea"}
+                defaultValue={data.versions[0]?.status ?? defaultVersionStatus}
               >
                 {versionStatuses.map((status) => (
                   <option key={status}>{status}</option>
@@ -337,41 +346,52 @@ function TrackContents() {
         </nav>
       )}
       {result?.error && <p role="alert">{result.error}</p>}
-      {!data.owner && !data.versions.some((v) => v.state === "ready") && (
-        <Form
-          method="post"
-          onSubmit={(event) => {
-            if (data.preview) {
-              event.preventDefault();
-              alert("Preview only. No reupload request was sent.");
-              return;
-            }
-            const field = event.currentTarget.elements.namedItem("name");
-            if (field instanceof HTMLInputElement)
-              field.value = localStorage.getItem("wavecase.name") || "";
-          }}
-        >
-          <input type="hidden" name="name" />
-          <button>Request reupload</button>
-          {result?.requested && (
-            <p role="status">Your reupload request has been sent.</p>
-          )}
-        </Form>
+      {!data.owner && !data.versions.length && (
+        <p role="status">No version is available through this link.</p>
       )}
+      {!data.owner &&
+        !!data.versions.length &&
+        !data.versions.some((v) => v.state === "ready") && (
+          <Form
+            method="post"
+            onSubmit={(event) => {
+              if (data.preview) {
+                event.preventDefault();
+                alert("Preview only. No reupload request was sent.");
+                return;
+              }
+              const field = event.currentTarget.elements.namedItem("name");
+              if (field instanceof HTMLInputElement)
+                field.value = localStorage.getItem("wavecase.name") || "";
+            }}
+          >
+            <input type="hidden" name="name" />
+            <button>Request reupload</button>
+            {result?.requested && (
+              <p role="status">Your reupload request has been sent.</p>
+            )}
+          </Form>
+        )}
       {data.owner &&
-        data.requests.map((r) => (
-          <div key={r.linkId} className="panel">
-            Reupload requested via{" "}
-            {data.links.find((l) => l.id === r.linkId)?.label}
-            {r.name && <> · {r.name}</>}
-            <Form method="post" action={"/tracks/" + data.track.id + "/manage"}>
-              <input type="hidden" name="link" value={r.linkId} />
-              <button name="intent" value="dismiss-request">
-                Dismiss
-              </button>
-            </Form>
-          </div>
-        ))}
+        data.requests.map((r) => {
+          const link = data.links.find((l) => l.id === r.linkId);
+          return (
+            <div key={r.linkId} className="panel">
+              Reupload requested via {link?.label}
+              {link && <> · {linkVersionScope(link, data.versions)}</>}
+              {r.name && <> · {r.name}</>}
+              <Form
+                method="post"
+                action={"/tracks/" + data.track.id + "/manage"}
+              >
+                <input type="hidden" name="link" value={r.linkId} />
+                <button name="intent" value="dismiss-request">
+                  Dismiss
+                </button>
+              </Form>
+            </div>
+          );
+        })}
       {current && (
         <section className="panel player-panel">
           <div className="version-heading">
@@ -409,9 +429,11 @@ function TrackContents() {
           {current.description && (
             <p className="demo-description">{current.description}</p>
           )}
-          {data.owner && current.processing && (
-            <p role="status">Processing replacement audio…</p>
-          )}
+          {data.owner &&
+            current.processing &&
+            current.state !== "processing" && (
+              <p role="status">Processing replacement audio…</p>
+            )}
           {data.owner && current.error && <p role="alert">{current.error}</p>}
           <div className="metrics">
             {[
@@ -423,7 +445,8 @@ function TrackContents() {
               <span key={key}>
                 {label}{" "}
                 <strong>
-                  {typeof current.metadata?.[key] === "number"
+                  {current.state === "ready" &&
+                  typeof current.metadata?.[key] === "number"
                     ? Number(current.metadata[key]).toFixed(1)
                     : "—"}
                 </strong>

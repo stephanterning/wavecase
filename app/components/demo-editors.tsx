@@ -262,7 +262,7 @@ export function ReplaceAudio({
     >
       <EditForm
         key={version.id}
-        label="Replace audio"
+        label={missing ? "Restore audio" : "Replace audio"}
         encType="multipart/form-data"
         action={`/tracks/${trackId}/manage`}
         trigger={

@@ -5,7 +5,7 @@ import { TrackArtistField } from "../components/track-artist-field";
 import { artistChoices, resolveTrackArtist } from "../server/track-artist";
 import { uploadVersion } from "../server/upload";
 import { limitedBody } from "../server/request";
-import { versionStatuses } from "../domain/versions";
+import { defaultVersionStatus, versionStatuses } from "../domain/versions";
 import { redirect } from "react-router";
 import {
   Form,
@@ -148,7 +148,7 @@ export default function Library() {
           </label>
           <label>
             First version status
-            <select name="status" defaultValue="early idea">
+            <select name="status" defaultValue={defaultVersionStatus}>
               {versionStatuses.map((status) => (
                 <option key={status}>{status}</option>
               ))}

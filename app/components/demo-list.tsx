@@ -181,6 +181,12 @@ export function DemoList({
                           {track.latestVersion
                             ? `${track.latestVersion} · ${track.latestStatus}`
                             : "No versions yet"}
+                          {track.latestState === "failed" && (
+                            <span className="track-summary-failed">
+                              {" "}
+                              · Processing failed
+                            </span>
+                          )}
                         </small>
                       </div>
                     </div>
