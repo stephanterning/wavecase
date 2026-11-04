@@ -12,7 +12,7 @@ type ShareLink = {
   plays: number;
   downloads: number;
 };
-type Version = { id: string; name: string; position: number; state: string };
+type Version = { id: string; name: string; position?: number; state: string };
 
 function ShareVersionFields({
   versions,
