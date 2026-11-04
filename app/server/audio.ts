@@ -5,6 +5,7 @@ import { stat, unlink } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { join } from "node:path";
 import { playbackPlan } from "./audio-policy";
+import { InvalidAudioError } from "./processing-errors";
 const exec = promisify(execFile);
 const formats = "wav,aiff,flac,mp3,mov,matroska,ogg,aac,asf,ape,wv,au,caf";
 export const audioInput = [
@@ -34,12 +35,12 @@ export async function processAudio(directory: string, key: string) {
     Number(probe.format.duration) >
     Number(process.env.MAX_DURATION_SECONDS || 7200)
   )
-    throw new Error("Audio exceeds the configured duration limit");
+    throw new InvalidAudioError("Audio exceeds the configured duration limit");
   const audio = probe.streams.find(
     (s: { codec_type: string }) => s.codec_type === "audio",
   );
   if (!audio || audio.channels < 1 || audio.channels > 2)
-    throw new Error("Upload mono or stereo audio.");
+    throw new InvalidAudioError("Upload mono or stereo audio.");
   const plan = playbackPlan(
     audio.codec_name,
     Number(audio.sample_rate),
@@ -71,7 +72,7 @@ export async function processAudio(directory: string, key: string) {
       originalRaw,
     ]);
     const samples = (await stat(originalRaw)).size / (4 * audio.channels);
-    if (!samples) throw new Error("Audio is empty.");
+    if (!samples) throw new InvalidAudioError("Audio is empty.");
     // Floating-point masters can exceed full scale; integer PCM cannot. Reject
     // them before publishing and deleting their source rather than silently clip.
     if (/^pcm_f/.test(audio.codec_name)) {
@@ -80,11 +81,11 @@ export async function processAudio(directory: string, key: string) {
         for (let i = 0; i < bytes.length; i += 4) {
           const value = bytes.readFloatLE(i);
           if (!Number.isFinite(value))
-            throw new Error(
+            throw new InvalidAudioError(
               "Audio contains non-finite samples. Export a valid audio file and try again.",
             );
           if (Math.abs(value) > 1)
-            throw new Error(
+            throw new InvalidAudioError(
               "Audio exceeds the PCM range. Lower peaks to 0 dBFS or below and upload again.",
             );
         }
