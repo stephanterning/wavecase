@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { ConfirmButton } from "../components/confirm-dialog";
 import { EditForm, PreviewLink } from "../components/editing";
 import { LinkFields } from "../components/link-fields";
 import { removeAudioFiles } from "../server/audio-files";
@@ -437,36 +438,39 @@ export default function ReleaseEditor() {
           <details className="release-actions">
             <summary>Release actions</summary>
             {d.release.published ? (
-              <Form
-                method="post"
-                onSubmit={(event) => {
-                  if (
-                    !confirm(
-                      "Unpublish this release? Its public page and downloads will become unavailable until you publish again.",
-                    )
-                  )
-                    event.preventDefault();
-                }}
-              >
-                <button name="intent" value="unpublish">
+              <Form method="post">
+                <ConfirmButton
+                  name="intent"
+                  value="unpublish"
+                  confirmTitle={`Unpublish “${d.release.title}”?`}
+                  confirmMessage={
+                    <p>
+                      Its public page and downloads will become unavailable
+                      until you publish again.
+                    </p>
+                  }
+                  confirmLabel="Unpublish"
+                >
                   Unpublish
-                </button>
+                </ConfirmButton>
               </Form>
             ) : (
-              <Form
-                method="post"
-                onSubmit={(event) => {
-                  if (
-                    !confirm(
-                      `Permanently delete “${d.release.title}” and all its tracks, artwork, audio and activity? This cannot be undone.`,
-                    )
-                  )
-                    event.preventDefault();
-                }}
-              >
-                <button className="button-danger" name="intent" value="delete">
+              <Form method="post">
+                <ConfirmButton
+                  className="button-danger"
+                  name="intent"
+                  value="delete"
+                  confirmTitle={`Delete “${d.release.title}”?`}
+                  confirmMessage={
+                    <p>
+                      This permanently deletes the draft and all its tracks,
+                      artwork, audio and activity. This cannot be undone.
+                    </p>
+                  }
+                  confirmLabel="Delete draft"
+                >
                   Delete draft
-                </button>
+                </ConfirmButton>
               </Form>
             )}
           </details>
@@ -673,9 +677,23 @@ export default function ReleaseEditor() {
               {(t.original || t.pendingOriginal) && (
                 <Form method="post">
                   <input type="hidden" name="track" value={t.id} />
-                  <button name="intent" value="remove-audio">
+                  <ConfirmButton
+                    name="intent"
+                    value="remove-audio"
+                    confirmTitle={`Remove audio from “${t.title}”?`}
+                    confirmMessage={
+                      <p>
+                        The master and its downloads will be deleted. The track
+                        stays in the release.{" "}
+                        {d.release.published &&
+                          "The public page will show it without audio immediately. "}
+                        This cannot be undone.
+                      </p>
+                    }
+                    confirmLabel="Remove audio"
+                  >
                     Remove audio
-                  </button>
+                  </ConfirmButton>
                 </Form>
               )}
             </details>
