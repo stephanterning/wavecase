@@ -19,6 +19,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return { user: user ? { name: user.name, admin: user.admin } : null };
 }
 export const meta = () => [{ title: "Wavecase" }];
+export const links = () => [
+  { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+];
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root");
   const { pathname } = useLocation();

@@ -2,19 +2,19 @@ import { Link } from "react-router";
 import { ConfirmButton } from "../components/confirm-dialog";
 import { EditForm, PreviewLink } from "../components/editing";
 import { LinkFields } from "../components/link-fields";
+import { usePolling } from "../components/use-polling";
 import { removeAudioFiles } from "../server/audio-files";
+import { formatCount, formatDateTime } from "../domain/format";
 import { releasePath } from "../domain/releases";
 import {
   Form,
   redirect,
   useActionData,
   useLoaderData,
-  useRevalidator,
   useSearchParams,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "react-router";
-import { useEffect } from "react";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { unlink } from "node:fs/promises";
@@ -30,7 +30,12 @@ import {
   releaseAccess,
   storeArtwork,
 } from "../server/releases";
-import { releaseFields, trackFields, parseLinks } from "../domain/releases";
+import {
+  metadataLabels,
+  releaseFields,
+  trackFields,
+  parseLinks,
+} from "../domain/releases";
 import { boss, queue } from "../server/queue";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const data = await releaseAccess(request, params.id!, true);
@@ -301,6 +306,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     await upload?.discard();
   }
 }
+const activityKinds = ["visit", "play", "click"];
 function Fields({
   fields,
   values,
@@ -312,9 +318,7 @@ function Fields({
     <div className="release-fields">
       {fields.map((field) => (
         <label key={field}>
-          {field
-            .replace(/([A-Z])/g, " $1")
-            .replace(/^./, (s) => s.toUpperCase())}
+          {metadataLabels[field]}
           {field === "songwriters" && (
             <small>Separate names with commas or semicolons.</small>
           )}
@@ -342,15 +346,10 @@ export default function ReleaseEditor() {
   const result = useActionData<typeof action>();
   const [search] = useSearchParams();
   const activity = search.get("view") === "activity" || search.has("page");
-  const revalidator = useRevalidator();
-  const pending = d.tracks.some((t) => t.pendingOriginal);
-  useEffect(() => {
-    if (!pending) return;
-    const timer = setInterval(() => {
-      if (revalidator.state === "idle") void revalidator.revalidate();
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [pending, revalidator]);
+  usePolling(
+    d.tracks.some((t) => t.pendingOriginal),
+    3000,
+  );
   return (
     <>
       <div className="editor-heading-actions">
@@ -410,6 +409,15 @@ export default function ReleaseEditor() {
                     "✓ Track list added"
                   ) : (
                     <a href="#release-tracks">Add at least one track</a>
+                  )}
+                </li>
+                <li>
+                  {d.release.audioEnabled ? (
+                    "✓ Playback and downloads enabled"
+                  ) : (
+                    <a href="#release-details">
+                      Optional: enable playback and downloads
+                    </a>
                   )}
                 </li>
               </ul>
@@ -538,7 +546,7 @@ export default function ReleaseEditor() {
             </EditForm>
             <EditForm
               label="Artwork"
-              trigger="Change artwork"
+              trigger={d.release.cover ? "Change artwork" : "Add artwork"}
               encType="multipart/form-data"
               className="panel"
               id="release-artwork"
@@ -718,15 +726,21 @@ export default function ReleaseEditor() {
           </h2>
           {d.stats.length ? (
             <ul>
-              {d.stats.map((s, i) => (
-                <li key={i}>
-                  {s.kind}
-                  {s.trackId
-                    ? ` · ${d.tracks.find((t) => t.id === s.trackId)?.title}`
-                    : ""}
-                  {s.detail ? ` · ${s.detail}` : ""}: {s.count}
-                </li>
-              ))}
+              {d.stats
+                .toSorted(
+                  (a, b) =>
+                    activityKinds.indexOf(a.kind) -
+                    activityKinds.indexOf(b.kind),
+                )
+                .map((s, i) => (
+                  <li key={i}>
+                    {s.kind === "visit"
+                      ? formatCount(s.count, "page visit")
+                      : s.kind === "play"
+                        ? `${formatCount(s.count, "play")} · ${d.tracks.find((t) => t.id === s.trackId)?.title || "Removed track"}`
+                        : `${formatCount(s.count, "link click")} · ${s.detail}`}
+                  </li>
+                ))}
             </ul>
           ) : (
             <p>No visits, plays or link clicks yet.</p>
@@ -748,7 +762,7 @@ export default function ReleaseEditor() {
               <tbody>
                 {d.downloads.map((e) => (
                   <tr key={e.id}>
-                    <td>{new Date(e.createdAt).toISOString()}</td>
+                    <td>{formatDateTime(e.createdAt)}</td>
                     <td>{e.email}</td>
                     <td>{e.detail}</td>
                   </tr>

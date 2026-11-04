@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-
-const time = (seconds: number) =>
-  `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+import { formatClock } from "../domain/format";
 
 export function ReleaseSeek({
   position,
@@ -43,7 +41,7 @@ export function ReleaseSeek({
   }, [onSeek]);
   return (
     <label className="release-seek">
-      {time(preview ?? position)} / {time(duration)}
+      {formatClock(preview ?? position)} / {formatClock(duration)}
       <input
         ref={input}
         aria-label="Playback position"

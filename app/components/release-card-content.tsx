@@ -21,7 +21,7 @@ export function ReleaseCardContent({
         />
       ) : (
         <div className="management-artwork artwork-placeholder">
-          Add artwork
+          No artwork yet
         </div>
       )}
       <strong>{title}</strong>

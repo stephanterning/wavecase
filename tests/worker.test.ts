@@ -481,7 +481,10 @@ test(
       );
       const rejected = await waitFor(version);
       assert.equal(rejected.state, "ready");
-      assert.match(rejected.error!, /exactly the same duration/);
+      assert.match(
+        rejected.error!,
+        /exactly the same duration .* Current: 0:03, replacement: 0:02\.$/,
+      );
       assert.deepEqual(rejected.uploadedAt, initial.uploadedAt);
       assert.equal(rejected.pendingUploadedAt, null);
       assert.deepEqual(

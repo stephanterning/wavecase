@@ -65,6 +65,33 @@ test("release addresses, external URLs and package metadata", () => {
     ),
     /Included tracks: 0 of 2/,
   );
+  const info = releaseInfo(
+    {
+      title: "Pressure",
+      kind: "single",
+      description: "",
+      metadata: { releaseDate: "2026-11-01", upc: "123", genre: "Audit" },
+    },
+    "Martin Dice",
+    [
+      {
+        title: "Pressure",
+        position: 1,
+        metadata: { isrc: "SEAAA2600001", explicit: false },
+        sampleRate: 44100,
+        bitDepth: 16,
+      },
+    ],
+    1,
+  );
+  for (const line of [
+    "Release date: 2026-11-01",
+    "UPC: 123",
+    "Genre: Audit",
+    "ISRC: SEAAA2600001",
+    "Explicit: No",
+  ])
+    assert.ok(info.split("\n").includes(line), line);
 });
 test("release processing preserves original PCM WAV and produces reusable 320 kbps MP3 playback", async () => {
   const dir = await mkdtemp(join(tmpdir(), "release-audio-"));
@@ -508,7 +535,7 @@ test(
           );
           assert.match(
             entries.get(`${folder}/release-info.txt`)!.toString(),
-            /SEAAA2600001/,
+            /^ISRC: SEAAA2600001$/m,
           );
           assert.match(
             entries.get(`${folder}/release-info.txt`)!.toString(),

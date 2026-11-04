@@ -13,6 +13,7 @@ import { db } from "../server/db";
 import { events, links, versions } from "../server/schema";
 import { trackAccess } from "../server/access";
 import { ConfirmButton } from "../components/confirm-dialog";
+import { formatClock, formatCount, formatDateTime } from "../domain/format";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const access = await trackAccess(request, params.id!);
   if (!access.owner) throw new Response("Forbidden", { status: 403 });
@@ -44,19 +45,17 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 }
 type Row = Awaited<ReturnType<typeof loader>>["events"][number];
 const time = (value: Date | string | null) =>
-  value
-    ? new Date(value).toLocaleString("en-GB", { timeZone: "UTC" })
-    : "No activity";
-const seconds = (value: number) =>
-  `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, "0")}`;
+  value ? formatDateTime(value, { seconds: true }) : "No activity";
 function Summary({ rows }: { rows: Row[] }) {
   const stats = summarizeActivity(rows.map((r) => r.event));
   return (
     <>
       <p>
-        {stats.visits} visits · {stats.plays} plays · {stats.browsers} browsers
-        · {seconds(stats.listening)} listened · {stats.downloads} downloads
-        started
+        {formatCount(stats.visits, "visit")} ·{" "}
+        {formatCount(stats.plays, "play")} ·{" "}
+        {formatCount(stats.browsers, "browser")} ·{" "}
+        {formatClock(stats.listening)} listened ·{" "}
+        {formatCount(stats.downloads, "download")} started
       </p>
       <p className="muted">
         First: {time(stats.first)} · Latest: {time(stats.latest)}
@@ -110,24 +109,26 @@ function Heatmap({
         {bins.map((value, i) => (
           <span
             key={i}
-            title={`${seconds((i * duration) / bins.length)}: ${value.toFixed(1)} equivalent listens`}
+            title={`${formatClock((i * duration) / bins.length)}: ${value.toFixed(1)} equivalent listens`}
             style={{ opacity: 0.12 + (0.88 * value) / max }}
           />
         ))}
       </div>
       <div className="timeline-scale">
         <span>0:00</span>
-        <span>{seconds(duration)}</span>
+        <span>{formatClock(duration)}</span>
       </div>
     </>
   );
 }
 function eventDescription(event: Row["event"]) {
-  const start = seconds(event.position || 0),
-    end = seconds(event.end || 0);
+  const start = formatClock(event.position || 0),
+    end = formatClock(event.end || 0);
   switch (event.kind) {
     case "interval":
-      return `Played ${start} → ${end}`;
+      return start === end
+        ? `Played under a second at ${start}`
+        : `Played ${start} → ${end}`;
     case "seek":
       return `${(event.end || 0) >= (event.position || 0) ? "Skipped forward" : "Sought back"} ${start} → ${end}`;
     case "play":
@@ -273,9 +274,9 @@ export default function Analytics() {
           <section className="panel" key={version.id}>
             <h2>{version.name}</h2>
             <p>
-              {seconds(summarizeActivity(ev).listening)} listened ·{" "}
-              {seconds(uniqueCoverage(ev))} of {seconds(version.duration || 0)}{" "}
-              reached
+              {formatClock(summarizeActivity(ev).listening)} listened ·{" "}
+              {formatClock(uniqueCoverage(ev))} of{" "}
+              {formatClock(version.duration || 0)} reached
             </p>
             <Heatmap
               rows={activity}

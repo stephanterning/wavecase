@@ -2,6 +2,7 @@ import { Form, useLoaderData, useActionData } from "react-router";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { formatDate } from "../domain/format";
 import { db } from "../server/db";
 import { limitedBody } from "../server/request";
 import { invitations, settings, users, recoveries } from "../server/schema";
@@ -122,12 +123,7 @@ export default function Admin() {
           <Form key={invite.id} method="post">
             <input type="hidden" name="id" value={invite.id} />
             <p>
-              {invite.used
-                ? "Used"
-                : "Expires " +
-                  new Date(invite.expires).toLocaleDateString("en-GB", {
-                    timeZone: "UTC",
-                  })}{" "}
+              {invite.used ? "Used" : "Expires " + formatDate(invite.expires)}{" "}
               <button name="intent" value="revoke">
                 Revoke
               </button>

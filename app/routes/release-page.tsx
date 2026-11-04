@@ -11,10 +11,10 @@ import { SongwriterCredits } from "../components/songwriter-credits";
 import { useReleasePlayer } from "../components/release-player";
 import { ReleaseSeek } from "../components/release-seek";
 import { playbackGainDb } from "../components/playback-audio";
+import { usePolling } from "../components/use-polling";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   useLoaderData,
-  useRevalidator,
   type LoaderFunctionArgs,
   type MetaFunction,
 } from "react-router";
@@ -98,12 +98,7 @@ export default function ReleasePage() {
   );
   const playable = available.filter((t) => t.audioMeasurements);
   const waitingForMeasurements = available.some((t) => !t.audioMeasurements);
-  const revalidator = useRevalidator();
-  useEffect(() => {
-    if (!waitingForMeasurements) return;
-    const timer = setInterval(() => void revalidator.revalidate(), 3000);
-    return () => clearInterval(timer);
-  }, [waitingForMeasurements, revalidator]);
+  usePolling(waitingForMeasurements, 3000);
   const { playback, queue, index, status, position, duration } =
     useReleasePlayer();
   const selected =

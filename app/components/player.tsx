@@ -20,13 +20,12 @@ import {
   attachWaveformGestures,
   type CommentSelection,
 } from "./waveform-gestures";
+import { formatClock } from "../domain/format";
 export type Playback = {
   position: number;
   playing: boolean;
   versionId?: string;
 };
-const clock = (time: number) =>
-  `${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, "0")}`;
 export function Player({
   trackId,
   versionName,
@@ -282,7 +281,7 @@ export function Player({
         aria-valuemin={0}
         aria-valuemax={source?.duration ?? duration}
         aria-valuenow={position}
-        aria-valuetext={`${clock(position)} of ${clock(source?.duration ?? duration)}`}
+        aria-valuetext={`${formatClock(position)} of ${formatClock(source?.duration ?? duration)}`}
         aria-describedby="waveform-help"
       />
       <p className="waveform-help" id="waveform-help">
@@ -333,7 +332,7 @@ export function Player({
           </button>
         </span>
         <output className="playback-time" aria-label="Playback time">
-          {clock(position)} / {clock(source?.duration ?? duration)}
+          {formatClock(position)} / {formatClock(source?.duration ?? duration)}
         </output>
         <span
           className="tooltip"

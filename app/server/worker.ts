@@ -8,6 +8,7 @@ import { streamFile } from "./storage-keys";
 import { versions, comments, releaseTracks } from "./schema";
 import { boss, queue } from "./queue";
 import { processAudio, sameDuration } from "./audio";
+import { commentTime } from "../domain/comment-time";
 import { InvalidAudioError, retryProcessing } from "./processing-errors";
 import { startReleaseWorker, reconcileReleases } from "./release-worker";
 import { deleteExpiredTokens } from "./security";
@@ -45,16 +46,13 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
         const comment = await tx.query.comments.findFirst({
           where: eq(comments.versionId, version.id),
         });
-        if (
-          comment &&
-          current.metadata &&
-          !sameDuration(
-            current.metadata as { samples: number; sampleRate: number },
-            result.metadata,
-          )
-        )
+        const metadata = current.metadata as {
+          samples: number;
+          sampleRate: number;
+        } | null;
+        if (comment && metadata && !sameDuration(metadata, result.metadata))
           throw new InvalidAudioError(
-            "Replacement must have exactly the same duration because this version has comments.",
+            `Replacement must have exactly the same duration because this version has comments. Current: ${commentTime(metadata.samples / metadata.sampleRate)}, replacement: ${commentTime(result.metadata.samples / result.metadata.sampleRate)}.`,
           );
         await tx
           .update(versions)
