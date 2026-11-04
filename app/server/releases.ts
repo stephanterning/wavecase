@@ -132,7 +132,16 @@ export function publicRelease(data: Awaited<ReturnType<typeof releaseAccess>>) {
   return {
     artist: { name: data.artist.name, slug: data.artist.slug },
     owner: data.owner,
-    release: data.release,
+    release: {
+      id: data.release.id,
+      title: data.release.title,
+      slug: data.release.slug,
+      kind: data.release.kind,
+      description: data.release.description,
+      metadata: data.release.metadata,
+      links: data.release.links,
+      published: data.release.published,
+    },
     tracks: data.tracks.map((t) => ({
       id: t.id,
       title: t.title,
