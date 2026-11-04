@@ -270,19 +270,18 @@ export default function ArtistEdit() {
             className="artist-demo-list"
             aria-labelledby="artist-demos-heading"
           >
-            <div className="artist-section-heading">
+            <DemoList
+              key={a.id}
+              data={data.demos}
+              emptyMessage="No demos linked to this artist yet."
+            >
               <h2 id="artist-demos-heading">
                 Work in progress{" "}
                 <span className="section-count">
                   {data.demos.tracks.length}
                 </span>
               </h2>
-            </div>
-            <DemoList
-              key={a.id}
-              data={data.demos}
-              emptyMessage="No demos linked to this artist yet."
-            />
+            </DemoList>
           </section>
         </div>
         <aside>
