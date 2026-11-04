@@ -24,9 +24,9 @@ export const meta = () => [
 ];
 export const headers = () => ({ "Cache-Control": "no-store" });
 export async function loader({ request, params }: LoaderFunctionArgs) {
+  const { artist } = await artistInvitation(params.invitation!);
   const user = await viewer(request);
   if (!user) return signIn(params.invitation!);
-  const { artist } = await artistInvitation(params.invitation!);
   return {
     artist: { id: artist.id, name: artist.name },
     account: { id: user.id, name: user.name, email: user.email },
@@ -61,19 +61,33 @@ export default function ArtistInvitation() {
       <h1>
         {data.alreadyConnected ? "Artist already connected" : "Connect artist"}
       </h1>
-      <p>
-        Connect the artist <strong>{data.artist.name}</strong> to your Wavecase
-        account{" "}
-        <strong>
-          {data.account.name} — {data.account.email}
-        </strong>
-        ?
-      </p>
-      <p>
-        You will share all existing and future demos, versions, releases,
-        internal discussions, external feedback, links and statistics, with full
-        editing, publication and deletion rights.
-      </p>
+      {data.alreadyConnected ? (
+        <p>
+          The artist <strong>{data.artist.name}</strong> is already connected to
+          your account{" "}
+          <strong>
+            {data.account.name} — {data.account.email}
+          </strong>
+          . Opening this link does not use it; send it to the person you want to
+          invite.
+        </p>
+      ) : (
+        <>
+          <p>
+            Connect the artist <strong>{data.artist.name}</strong> to your
+            Wavecase account{" "}
+            <strong>
+              {data.account.name} — {data.account.email}
+            </strong>
+            ?
+          </p>
+          <p>
+            You will share all existing and future demos, versions, releases,
+            internal discussions, external feedback, links and statistics, with
+            full editing, publication and deletion rights.
+          </p>
+        </>
+      )}
       {result?.error && <p role="alert">{result.error}</p>}
       {data.alreadyConnected ? (
         <a href={`/artist-profiles/${data.artist.id}`}>Open artist</a>

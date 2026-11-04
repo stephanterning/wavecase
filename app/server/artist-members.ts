@@ -4,9 +4,14 @@ import { db } from "./db";
 import { artists, artistMembers, artistInvitations } from "./schema";
 import { token } from "./security";
 
+const unavailable = () =>
+  new Response(
+    "This invitation link has expired, been revoked or already been used.",
+    { status: 404 },
+  );
+
 export async function artistInvitation(id: string) {
-  if (!/^[A-Za-z0-9_-]{43}$/.test(id))
-    throw new Response("Invitation unavailable", { status: 404 });
+  if (!/^[A-Za-z0-9_-]{43}$/.test(id)) throw unavailable();
   const [row] = await db
     .select({ invitation: artistInvitations, artist: artists })
     .from(artistInvitations)
@@ -17,7 +22,7 @@ export async function artistInvitation(id: string) {
         gt(artistInvitations.expires, new Date()),
       ),
     );
-  if (!row) throw new Response("Invitation unavailable", { status: 404 });
+  if (!row) throw unavailable();
   return row;
 }
 
@@ -37,8 +42,7 @@ export async function acceptArtistInvitation(userId: string, id: string) {
         gt(artistInvitations.expires, new Date()),
       ),
     });
-    if (!invitation)
-      throw new Response("Invitation unavailable", { status: 404 });
+    if (!invitation) throw unavailable();
     const member = await tx.query.artistMembers.findFirst({
       where: and(
         eq(artistMembers.artistId, artist.id),

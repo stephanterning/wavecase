@@ -8,19 +8,29 @@ import {
 } from "@simplewebauthn/browser";
 import { db } from "../server/db";
 import { viewer } from "../server/security";
+import { recoveryAccount, validInvitation } from "../server/auth";
 export async function loader({ request }: LoaderFunctionArgs) {
-  const returnTo = loginDestination(
-    new URL(request.url).searchParams.get("returnTo"),
-  );
+  const params = new URL(request.url).searchParams;
+  const returnTo = loginDestination(params.get("returnTo"));
   if (await viewer(request)) return redirect(returnTo);
   const settings = await db.query.settings.findFirst();
+  const invitation = params.get("invitation");
+  const recovery = params.get("recovery");
+  const account = recovery && (await recoveryAccount(recovery));
+  const valid = !!invitation && (await validInvitation(invitation));
   return {
     returnTo,
     setup: !settings,
-    recovery: new URL(request.url).searchParams.get("recovery") || undefined,
     open: settings?.openRegistration || false,
-    invitation:
-      new URL(request.url).searchParams.get("invitation") || undefined,
+    invitation: (valid && invitation) || undefined,
+    invitationUnavailable: !!invitation && !valid,
+    recovery: recovery
+      ? {
+          id: recovery,
+          account: account && { name: account.name, email: account.email },
+        }
+      : undefined,
+    artistInvitation: returnTo.startsWith("/artist-invitations/"),
   };
 }
 async function post(path: string, body: unknown) {
@@ -37,9 +47,8 @@ async function post(path: string, body: unknown) {
 }
 export default function Home() {
   const data = useLoaderData<typeof loader>();
-  const [register, setRegister] = useState(
-    data.setup || !!data.invitation || !!data.recovery,
-  );
+  const account = data.recovery?.account;
+  const [register, setRegister] = useState(data.setup || !!data.invitation);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -48,14 +57,18 @@ export default function Home() {
     setError("");
     const form = new FormData(event.currentTarget);
     try {
-      if (register) {
-        const options = await post("register-options", {
-          name: form.get("name"),
-          email: form.get("email"),
-          open: form.get("open") === "on",
-          invitation: data.invitation,
-          recovery: data.recovery,
-        });
+      if (account || register) {
+        const options = await post(
+          "register-options",
+          account
+            ? { recovery: data.recovery!.id }
+            : {
+                name: form.get("name"),
+                email: form.get("email"),
+                open: form.get("open") === "on",
+                invitation: data.invitation,
+              },
+        );
         await post(
           "register-verify",
           await startRegistration({ optionsJSON: options }),
@@ -74,6 +87,39 @@ export default function Home() {
       setBusy(false);
     }
   }
+  if (account)
+    return (
+      <section className="welcome">
+        <p className="eyebrow">ACCOUNT RECOVERY</p>
+        <h1>Recover your account.</h1>
+        <form onSubmit={submit} className="panel">
+          <p>
+            <strong>{account.name}</strong>
+            <br />
+            {account.email}
+          </p>
+          <p className="muted">
+            Create a new passkey for this account. It replaces all of the
+            account's existing passkeys and ends all of its existing sessions.
+          </p>
+          <button className="button-primary" disabled={busy}>
+            {busy ? "Waiting for your passkey…" : "Replace passkeys"}
+          </button>
+          {error && <p role="alert">{error}</p>}
+        </form>
+      </section>
+    );
+  const notice = data.recovery
+    ? "This recovery link has expired or has already been used. Ask an administrator for a new one."
+    : data.invitationUnavailable
+      ? "This account invitation has expired, been used or been revoked. Ask an administrator for a new one."
+      : data.invitation && register
+        ? "Your invitation is valid. Create your account below."
+        : data.artistInvitation && !register
+          ? data.open
+            ? "Sign in to review your artist invitation. If you don't have an account yet, create one first; you will return to the invitation afterwards."
+            : "Sign in to review your artist invitation. To accept it you need a Wavecase account, and new accounts on this server require an account invitation from an administrator."
+          : "";
   return (
     <section className="welcome">
       <p className="eyebrow">PRIVATE MUSIC SHARING</p>
@@ -89,6 +135,7 @@ export default function Home() {
           ? "Create the first administrator account to set up Wavecase."
           : "Share your progress. Hear what matters."}
       </p>
+      {notice && <p role="status">{notice}</p>}
       <form onSubmit={submit} className="panel">
         {register && (
           <>
@@ -112,9 +159,7 @@ export default function Home() {
           {busy
             ? "Waiting for your passkey…"
             : register
-              ? data.recovery
-                ? "Replace lost passkeys"
-                : "Create account with passkey"
+              ? "Create account with passkey"
               : "Sign in with passkey"}
         </button>
         {error && <p role="alert">{error}</p>}

@@ -492,6 +492,7 @@ test(
       `/artist-profiles/${artist}`,
     );
     await assert.rejects(artistInvitation(id));
+    await assert.rejects(confirmation(inviteArgs(request())), { status: 404 });
     const extra = await createInvitation(owner, artist);
     await assert.rejects(acceptArtistInvitation(first, extra));
     await artistInvitation(extra); // Existing co-owners leave the link usable for someone else.
