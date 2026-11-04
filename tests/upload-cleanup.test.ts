@@ -22,7 +22,7 @@ import { action as editRelease } from "../app/routes/release-edit";
 after(() => pool.end());
 test(
   "uploads rejected by their transaction leave no stored file",
-  { skip: !process.env.DATABASE_URL?.endsWith("/wavecase_test") },
+  { skip: !enabled },
   async () => {
     const directory = await mkdtemp(join(tmpdir(), "wavecase-uploads-"));
     const previous = process.env.DATA_DIR;
