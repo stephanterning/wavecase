@@ -13,6 +13,7 @@ export function Icon({
     | "link"
     | "copy"
     | "eye"
+    | "heart"
     | "upload"
     | "dashboard"
     | "waveform"
@@ -99,6 +100,9 @@ export function Icon({
         </>
       )}
       {name === "close" && <path d="m6 6 12 12M18 6 6 18" />}
+      {name === "heart" && (
+        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" />
+      )}
     </svg>
   );
 }

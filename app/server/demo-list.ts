@@ -1,7 +1,7 @@
 import { and, desc, eq, getTableColumns, isNotNull, sql } from "drizzle-orm";
 import { db } from "./db";
 import { trackScope } from "./ownership";
-import { artists, tracks, versions } from "./schema";
+import { artists, trackFavorites, tracks, versions } from "./schema";
 import { hash } from "./security";
 
 export async function demoList(userId: string, artistId?: string) {
@@ -34,6 +34,25 @@ export async function demoList(userId: string, artistId?: string) {
     .select({
       ...getTableColumns(tracks),
       artist: sql<string>`coalesce(${artists.name}, ${tracks.artist})`,
+      favorite: sql<boolean>`exists (${db
+        .select({ id: trackFavorites.trackId })
+        .from(trackFavorites)
+        .where(
+          and(
+            eq(trackFavorites.trackId, tracks.id),
+            eq(trackFavorites.userId, userId),
+          ),
+        )})`,
+      versionCount: sql<number>`(${db
+        .select({ count: sql<number>`count(*)::integer` })
+        .from(versions)
+        .where(eq(versions.trackId, tracks.id))})`,
+      updatedAt: sql<string | null>`(${db
+        .select({
+          uploadedAt: sql<string | null>`max(${versions.uploadedAt})::text`,
+        })
+        .from(versions)
+        .where(eq(versions.trackId, tracks.id))})`,
       latestVersion: sql<string | null>`(${db
         .select({ name: versions.name })
         .from(versions)

@@ -56,8 +56,10 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
           .set({
             ...result,
             filename: current.pendingFilename!,
+            uploadedAt: current.pendingUploadedAt ?? current.createdAt,
             pendingOriginal: null,
             pendingFilename: null,
+            pendingUploadedAt: null,
             state: "ready",
             error: null,
           })
@@ -97,6 +99,7 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
               : "Audio could not be processed. Check the format and try again.",
           pendingOriginal: null,
           pendingFilename: null,
+          pendingUploadedAt: null,
         })
         .where(
           and(eq(versions.id, version.id), eq(versions.pendingOriginal, key)),

@@ -87,6 +87,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
             playback: null,
             pendingOriginal: null,
             pendingFilename: null,
+            pendingUploadedAt: null,
             error: null,
           })
           .where(eq(versions.trackId, access.track.id));
@@ -283,6 +284,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
               playback: null,
               pendingOriginal: null,
               pendingFilename: null,
+              pendingUploadedAt: null,
               error: null,
             })
             .where(eq(versions.id, id));
@@ -347,6 +349,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
             .set({
               pendingOriginal: key,
               pendingFilename: file.name,
+              pendingUploadedAt: new Date(),
               error: null,
             })
             .where(eq(versions.id, id));

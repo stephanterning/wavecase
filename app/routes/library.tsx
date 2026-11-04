@@ -16,7 +16,10 @@ import {
 } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { db } from "../server/db";
-import { tracks } from "../server/schema";
+import { and, eq } from "drizzle-orm";
+import { z } from "zod";
+import { trackScope } from "../server/ownership";
+import { trackFavorites, tracks } from "../server/schema";
 import { requireUser, sameOrigin } from "../server/security";
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
@@ -35,6 +38,35 @@ export async function action({ request }: ActionFunctionArgs) {
       Number(process.env.MAX_UPLOAD_MB || 256) * 1024 * 1024 + 65536,
     )
   ).formData();
+  if (form.get("intent") === "favorite") {
+    const trackId = z.uuid().safeParse(form.get("trackId"));
+    const favorite = form.get("favorite");
+    if (!trackId.success || (favorite !== "1" && favorite !== "0"))
+      return { error: "Choose a track and favorite state." };
+    await db.transaction(async (tx) => {
+      const [track] = await tx
+        .select({ id: tracks.id })
+        .from(tracks)
+        .where(and(eq(tracks.id, trackId.data), trackScope(user.id)))
+        .for("update");
+      if (!track) throw new Response("Not found", { status: 404 });
+      if (favorite === "1")
+        await tx
+          .insert(trackFavorites)
+          .values({ userId: user.id, trackId: track.id })
+          .onConflictDoNothing();
+      else
+        await tx
+          .delete(trackFavorites)
+          .where(
+            and(
+              eq(trackFavorites.userId, user.id),
+              eq(trackFavorites.trackId, track.id),
+            ),
+          );
+    });
+    return { error: undefined };
+  }
   const title = String(form.get("title") || "").trim();
   if (!title || title.length > 200)
     return { error: "Enter a title of up to 200 characters." };

@@ -85,6 +85,13 @@
       "when": 1793794325923,
       "tag": "0011_shared_artist_workspaces",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793814268743,
+      "tag": "0012_library_favorites_upload_dates",
+      "breakpoints": true
     }
   ]
 }
