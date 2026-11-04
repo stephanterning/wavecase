@@ -1,13 +1,28 @@
 import { WorkspacePlayerProvider } from "../components/workspace-player";
-import { requireUser } from "../server/security";
+import { viewer } from "../server/security";
 import type { LoaderFunctionArgs } from "react-router";
 import { Icon } from "../components/icons";
 import { EditingProvider } from "../components/editing";
+import { loginDestination } from "../domain/login-destination";
 import { useRef, useEffect } from "react";
-import { Link, Outlet, useLoaderData, useLocation } from "react-router";
+import {
+  Link,
+  Outlet,
+  redirect,
+  useLoaderData,
+  useLocation,
+} from "react-router";
 
-export async function loader({ request }: LoaderFunctionArgs) {
-  const user = await requireUser(request);
+export async function loader({ request, url }: LoaderFunctionArgs) {
+  const user = await viewer(request);
+  if (!user) {
+    const returnTo = loginDestination(url.pathname);
+    throw redirect(
+      returnTo === "/dashboard"
+        ? "/"
+        : "/?returnTo=" + encodeURIComponent(returnTo),
+    );
+  }
   return { userId: user.id };
 }
 
