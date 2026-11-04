@@ -18,6 +18,7 @@ import {
 import { hash, origin } from "../app/server/security";
 import { action as manage } from "../app/routes/manage";
 import { action as editRelease } from "../app/routes/release-edit";
+import { enabled } from "./database";
 
 after(() => pool.end());
 test(
