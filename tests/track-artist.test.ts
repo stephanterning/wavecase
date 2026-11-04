@@ -15,6 +15,7 @@ import { users, artists, tracks, links, sessions } from "../app/server/schema";
 import { resolveTrackArtist } from "../app/server/track-artist";
 import { hash, origin } from "../app/server/security";
 import { loader as artistPage } from "../app/routes/artist";
+import { TrackArtistField } from "../app/components/track-artist-field";
 const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
 process.env.DATABASE_URL ??= "postgres://localhost/wavecase_test";
 const { default: DemoPage, loader: demoPage } =
@@ -180,6 +181,77 @@ test(
       demoPage(args(listener, { share })),
       (e) => e instanceof Response && e.status === 404,
     );
+  },
+);
+
+test(
+  "editing a free-text demo keeps its artist until the user changes it",
+  { skip: !enabled },
+  async () => {
+    const owner = randomUUID(),
+      trackId = randomUUID(),
+      token = randomUUID();
+    await db
+      .insert(users)
+      .values({ id: owner, name: "Owner", email: owner + "@test.invalid" });
+    await db.insert(sessions).values({
+      id: hash(token),
+      userId: owner,
+      expires: new Date(Date.now() + 60000),
+    });
+    await db.insert(tracks).values({
+      id: trackId,
+      ownerId: owner,
+      title: "Free demo",
+      artist: "Audit Test Artist",
+    });
+    const artist = randomUUID();
+    await db.insert(artists).values({
+      id: artist,
+      ownerId: owner,
+      name: "Audit Test Artist",
+      slug: `audit-${artist}`,
+    });
+    assert.ok(
+      !renderToStaticMarkup(
+        createElement(TrackArtistField, {
+          confirmMove: true,
+          profiles: [
+            { id: artist, name: "Audit Test Artist", slug: `audit-${artist}` },
+          ],
+          name: "Audit Test Artist",
+        }),
+      ).includes("confirmArtistMove"),
+    );
+    const save = (values: Record<string, string>) =>
+      manageTrack(
+        args(
+          new Request(origin, {
+            method: "POST",
+            headers: { origin, cookie: `session=${token}` },
+            body: form({ intent: "metadata", title: "Free demo", ...values }),
+          }),
+          { id: trackId },
+        ),
+      );
+    const stored = async () =>
+      (await db.query.tracks.findFirst({ where: eq(tracks.id, trackId) }))!;
+    await save({ artist: "Audit Test Artist", description: "New text" });
+    const saved = await stored();
+    assert.equal(saved.artistId, null);
+    assert.equal(saved.artist, "Audit Test Artist");
+    assert.equal(saved.description, "New text");
+    await assert.rejects(
+      save({ artistId: artist, description: "New text" }),
+      (e) => e instanceof Response && e.status === 400,
+    );
+    assert.equal((await stored()).artistId, null);
+    await save({
+      artistId: artist,
+      confirmArtistMove: "yes",
+      description: "New text",
+    });
+    assert.equal((await stored()).artistId, artist);
   },
 );
 

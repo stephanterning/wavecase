@@ -27,7 +27,11 @@ export async function linkedArtist(artistId: string | null) {
     .where(eq(artists.id, artistId));
   return artist || null;
 }
-export async function resolveTrackArtist(ownerId: string, form: FormData) {
+export async function resolveTrackArtist(
+  ownerId: string,
+  form: FormData,
+  current?: { artistId: string | null; artist: string },
+) {
   const selected = form.get("artistId");
   if (selected) {
     const id = z.uuid().safeParse(selected);
@@ -50,6 +54,8 @@ export async function resolveTrackArtist(ownerId: string, form: FormData) {
       status: 400,
     });
   const name = parsed.data;
+  if (current && !current.artistId && name === current.artist.trim())
+    return { artistId: null, artist: current.artist };
   if (!name) return { artistId: null, artist: "" };
   const matches = await db
     .select(profileFields)

@@ -17,9 +17,10 @@ export function TrackArtistField({
     (profile) =>
       profile.name.trim().toLowerCase() === enteredName.trim().toLowerCase(),
   );
+  const unchangedName = !artistId && enteredName.trim() === name.trim();
   const destination =
     profiles.find((profile) => profile.id === selected) ||
-    (!selected && matches.length === 1 ? matches[0] : null);
+    (!selected && !unchangedName && matches.length === 1 ? matches[0] : null);
   const moving = confirmMove && (destination?.id || null) !== artistId;
   const suggestions = useId();
   return (
@@ -59,7 +60,7 @@ export function TrackArtistField({
         </label>
       )}
       {moving && (
-        <label key={destination?.id || "personal"}>
+        <label className="check" key={destination?.id || "personal"}>
           <input
             type="checkbox"
             name="confirmArtistMove"

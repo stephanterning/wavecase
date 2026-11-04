@@ -170,7 +170,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         .parse(form.get("field") || "all");
       const artist =
         field === "artist" || field === "all"
-          ? await resolveTrackArtist(user.id, form)
+          ? await resolveTrackArtist(user.id, form, access.track)
           : null;
       if (
         artist &&
