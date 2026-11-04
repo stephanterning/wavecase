@@ -11,7 +11,7 @@ import { loader } from "../app/routes/library";
 after(() => pool.end());
 
 test(
-  "library shows each owned track's newest uploaded version and status",
+  "library separates newest upload metadata from the newest playable owned version",
   { skip: !process.env.DATABASE_URL?.endsWith("/wavecase_test") },
   async () => {
     const owner = randomUUID();
@@ -38,9 +38,19 @@ test(
       for (const version of [
         { trackId: track, name: "v5", status: "work in progress" },
         { trackId: track, name: "v5.1", status: "to finish" },
+        { trackId: track, name: "v5.2", status: "early idea" },
         { trackId: foreign, name: "v99", status: "finished" },
       ]) {
-        await db.insert(versions).values({ ...version, filename: "test.wav" });
+        await db.insert(versions).values({
+          ...version,
+          filename: "test.wav",
+          state: version.name === "v5.2" ? "processing" : "ready",
+          original: "private-source-" + version.name,
+          playback:
+            version.name === "v5.2" ? null : "private-source-" + version.name,
+          duration: 60,
+          metadata: { lufs: -16, peak: -3, truePeak: -2 },
+        });
       }
       const request = new Request(`${origin}/library`, {
         headers: { cookie: `session=${token}` },
@@ -54,8 +64,14 @@ test(
       });
       assert.equal(result.tracks.length, 2);
       const kiosken = result.tracks.find((row) => row.id === track)!;
-      assert.equal(kiosken.latestVersion, "v5.1");
-      assert.equal(kiosken.latestStatus, "to finish");
+      assert.equal(kiosken.latestVersion, "v5.2");
+      assert.equal(kiosken.latestStatus, "early idea");
+      assert.equal(result.playable.length, 1);
+      assert.equal(result.playable[0].trackId, track);
+      assert.equal(result.playable[0].name, "v5.1");
+      assert.equal(result.playable[0].duration, 60);
+      assert.equal(result.availableSources.length, 2);
+      assert.ok(!JSON.stringify(result.playable).includes("private-source-"));
       const unversioned = result.tracks.find((row) => row.id === empty)!;
       assert.equal(unversioned.latestVersion, null);
       assert.equal(unversioned.latestStatus, null);

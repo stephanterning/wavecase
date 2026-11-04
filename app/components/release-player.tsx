@@ -2,7 +2,6 @@ import {
   createContext,
   useContext,
   useEffect,
-  useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
@@ -10,6 +9,7 @@ import {
 import { Link } from "react-router";
 import { ReleasePlayback } from "./release-playback";
 import { useMediaSession } from "./media-session";
+import { BufferedAudio } from "./buffered-audio";
 import { Icon } from "./icons";
 
 const PlaybackContext = createContext<ReleasePlayback | null>(null);
@@ -37,12 +37,12 @@ export function ReleasePlayerProvider({ children }: { children: ReactNode }) {
 }
 
 function ReleasePlayer() {
-  const { playback, queue, index, status, error } = useReleasePlayer();
-  const audio = useRef<HTMLAudioElement>(null);
+  const { playback, queue, index, status, error, repeat, seeking, media } =
+    useReleasePlayer();
   const track = queue?.tracks[index];
   const active = status === "playing" || status === "loading";
   useEffect(() => {
-    if (audio.current) return playback.attach(audio.current);
+    return playback.attach();
   }, [playback]);
   useEffect(() => {
     const keyboard = (event: KeyboardEvent) => {
@@ -73,7 +73,7 @@ function ReleasePlayer() {
     return () => window.removeEventListener("keydown", keyboard, true);
   }, [playback]);
   useMediaSession(
-    audio,
+    media,
     {
       title: track?.title,
       artist: track?.artist,
@@ -85,7 +85,6 @@ function ReleasePlayer() {
   );
   return (
     <>
-      <audio ref={audio} preload="none" hidden />
       {(queue || error) && (
         <aside className="release-mini" aria-label="Music player">
           {queue && track && (
@@ -115,6 +114,23 @@ function ReleasePlayer() {
               >
                 <Icon name={active ? "pause" : "play"} />
               </button>
+              <button
+                type="button"
+                className="icon-action"
+                aria-label="Repeat track"
+                aria-pressed={repeat}
+                data-tooltip={repeat ? "Repeat track on" : "Repeat track off"}
+                onClick={() => playback.setRepeat(!repeat)}
+              >
+                <Icon name="repeat" />
+              </button>
+              {status === "loading" && (
+                <span role="status">Loading audio…</span>
+              )}
+              {media && !(media instanceof BufferedAudio) && (
+                <span>Streaming</span>
+              )}
+              {seeking && <span role="status">Seeking…</span>}
             </>
           )}
           {error && <p role="alert">{error}</p>}

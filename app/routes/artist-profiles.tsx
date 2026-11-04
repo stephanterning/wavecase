@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { useState } from "react";
 import { AddressField } from "../components/address-field";
 import {
@@ -85,9 +86,9 @@ export default function ArtistProfiles() {
       </CreateDialog>
       <div className="catalog-grid">
         {data.artists.map((a) => (
-          <a
+          <Link
             className="panel release-card"
-            href={`/artist-profiles/${a.id}`}
+            to={`/artist-profiles/${a.id}`}
             key={a.id}
           >
             {a.image ? (
@@ -108,7 +109,7 @@ export default function ArtistProfiles() {
             <p className="muted">
               {a.releases} {a.releases === 1 ? "release" : "releases"}
             </p>
-          </a>
+          </Link>
         ))}
       </div>
       {!data.artists.length && (

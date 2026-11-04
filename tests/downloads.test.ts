@@ -114,6 +114,7 @@ test(
         join(directory, "master.wav"),
       ]);
       const result = await processAudio(directory, "master.wav");
+      const preparedFiles = await readdir(directory);
       await db.insert(versions).values({
         id: version,
         trackId: track,
@@ -169,7 +170,7 @@ test(
         });
       await assert.rejects(detailsRequest(), status(403));
       await assert.rejects(get("mp3"), status(403));
-      assert.deepEqual(await readdir(directory), ["cover.jpg", "master.wav"]);
+      assert.deepEqual(await readdir(directory), preparedFiles);
       await db.update(links).set({ download: true }).where(eq(links.id, link));
       await db
         .update(versions)
@@ -192,7 +193,7 @@ test(
       );
       await assert.rejects(oldGet(), status(405));
       await assert.rejects(oldGet("HEAD"), status(405));
-      assert.deepEqual(await readdir(directory), ["cover.jpg", "master.wav"]);
+      assert.deepEqual(await readdir(directory), preparedFiles);
       const details = await detailsRequest();
       assert.equal(details.headers.get("Cache-Control"), "private, no-store");
       assert.ok((await details.json()).wav.bytes > 0);

@@ -391,6 +391,17 @@ test(
         `${origin}/release-assets/${release}/audio?track=${track}`,
         { headers: { range: "bytes=0-9" } },
       );
+      const streamRequest = new Request(ranged.url + "&stream=manifest");
+      const manifest = await (
+        await assetLoader(args(streamRequest, "audio"))
+      ).json();
+      const streamPart = new Request(
+        ranged.url + "&stream=0&revision=" + manifest.revision,
+      );
+      assert.ok(
+        (await (await assetLoader(args(streamPart, "audio"))).arrayBuffer())
+          .byteLength > 0,
+      );
       const audio = await assetLoader(args(ranged, "audio"));
       assert.equal(audio.status, 206);
       assert.equal((await audio.arrayBuffer()).byteLength, 10);
@@ -639,6 +650,8 @@ test(
         await blocker.query("ROLLBACK");
         blocker.release();
       }
+      for (const request of [streamRequest, streamPart])
+        await assert.rejects(assetLoader(args(request, "audio")), denied(404));
       const revoked = await waiting;
       assert.ok(revoked instanceof Response && revoked.status === 403);
       await db

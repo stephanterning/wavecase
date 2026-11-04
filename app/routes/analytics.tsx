@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { heatmap } from "../domain/listening";
 import {
   activityTimeline,
@@ -164,7 +165,7 @@ export default function Analytics() {
   const downloads = rows.filter((r) => r.event.kind === "download-started");
   return (
     <>
-      <a href={"/tracks/" + data.track.id}>← {data.track.title}</a>
+      <Link to={"/tracks/" + data.track.id}>← {data.track.title}</Link>
       <h1>Listening activity</h1>
       <details className="analytics-explanation">
         <summary>About these statistics</summary>

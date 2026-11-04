@@ -1,13 +1,25 @@
+import { stat, rm } from "node:fs/promises";
+import { join } from "node:path";
 import { eq, and, sql, isNotNull } from "drizzle-orm";
 import { removeAudioFiles } from "./audio-files";
 import { db } from "./db";
-import { versions, comments } from "./schema";
+import { prepareStream, streamManifest, streamSuffix } from "./audio-stream";
+import { versions, comments, releaseTracks } from "./schema";
 import { boss, queue } from "./queue";
 import { processAudio, sameDuration } from "./audio";
 import { startReleaseWorker, reconcileReleases } from "./release-worker";
 const directory = process.env.DATA_DIR || "data/audio";
 await queue();
 await startReleaseWorker();
+await boss.work<{ key: string }>("prepare-stream", async (jobs) => {
+  for (const job of jobs) {
+    try {
+      await prepareStream(directory, job.data.key);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
+});
 await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
   for (const job of jobs) {
     const version = await db.query.versions.findFirst({
@@ -96,6 +108,39 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
 // Reconcile pending uploads so a crash between storing a file and queueing it is recoverable.
 async function reconcile() {
   await reconcileReleases();
+  const sources = await db
+    .select({ key: versions.playback })
+    .from(versions)
+    .where(and(isNotNull(versions.playback), eq(versions.state, "ready")));
+  const demos = new Set(sources.map((source) => source.key));
+  const releases = await db
+    .select({ key: releaseTracks.playback })
+    .from(releaseTracks)
+    .where(isNotNull(releaseTracks.playback));
+  for (const { key } of releases) {
+    if (!key || demos.has(key)) continue;
+    if (!key.endsWith(".mp3")) {
+      sources.push({ key });
+      continue;
+    }
+    // Old deployments prepared PCM for releases. Only remove the derived pair.
+    await rm(join(directory, key + streamSuffix + ".json"), { force: true });
+    await rm(join(directory, key + streamSuffix + ".pcm"), { force: true });
+  }
+  for (const { key } of sources) {
+    if (!key || (await streamManifest(directory, key))) continue;
+    try {
+      await stat(join(directory, key));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw error;
+    }
+    await boss.send(
+      "prepare-stream",
+      { key },
+      { singletonKey: key, retryLimit: 3, retryDelay: 10 },
+    );
+  }
   const pending = await db
     .select({ id: versions.id })
     .from(versions)

@@ -765,7 +765,7 @@ body:has(.release-mini) {
   padding: 8px 0;
   margin: 0;
 }
-.library-table td:first-child {
+.library-table td:nth-child(2) {
   width: 45%;
   overflow-wrap: anywhere;
 }
@@ -1844,4 +1844,15 @@ button:has(svg) {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
+}
+
+.library-table td:first-child,
+.library-table th:first-child {
+  width: 56px;
+  padding-right: 4px;
+}
+.library-play {
+  position: relative;
+  z-index: 1;
+  margin: 0;
 }

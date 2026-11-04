@@ -1,4 +1,12 @@
-import { disconnectPlaybackAudio, playNormalized } from "./playback-audio";
+import {
+  cancelPlaybackSeek,
+  createPlaybackMedia,
+  type PlaybackMedia,
+  disconnectPlaybackAudio,
+  observePlaybackLoop,
+  playNormalized,
+  seekPlayback,
+} from "./playback-audio";
 
 export type ReleaseQueue = {
   releaseId: string;
@@ -15,12 +23,15 @@ export type ReleaseQueue = {
   }[];
 };
 export type ReleasePlaybackState = {
+  media: PlaybackMedia | null;
   queue: ReleaseQueue | null;
   index: number;
   status: "idle" | "loading" | "playing" | "paused" | "ended" | "error";
   position: number;
   duration: number;
   error: string;
+  repeat: boolean;
+  seeking: boolean;
 };
 
 function recordPlay(releaseId: string, trackId: string) {
@@ -36,20 +47,25 @@ function recordPlay(releaseId: string, trackId: string) {
 }
 
 // One controller belongs to one mounted public layout. Pages only select music
-// or control this same media element; navigating never loads another source.
+// or control its active transport; navigating never loads another source.
 export class ReleasePlayback {
   private state: ReleasePlaybackState = {
+    media: null,
     queue: null,
     index: 0,
     status: "idle",
     position: 0,
     duration: 0,
     error: "",
+    repeat: false,
+    seeking: false,
   };
   private listeners = new Set<() => void>();
-  private media: HTMLAudioElement | null = null;
+  private media: PlaybackMedia | null = null;
   private attempt = 0;
   private counted = false;
+  private ownsMedia = false;
+  private detachMedia?: () => void;
 
   constructor(
     private playAudio = playNormalized,
@@ -68,8 +84,21 @@ export class ReleasePlayback {
     for (const listener of this.listeners) listener();
   }
 
-  attach(media: HTMLAudioElement) {
+  attach(media?: PlaybackMedia) {
+    this.ownsMedia = !media;
+    if (media) this.detachMedia = this.bind(media);
+    return () => {
+      this.detachMedia?.();
+      this.detachMedia = undefined;
+      this.ownsMedia = false;
+    };
+  }
+
+  private bind(media: PlaybackMedia) {
     this.media = media;
+    this.update({ media });
+    media.loop = this.state.repeat;
+    const stopLoop = observePlaybackLoop(media);
     const listeners = {
       play: () => {
         if (!media.paused) this.update({ status: "loading", error: "" });
@@ -94,6 +123,17 @@ export class ReleasePlayback {
         }
       },
       timeupdate: () => this.update({ position: media.currentTime }),
+      seeking: () => this.update({ seeking: true }),
+      "wavecase-user-seek": () => this.update({ seeking: true }),
+      "wavecase-user-seeked": () =>
+        this.update({ seeking: false, position: media.currentTime }),
+      seeked: () =>
+        this.update({ seeking: false, position: media.currentTime }),
+      "wavecase-loop": () => {
+        const { queue, index } = this.state;
+        if (queue?.countPlays)
+          this.onPlay(queue.releaseId, queue.tracks[index].id);
+      },
       durationchange: () => {
         if (Number.isFinite(media.duration))
           this.update({ duration: media.duration });
@@ -112,6 +152,7 @@ export class ReleasePlayback {
     for (const [event, listener] of Object.entries(listeners))
       media.addEventListener(event, listener);
     return () => {
+      stopLoop();
       ++this.attempt;
       for (const [event, listener] of Object.entries(listeners))
         media.removeEventListener(event, listener);
@@ -120,12 +161,13 @@ export class ReleasePlayback {
       media.removeAttribute("src");
       media.load();
       this.media = null;
+      this.update({ media: null });
     };
   }
 
   start = (release: ReleaseQueue, trackId: string) => {
     const index = release.tracks.findIndex((track) => track.id === trackId);
-    if (index < 0 || !this.media) return;
+    if (index < 0 || (!this.media && !this.ownsMedia)) return;
     const current = this.state.queue;
     if (
       current?.releaseId === release.releaseId &&
@@ -143,10 +185,16 @@ export class ReleasePlayback {
 
   private load(index: number) {
     const { queue } = this.state;
-    if (!queue || !this.media) return Promise.resolve();
-    ++this.attempt;
-    this.media.pause();
+    if (!queue) return Promise.resolve();
     const track = queue.tracks[index];
+    if (this.ownsMedia) {
+      this.detachMedia?.();
+      this.detachMedia = this.bind(createPlaybackMedia(track.duration));
+    }
+    if (!this.media) return Promise.resolve();
+    ++this.attempt;
+    cancelPlaybackSeek(this.media);
+    this.media.pause();
     this.counted = false;
     this.update({
       index,
@@ -154,6 +202,7 @@ export class ReleasePlayback {
       position: 0,
       duration: track.duration,
       error: "",
+      seeking: false,
     });
     this.media.src = `/release-assets/${queue.releaseId}/audio?track=${track.id}`;
     return this.play();
@@ -163,7 +212,12 @@ export class ReleasePlayback {
     const { queue, index, status } = this.state;
     const media = this.media;
     if (!queue || !media) return;
-    if (status === "ended") return this.load(0);
+    if (status === "ended") {
+      const next = this.state.repeat ? index : 0;
+      if (next !== index) return this.load(next);
+      // Keep the beginning already held by the current transport for Replay.
+      this.counted = false;
+    }
     if (media.error) media.load();
     const attempt = ++this.attempt;
     this.update({ status: "loading", error: "" });
@@ -198,11 +252,16 @@ export class ReleasePlayback {
   seek = (position: number) => {
     if (!this.media || !Number.isFinite(position)) return;
     const next = Math.max(0, Math.min(position, this.state.duration));
-    this.media.currentTime = next;
+    seekPlayback(this.media, next);
     this.update({
       position: next,
       ...(this.state.status === "ended" ? { status: "paused" as const } : {}),
     });
+  };
+
+  setRepeat = (repeat: boolean) => {
+    if (this.media) this.media.loop = repeat;
+    this.update({ repeat });
   };
 
   fail = (

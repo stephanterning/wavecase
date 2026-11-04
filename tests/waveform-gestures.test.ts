@@ -31,7 +31,7 @@ test("waveform gestures support both selection directions, zoomed coordinates, t
   const surface = new Surface();
   let width = 1000,
     scroll = 0;
-  const media = { currentTime: 0 };
+  const media = Object.assign(new EventTarget(), { currentTime: 0 });
   const selections: CommentSelection[] = [];
   const stop = attachWaveformGestures(
     surface as unknown as HTMLElement,
