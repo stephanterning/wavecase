@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { manageArtistMembers } from "../server/artist-members";
+import { Link } from "react-router";
 import { ReleaseCardContent } from "../components/release-card-content";
 import { Icon } from "../components/icons";
 import { EditForm, PreviewLink } from "../components/editing";
@@ -140,7 +141,7 @@ export default function ArtistEdit() {
   return (
     <>
       <div className="editor-toolbar">
-        <a href="/artist-profiles">Artists</a>
+        <Link to="/artist-profiles">Artists</Link>
         <PreviewLink href={`/artists/${a.slug}?preview=1`}>
           Preview artist page
         </PreviewLink>
@@ -348,20 +349,20 @@ export default function ArtistEdit() {
             <h2>
               Releases <span className="section-count">{rows.length}</span>
             </h2>
-            <a
+            <Link
               className="artist-icon-action"
-              href={`/releases?create=1&artist=${a.id}`}
+              to={`/releases?create=1&artist=${a.id}`}
               aria-label={`Add release for ${a.name}`}
               title={`Add release for ${a.name}`}
             >
               <Icon name="plus" />
-            </a>
+            </Link>
           </div>
           <div className="catalog-grid">
             {rows.map((release) => (
-              <a
+              <Link
                 className="catalog-item"
-                href={`/releases/${release.id}`}
+                to={`/releases/${release.id}`}
                 key={release.id}
               >
                 <ReleaseCardContent
@@ -381,7 +382,7 @@ export default function ArtistEdit() {
                   {release.published && <Icon name="check-circle" />}
                   {release.published ? "Published" : "Draft"}
                 </span>
-              </a>
+              </Link>
             ))}
           </div>
           {!rows.length && (

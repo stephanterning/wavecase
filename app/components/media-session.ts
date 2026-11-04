@@ -1,10 +1,13 @@
-import { useEffect, useEffectEvent, type RefObject } from "react";
+import type { PlaybackMedia } from "./playback-audio";
+import { useEffect, useEffectEvent } from "react";
+import { seekPlayback } from "./playback-audio";
 
 export function attachMediaSession(
-  media: HTMLAudioElement,
+  media: PlaybackMedia,
   metadata: MediaMetadataInit,
   onError: () => void,
   onPlay: () => Promise<void> = () => media.play(),
+  onPause: () => void = () => media.pause(),
 ) {
   if (!("mediaSession" in navigator)) return () => {};
   const session = navigator.mediaSession;
@@ -12,9 +15,9 @@ export function attachMediaSession(
     typeof MediaMetadata !== "undefined" ? new MediaMetadata(metadata) : null;
   const handlers = {
     play: () => void onPlay().catch(onError),
-    pause: () => media.pause(),
+    pause: onPause,
     seekto: (details: MediaSessionActionDetails) => {
-      if (details.seekTime !== undefined) media.currentTime = details.seekTime;
+      if (details.seekTime !== undefined) seekPlayback(media, details.seekTime);
     },
   };
   for (const action of Object.keys(handlers) as (keyof typeof handlers)[]) {
@@ -54,7 +57,7 @@ export function attachMediaSession(
 }
 
 export function useMediaSession(
-  audioRef: RefObject<HTMLAudioElement | null>,
+  media: PlaybackMedia | null,
   {
     title,
     artist = "",
@@ -68,18 +71,20 @@ export function useMediaSession(
   },
   onError: () => void,
   onPlay: () => Promise<void>,
+  onPause?: () => void,
 ) {
   const fail = useEffectEvent(onError);
   const play = useEffectEvent(onPlay);
+  const pause = useEffectEvent(() => (onPause ? onPause() : media?.pause()));
   const { src, sizes, type } = artwork ?? {};
   useEffect(() => {
-    const media = audioRef.current;
     if (!media || title === undefined) return;
     return attachMediaSession(
       media,
       { title, artist, album, artwork: src ? [{ src, sizes, type }] : [] },
       () => fail(),
       () => play(),
+      () => pause(),
     );
-  }, [audioRef, title, artist, album, src, sizes, type]);
+  }, [media, title, artist, album, src, sizes, type]);
 }

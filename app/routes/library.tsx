@@ -1,5 +1,13 @@
 import { trackScope } from "../server/ownership";
 import { useState, useRef, useEffect } from "react";
+import {
+  useWorkspacePlayback,
+  useWorkspaceSnapshot,
+} from "../components/workspace-player";
+import { useSyncExternalStore } from "react";
+import { Icon } from "../components/icons";
+import { playbackGainDb } from "../components/playback-audio";
+import type { DemoSource } from "../components/demo-playback";
 import { TrackArtistField } from "../components/track-artist-field";
 import { artistChoices, resolveTrackArtist } from "../server/track-artist";
 import { uploadVersion } from "../server/upload";
@@ -7,6 +15,7 @@ import { limitedBody } from "../server/request";
 import { versionStatuses } from "../domain/versions";
 import { redirect } from "react-router";
 import {
+  Link,
   Form,
   useLoaderData,
   useActionData,
@@ -14,14 +23,42 @@ import {
   useSearchParams,
 } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { desc, eq, getTableColumns, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, isNotNull, sql } from "drizzle-orm";
 import { db } from "../server/db";
 import { tracks, versions } from "../server/schema";
-import { requireUser, sameOrigin } from "../server/security";
+import { hash, requireUser, sameOrigin } from "../server/security";
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
+  const ready = await db
+    .select({
+      id: versions.id,
+      trackId: versions.trackId,
+      original: versions.original,
+      name: versions.name,
+      metadata: versions.metadata,
+      duration: versions.duration,
+    })
+    .from(versions)
+    .innerJoin(tracks, eq(versions.trackId, tracks.id))
+    .where(
+      and(
+        trackScope(user.id),
+        eq(versions.state, "ready"),
+        isNotNull(versions.playback),
+      ),
+    )
+    .orderBy(desc(versions.position));
+  const playable = ready.map(({ original, ...version }) => ({
+    ...version,
+    revision: original ? hash(original) : "missing",
+  }));
   return {
     user,
+    availableSources: playable.map((v) => v.id + v.revision),
+    playable: playable.filter(
+      (v, index) =>
+        playable.findIndex((other) => other.trackId === v.trackId) === index,
+    ),
     artists: await artistChoices(user.id),
     tracks: await db
       .select({
@@ -71,9 +108,48 @@ export async function action({ request }: ActionFunctionArgs) {
   if (file instanceof File && file.size) await uploadVersion(track.id, form);
   return redirect("/tracks/" + track.id);
 }
+function LibraryPlay({
+  source,
+}: {
+  source: (DemoSource & { trackId: string }) | null;
+}) {
+  const workspace = useWorkspacePlayback()!;
+  const { playback, trackId } = useWorkspaceSnapshot(workspace);
+  const empty = () => null;
+  const state = useSyncExternalStore(
+    playback?.subscribe ?? (() => () => {}),
+    playback?.getSnapshot ?? empty,
+    playback?.getSnapshot ?? empty,
+  );
+  const active =
+    (state?.source?.key === source?.key ||
+      (!state?.source && trackId === source?.trackId)) &&
+    (state?.playing || state?.starting);
+  return (
+    <button
+      type="button"
+      className="icon-action library-play"
+      disabled={!source}
+      aria-label={
+        source
+          ? `${active ? "Pause" : "Play"} ${source.title}`
+          : "No playable version"
+      }
+      onClick={() => {
+        if (source) workspace.start(source);
+      }}
+    >
+      <Icon name={active ? "pause" : "play"} />
+    </button>
+  );
+}
 export default function Library() {
+  const workspace = useWorkspacePlayback()!;
   const data = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
+  useEffect(() => {
+    workspace.getSnapshot().playback?.reconcile(data.availableSources);
+  }, [workspace, data.availableSources]);
   const [filter, setFilter] = useState("");
   const [sort, setSort] = useState<"title" | "createdAt" | "artist">(
     "createdAt",
@@ -150,6 +226,7 @@ export default function Library() {
         <table className="library-table">
           <thead>
             <tr>
+              <th scope="col" aria-label="Playback" />
               {(
                 [
                   ["title", "Name"],
@@ -189,26 +266,50 @@ export default function Library() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((track) => (
-              <tr key={track.id}>
-                <td>
-                  <a className="library-row-link" href={"/tracks/" + track.id}>
-                    {track.title}
-                  </a>
-                  <small className="track-summary">
-                    {track.latestVersion
-                      ? `${track.latestVersion} · ${track.latestStatus}`
-                      : "No versions yet"}
-                  </small>
-                </td>
-                <td>
-                  <time dateTime={new Date(track.createdAt).toISOString()}>
-                    {new Date(track.createdAt).toISOString().slice(0, 10)}
-                  </time>
-                </td>
-                <td>{track.artist || "—"}</td>
-              </tr>
-            ))}
+            {rows.map((track) => {
+              const version = data.playable.find((v) => v.trackId === track.id);
+              const source = version
+                ? {
+                    trackId: track.id,
+                    key: version.id + version.revision,
+                    versionId: version.id,
+                    versionName: version.name,
+                    title: track.title,
+                    artist: track.artist,
+                    url: `/media/${version.id}`,
+                    duration: version.duration || 0,
+                    gainDb: playbackGainDb(version.metadata),
+                    peaks: [],
+                    artwork: track.cover ? `/cover/${track.id}` : undefined,
+                  }
+                : null;
+              return (
+                <tr key={track.id}>
+                  <td>
+                    <LibraryPlay source={source} />
+                  </td>
+                  <td>
+                    <Link
+                      className="library-row-link"
+                      to={"/tracks/" + track.id}
+                    >
+                      {track.title}
+                    </Link>
+                    <small className="track-summary">
+                      {track.latestVersion
+                        ? `${track.latestVersion} · ${track.latestStatus}`
+                        : "No versions yet"}
+                    </small>
+                  </td>
+                  <td>
+                    <time dateTime={new Date(track.createdAt).toISOString()}>
+                      {new Date(track.createdAt).toISOString().slice(0, 10)}
+                    </time>
+                  </td>
+                  <td>{track.artist || "—"}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

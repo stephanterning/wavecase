@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import {
   Form,
   useSubmit,
@@ -63,9 +64,9 @@ export default function Dashboard() {
       <section className="panel">
         <h2>Quick actions</h2>
         <div className="quick-actions">
-          <a href="/library?create=1">Add new track →</a>
-          <a href="/releases?create=1">Add release →</a>
-          <a href="/artist-profiles?create=1">Add artist →</a>
+          <Link to="/library?create=1">Add new track →</Link>
+          <Link to="/releases?create=1">Add release →</Link>
+          <Link to="/artist-profiles?create=1">Add artist →</Link>
         </div>
       </section>
       <div className="dashboard-columns">
@@ -75,11 +76,11 @@ export default function Dashboard() {
           <ul className="overview-list">
             {d.feedback.map((f) => (
               <li key={f.id}>
-                <a
-                  href={`/tracks/${f.trackId}?version=${f.versionId}#feedback`}
+                <Link
+                  to={`/tracks/${f.trackId}?version=${f.versionId}#feedback`}
                 >
                   {f.title} · {f.version}
-                </a>
+                </Link>
                 <span>
                   {f.name} · {date(f.createdAt)}
                 </span>
@@ -95,7 +96,7 @@ export default function Dashboard() {
           <ul className="overview-list">
             {d.recent.map((r) => (
               <li key={r.id}>
-                <a href={r.href}>{r.title}</a>
+                <Link to={r.href}>{r.title}</Link>
                 <span className="muted">
                   {r.kind} · {date(r.createdAt)}
                 </span>

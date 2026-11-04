@@ -1,6 +1,10 @@
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { observeListening } from "../app/components/listening";
+import {
+  observePlaybackLoop,
+  seekPlayback,
+} from "../app/components/playback-audio";
 class Storage {
   values = new Map<string, string>();
   getItem(key: string) {
@@ -15,6 +19,8 @@ class Media extends EventTarget {
   paused = true;
   seeking = false;
   playbackRate = 1;
+  loop = false;
+  duration = 60;
 }
 function captureEvents(t: TestContext) {
   const previous = new Map(
@@ -108,6 +114,44 @@ test("visits and seeks do not count as plays; resume and repeat follow the agree
   } finally {
     stop();
   }
+});
+
+test("native repeats close coverage and add one play, but user rewinds do not", (t) => {
+  const events = captureEvents(t);
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const media = new Media();
+  const audio = media as unknown as HTMLAudioElement;
+  const stopLoop = observePlaybackLoop(audio);
+  const stop = observeListening(audio, "version", "share");
+  const emit = (name: string) => media.dispatchEvent(new Event(name));
+  media.loop = true;
+  media.paused = false;
+  emit("playing");
+  media.currentTime = 59.8;
+  emit("timeupdate");
+  media.seeking = true;
+  media.currentTime = 0;
+  emit("seeking");
+  media.seeking = false;
+  emit("seeked");
+  emit("playing");
+  emit("timeupdate");
+  assert.equal(events.filter((e) => e.kind === "play").length, 2);
+  assert.equal(events.filter((e) => e.kind === "ended").length, 1);
+  assert.equal(events.filter((e) => e.kind === "seek").length, 0);
+  assert.ok(events.some((e) => e.kind === "interval" && e.end === 60));
+  media.currentTime = 59.9;
+  emit("timeupdate");
+  media.seeking = true;
+  seekPlayback(audio, 0);
+  emit("seeking");
+  media.seeking = false;
+  emit("seeked");
+  emit("playing");
+  assert.equal(events.filter((e) => e.kind === "play").length, 2);
+  assert.equal(events.filter((e) => e.kind === "seek").length, 1);
+  stop();
+  stopLoop();
 });
 
 test("version changes record the restored position without a seek or unplayed coverage", (t) => {

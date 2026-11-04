@@ -9,6 +9,7 @@ import { releaseArtistSuffix, releasePath } from "../domain/releases";
 import { getReleaseServiceIcon } from "../domain/release-services";
 import { SongwriterCredits } from "../components/songwriter-credits";
 import { useReleasePlayer } from "../components/release-player";
+import { ReleaseSeek } from "../components/release-seek";
 import { playbackGainDb } from "../components/playback-audio";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
@@ -89,8 +90,6 @@ export const meta: MetaFunction<typeof loader> = ({ loaderData: data }) => {
     },
   ];
 };
-const time = (seconds: number) =>
-  `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 export default function ReleasePage() {
   const d = useLoaderData<typeof loader>();
   const [downloadOpen, setDownloadOpen] = useState(false);
@@ -244,20 +243,11 @@ export default function ReleasePage() {
                   )}
                 </div>
                 {selected === t.id && (
-                  <label className="release-seek">
-                    {time(position)} / {time(duration)}
-                    <input
-                      aria-label="Playback position"
-                      type="range"
-                      min={0}
-                      max={duration || 1}
-                      step={0.1}
-                      value={position}
-                      onChange={(e) => {
-                        playback.seek(Number(e.target.value));
-                      }}
-                    />
-                  </label>
+                  <ReleaseSeek
+                    position={position}
+                    duration={duration}
+                    onSeek={playback.seek}
+                  />
                 )}
               </li>
             ))}

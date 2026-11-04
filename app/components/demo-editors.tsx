@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import type { loader } from "../routes/track";
 import { EditForm, EditorDialog } from "./editing";
 import { Icon } from "./icons";
@@ -101,7 +102,9 @@ export function DemoIdentity({
           <p className="demo-description">{data.track.description}</p>
         )}
         {data.owner && (
-          <a href={`/tracks/${data.track.id}/analytics`}>Listening activity</a>
+          <Link to={`/tracks/${data.track.id}/analytics`}>
+            Listening activity
+          </Link>
         )}
       </div>
       {(artwork || data.owner) && (

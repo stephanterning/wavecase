@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { EditForm, PreviewLink } from "../components/editing";
 import { LinkFields } from "../components/link-fields";
 import { removeAudioFiles } from "../server/audio-files";
@@ -369,7 +370,7 @@ export default function ReleaseEditor() {
         <div>
           <p className="eyebrow">
             {d.release.published ? "PUBLISHED" : "PRIVATE DRAFT"} ·{" "}
-            <a href={`/artist-profiles/${d.artist.id}`}>{d.artist.name}</a>
+            <Link to={`/artist-profiles/${d.artist.id}`}>{d.artist.name}</Link>
           </p>
           <h1>{d.release.title}</h1>
           <p>
@@ -379,12 +380,12 @@ export default function ReleaseEditor() {
         </div>
       </header>
       <nav className="section-nav" aria-label="Release views">
-        <a href="?" aria-current={!activity ? "page" : undefined}>
+        <Link to="?" aria-current={!activity ? "page" : undefined}>
           Release page
-        </a>
-        <a href="?view=activity" aria-current={activity ? "page" : undefined}>
+        </Link>
+        <Link to="?view=activity" aria-current={activity ? "page" : undefined}>
           Activity
-        </a>
+        </Link>
       </nav>
       {!activity && (
         <>
@@ -734,10 +735,10 @@ export default function ReleaseEditor() {
             </table>
           </div>
           {d.page > 0 && (
-            <a href={`?view=activity&page=${d.page - 1}`}>Newer requests</a>
+            <Link to={`?view=activity&page=${d.page - 1}`}>Newer requests</Link>
           )}
           {d.downloads.length === 50 && (
-            <a href={`?view=activity&page=${d.page + 1}`}>Older requests</a>
+            <Link to={`?view=activity&page=${d.page + 1}`}>Older requests</Link>
           )}
         </section>
       )}

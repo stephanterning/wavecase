@@ -1,3 +1,4 @@
+import { streamResponse } from "../server/audio-stream";
 import { demoWavAvailable } from "../server/download";
 import { downloadDetails } from "../server/download-details";
 import { rejectPreviewMutation } from "../server/preview";
@@ -45,6 +46,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   if (!file || version.state !== "ready")
     throw new Response("Audio file missing", { status: 404 });
   const directory = process.env.DATA_DIR || "data/audio";
+  const streamed = await streamResponse(request, directory, file);
+  if (streamed) return streamed;
   const path = join(directory, file);
   const { size } = await stat(path);
   const headers = new Headers({

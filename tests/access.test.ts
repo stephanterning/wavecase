@@ -202,6 +202,27 @@ test(
         get("&download=1"),
         (e) => e instanceof Response && e.status === 405,
       );
+      const streamRevision = "a".repeat(64);
+      await writeFile(
+        join(directory, "audio.stream-v1.json"),
+        JSON.stringify({
+          revision: streamRevision,
+          frames: 2,
+          sampleRate: 48000,
+          channels: 2,
+          chunkFrames: 96000,
+        }),
+      );
+      await writeFile(join(directory, "audio.stream-v1.pcm"), Buffer.alloc(16));
+      assert.equal((await get("&stream=manifest")).status, 200);
+      assert.equal(
+        (
+          await (
+            await get("&stream=0&revision=" + streamRevision)
+          ).arrayBuffer()
+        ).byteLength,
+        16,
+      );
       const partial = await get("", { range: "bytes=2-5" });
       assert.equal(partial.status, 206);
       assert.equal(await partial.text(), "2345");
@@ -211,6 +232,15 @@ test(
       const etag = full.headers.get("etag")!;
       assert.equal((await get("", { "if-none-match": etag })).status, 304);
       await db.update(links).set({ active: false }).where(eq(links.id, a));
+      for (const query of [
+        "&stream=manifest",
+        "&stream=0&revision=" + streamRevision,
+      ]) {
+        await assert.rejects(
+          get(query),
+          (e) => e instanceof Response && e.status === 404,
+        );
+      }
       await assert.rejects(
         get("", { "if-none-match": etag }),
         (e) => e instanceof Response && e.status === 404,

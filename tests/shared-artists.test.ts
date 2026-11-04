@@ -118,6 +118,7 @@ test(
       name: "v1",
       filename: "demo.wav",
       state: "ready",
+      playback: `${version}.wav`,
       duration: 30,
     });
     await db
@@ -144,6 +145,12 @@ test(
     );
     assert.equal(
       (await library(args(request(hugo)))).tracks.some((t) => t.id === demo),
+      true,
+    );
+    assert.equal(
+      (await library(args(request(hugo)))).playable.some(
+        (v) => v.id === version,
+      ),
       true,
     );
     assert.equal(
@@ -276,6 +283,12 @@ test(
       ),
     );
     await assert.rejects(trackAccess(request(stephan), demo));
+    assert.equal(
+      (await library(args(request(stephan)))).playable.some(
+        (v) => v.id === version,
+      ),
+      false,
+    );
     assert.equal((await trackAccess(request(hugo), demo)).owner, true);
     assert.equal(
       (await versionAccess(new Request(origin), version, link)).owner,
@@ -378,13 +391,11 @@ test(
       [first, firstToken],
       [second, secondToken],
     ])
-      await db
-        .insert(sessions)
-        .values({
-          id: hash(token),
-          userId: id,
-          expires: new Date(Date.now() + 60000),
-        });
+      await db.insert(sessions).values({
+        id: hash(token),
+        userId: id,
+        expires: new Date(Date.now() + 60000),
+      });
     const id = await createInvitation(owner, artist);
     const path = `/artist-invitations/${id}`;
     const request = (token?: string, body?: FormData) =>

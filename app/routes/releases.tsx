@@ -1,4 +1,5 @@
 import { artistScope } from "../server/ownership";
+import { Link } from "react-router";
 import { useState } from "react";
 import { AddressField } from "../components/address-field";
 import {
@@ -138,9 +139,9 @@ export default function Releases() {
           <button disabled={!data.artists.length}>Create draft</button>
           {!data.artists.length && (
             <p>
-              <a href="/artist-profiles?create=1">
+              <Link to="/artist-profiles?create=1">
                 Create an artist profile first.
-              </a>
+              </Link>
             </p>
           )}
         </Form>
@@ -184,9 +185,9 @@ export default function Releases() {
       {!visible.length && <p>No releases match these filters.</p>}
       <div className="catalog-grid">
         {visible.map(({ release, artist }) => (
-          <a
+          <Link
             className="panel release-card"
-            href={`/releases/${release.id}`}
+            to={`/releases/${release.id}`}
             key={release.id}
           >
             {release.cover ? (
@@ -208,7 +209,7 @@ export default function Releases() {
             </p>
             <h2>{release.title}</h2>
             <p>{artist.name}</p>
-          </a>
+          </Link>
         ))}
       </div>
     </>
