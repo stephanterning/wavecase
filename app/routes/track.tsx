@@ -4,11 +4,12 @@ import {
   ReplaceAudio,
 } from "../components/demo-editors";
 import { ShareLinks } from "../components/share-links";
-import { linkVersionScope, visibleThroughLink } from "../domain/share-links";
+import { linkVersionScope } from "../domain/share-links";
 import { shareVersionScope } from "../server/share-links";
 import { EditForm, useConfirmDiscard } from "../components/editing";
 import { demoWavAvailable } from "../server/download";
-import { artistChoices, linkedArtist } from "../server/track-artist";
+import { artistChoices } from "../server/track-artist";
+import { trackPage } from "../server/track-page";
 import { uploadVersion } from "../server/upload";
 import { limitedBody } from "../server/request";
 import { useWorkspacePlayback } from "../components/workspace-player";
@@ -25,7 +26,15 @@ import {
   useSearchParams,
 } from "react-router";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
-import { and, count, desc, eq, getTableColumns, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  inArray,
+  sql,
+} from "drizzle-orm";
 import {
   defaultVersionStatus,
   nextVersionName,
@@ -36,49 +45,33 @@ import { recordVisit } from "../components/telemetry";
 import { useEffect, useRef, useState } from "react";
 import { db } from "../server/db";
 import { versions, links, reuploadRequests, events } from "../server/schema";
-import {
-  sameOrigin,
-  token,
-  hash,
-  origin,
-  requireUser,
-} from "../server/security";
+import { sameOrigin, token, requireUser } from "../server/security";
 import { formError } from "../server/releases";
 import { trackAccess } from "../server/access";
 export const meta = () => [{ title: "Wavecase" }];
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  let id = params.id;
-  const share = params.share;
-  if (share) {
-    const link = await db.query.links.findFirst({ where: eq(links.id, share) });
-    if (!link?.active)
-      throw new Response("This link is unavailable.", { status: 404 });
-    id = link.trackId;
-  }
-  const access = await trackAccess(request, id!, share);
-  const artist = await linkedArtist(access.track.artistId);
-  const all = await db
-    .select()
-    .from(versions)
-    .where(eq(versions.trackId, id!))
-    .orderBy(desc(versions.position));
+  const { access, visible, page, fingerprint } = await trackPage(
+    request,
+    params,
+  );
+  const id = access.track.id;
+  const peaks = new Map(
+    (
+      await db
+        .select({ id: versions.id, peaks: versions.peaks })
+        .from(versions)
+        .where(
+          inArray(
+            versions.id,
+            visible.map((v) => v.id),
+          ),
+        )
+    ).map((v) => [v.id, v.peaks]),
+  );
   return {
-    track: {
-      id: access.track.id,
-      title: access.track.title,
-      artist: artist?.name || access.track.artist,
-      description: access.track.description,
-      cover: !!access.track.cover,
-      coverRevision: access.track.cover ? hash(access.track.cover) : null,
-      ...(access.owner ? { artistId: access.track.artistId } : {}),
-    },
-    artistUrl: artist
-      ? access.owner
-        ? `/artist-profiles/${artist.id}`
-        : `/artists/${artist.slug}`
-      : null,
-    artistImageUrl: artist?.hasImage ? `/artist-images/${artist.id}` : null,
+    ...page,
+    fingerprint,
     artists: access.owner
       ? await artistChoices((await requireUser(request)).id)
       : [],
@@ -86,42 +79,17 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       ? await db
           .select()
           .from(reuploadRequests)
-          .where(eq(reuploadRequests.trackId, id!))
+          .where(eq(reuploadRequests.trackId, id))
       : [],
-    owner: access.owner,
-    preview: access.preview,
-    share,
-    shareUrl: share ? `${origin}/s/${encodeURIComponent(share)}` : null,
     versions: await Promise.all(
-      all
-        .filter((v) => access.owner || visibleThroughLink(v, access.link!))
-        .map(async (v) => ({
-          id: v.id,
-          name: v.name,
-          description: v.description,
-          status: v.status,
-          state: v.state,
-          duration: v.duration,
-          metadata: v.metadata,
-          peaks: v.peaks,
-          revision: v.original ? hash(v.original) : "missing",
-          canDownload:
-            !!v.original &&
-            (access.owner || (!!access.link?.download && v.download)),
-          wavDownload: await demoWavAvailable(
-            v,
-            process.env.DATA_DIR || "data/audio",
-          ).catch(() => false),
-          ...(access.owner
-            ? {
-                position: v.position,
-                filename: v.filename,
-                error: v.error,
-                download: v.download,
-                processing: !!v.pendingOriginal,
-              }
-            : {}),
-        })),
+      page.versions.map(async (v, i) => ({
+        ...v,
+        peaks: peaks.get(v.id) ?? null,
+        wavDownload: await demoWavAvailable(
+          visible[i],
+          process.env.DATA_DIR || "data/audio",
+        ).catch(() => false),
+      })),
     ),
     links: access.owner
       ? await db
@@ -144,7 +112,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
               )})`.mapWith(Number),
           })
           .from(links)
-          .where(eq(links.trackId, id!))
+          .where(eq(links.trackId, id))
           .orderBy(desc(links.createdAt), links.id)
       : [],
   };
@@ -267,6 +235,9 @@ function TrackContents() {
   const artwork = data.track.cover
     ? `/cover/${data.track.id}?v=${data.track.coverRevision}${data.share ? "&share=" + data.share : ""}${data.preview ? "&preview=1" : ""}`
     : undefined;
+  const statusUrl = data.share
+    ? `/s/${encodeURIComponent(data.share)}/status${data.preview ? "?preview=1" : ""}`
+    : `/tracks/${data.track.id}/status`;
   useEffect(() => {
     if (
       data.owner &&
@@ -274,11 +245,19 @@ function TrackContents() {
     )
       return;
     const timer = setInterval(
-      () => void revalidator.revalidate(),
+      async () => {
+        const response = await fetch(statusUrl).catch(() => null);
+        if (!response) return;
+        const status = response.ok
+          ? await response.json().catch(() => null)
+          : null;
+        if (status?.fingerprint !== data.fingerprint)
+          void revalidator.revalidate();
+      },
       data.owner ? 3000 : 30000,
     );
     return () => clearInterval(timer);
-  }, [data.versions, data.owner, revalidator]);
+  }, [data.versions, data.owner, data.fingerprint, statusUrl, revalidator]);
   return (
     <>
       {data.owner && data.share && (
