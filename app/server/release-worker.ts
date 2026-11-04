@@ -54,8 +54,7 @@ export async function startReleaseWorker() {
             ),
           )
           .returning({ id: releaseTracks.id });
-        if (failed.length)
-          await removeAudioFiles(directory, [key, key + ".m4a"]);
+        if (failed.length) await removeAudioFiles(directory, [key]);
       }
     }
   });

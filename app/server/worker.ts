@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { eq, and, sql, isNotNull } from "drizzle-orm";
 import { removeAudioFiles } from "./audio-files";
 import { db } from "./db";
-import { prepareStream, streamManifest, streamSuffix } from "./audio-stream";
+import { prepareStream, streamManifest } from "./audio-stream";
+import { streamFile } from "./storage-keys";
 import { versions, comments, releaseTracks } from "./schema";
 import { boss, queue } from "./queue";
 import { processAudio, sameDuration } from "./audio";
@@ -99,7 +100,7 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
         )
         .returning({ id: versions.id });
       // A failure after publication must not remove the now active audio.
-      if (failed.length) await removeAudioFiles(directory, [key, key + ".wav"]);
+      if (failed.length) await removeAudioFiles(directory, [key]);
     }
   }
 });
@@ -123,15 +124,15 @@ async function reconcile() {
       continue;
     }
     // Old deployments prepared PCM for releases. Only remove the derived pair.
-    await rm(join(directory, key + streamSuffix + ".json"), { force: true });
-    await rm(join(directory, key + streamSuffix + ".pcm"), { force: true });
+    await rm(join(directory, streamFile(key, "json")), { force: true });
+    await rm(join(directory, streamFile(key, "pcm")), { force: true });
   }
   for (const { key } of sources) {
     if (!key) continue;
     const prepared = await streamManifest(directory, key);
     if (prepared?.flacRate) {
       // Recover a crash between publishing the FLAC index and retiring the PCM.
-      await rm(join(directory, key + streamSuffix + ".pcm"), { force: true });
+      await rm(join(directory, streamFile(key, "pcm")), { force: true });
       continue;
     }
     if (prepared?.pcmCodecChecked) continue;

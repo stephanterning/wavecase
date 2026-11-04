@@ -7,13 +7,13 @@ import { flacWindow } from "../domain/demo-flac";
 // is published last so unfinished conversions never replace playable audio.
 export async function encodeFlacParts(
   source: string,
-  base: string,
+  packPath: string,
+  partPath: string,
   rate: number,
   samples: number,
 ) {
   const ends: number[] = [];
-  const pack = await open(base + ".flac.tmp", "w");
-  const partPath = base + ".part.tmp";
+  const pack = await open(packPath, "w");
   let size = 0;
   try {
     for (let index = 0; index * rate * 2 < samples; index++) {

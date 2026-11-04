@@ -191,10 +191,15 @@ test(
         "master",
         "master.mp3",
         "master.export.wav",
+        "master.16-44100.flac",
+        `master.16-44100.wav.${randomUUID()}.tmp`,
         "playback",
+        "playback.stream-v1.json",
         "pending",
         "pending.wav",
+        "pending.source.pcm",
         "other-master",
+        `other-master.mp3.${randomUUID()}.tmp`,
       ];
       await Promise.all(
         files.map((file) => writeFile(join(directory, file), "fixture")),
@@ -338,7 +343,10 @@ test(
           .length,
         0,
       );
-      assert.deepEqual(await readdir(directory), ["other-master"]);
+      assert.deepEqual(
+        (await readdir(directory)).sort(),
+        files.filter((file) => file.startsWith("other-master")).sort(),
+      );
       assert.ok(
         await db.query.tracks.findFirst({ where: eq(tracks.id, foreign) }),
       );
