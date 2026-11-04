@@ -31,7 +31,13 @@ import { recordVisit } from "../components/telemetry";
 import { useEffect, useRef, useState } from "react";
 import { db } from "../server/db";
 import { versions, links, reuploadRequests, events } from "../server/schema";
-import { sameOrigin, token, hash, origin } from "../server/security";
+import {
+  sameOrigin,
+  token,
+  hash,
+  origin,
+  requireUser,
+} from "../server/security";
 import { formError } from "../server/releases";
 import { trackAccess } from "../server/access";
 export const meta = () => [
@@ -49,10 +55,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     id = link.trackId;
   }
   const access = await trackAccess(request, id!, share);
-  const artist = await linkedArtist(
-    access.track.ownerId,
-    access.track.artistId,
-  );
+  const artist = await linkedArtist(access.track.artistId);
   const all = await db
     .select()
     .from(versions)
@@ -71,7 +74,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
         : `/artists/${artist.slug}`
       : null,
     artistImageUrl: artist?.hasImage ? `/artist-images/${artist.id}` : null,
-    artists: access.owner ? await artistChoices(access.track.ownerId) : [],
+    artists: access.owner
+      ? await artistChoices((await requireUser(request)).id)
+      : [],
     requests: access.owner
       ? await db
           .select()
@@ -426,11 +431,8 @@ function TrackContents() {
                 playbackRef={cursor}
                 repeat={repeat}
                 onRepeatChange={setRepeat}
-                onComment={
-                  data.owner
-                    ? undefined
-                    : (selection) =>
-                        setDraft({ versionId: current.id, ...selection })
+                onComment={(selection) =>
+                  setDraft({ versionId: current.id, ...selection })
                 }
                 share={data.preview ? undefined : data.share}
                 versionId={current.id}
@@ -463,17 +465,15 @@ function TrackContents() {
             )}
           </div>
           <div className="track-actions">
-            {!data.owner && (
-              <button
-                type="button"
-                className="secondary"
-                onClick={() =>
-                  setDraft({ versionId: current.id, start: null, end: null })
-                }
-              >
-                Add comment
-              </button>
-            )}
+            <button
+              type="button"
+              className="secondary"
+              onClick={() =>
+                setDraft({ versionId: current.id, start: null, end: null })
+              }
+            >
+              {data.owner ? "Add internal comment" : "Add comment"}
+            </button>
             <span
               className="tooltip"
               data-tooltip={

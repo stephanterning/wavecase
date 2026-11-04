@@ -1,7 +1,8 @@
+import { trackScope } from "./ownership";
 import { ownerPreview } from "./preview";
 import { visibleThroughLink } from "../domain/share-links";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "./db";
 import { tracks, links, versions } from "./schema";
 import { viewer } from "./security";
@@ -12,10 +13,17 @@ export async function trackAccess(
 ) {
   if (!z.uuid().safeParse(id).success)
     throw new Response("Not found", { status: 404 });
-  const track = await db.query.tracks.findFirst({ where: eq(tracks.id, id) });
   const user = await viewer(request);
-  const preview = ownerPreview(request, !!track && user?.id === track.ownerId);
-  if (track && user?.id === track.ownerId && !preview)
+  const [row] = await db
+    .select({
+      track: tracks,
+      owned: user ? trackScope(user.id) : sql<boolean>`false`,
+    })
+    .from(tracks)
+    .where(eq(tracks.id, id));
+  const track = row?.track;
+  const preview = ownerPreview(request, !!row?.owned);
+  if (track && row.owned && !preview)
     return { track, owner: true, link: null, preview: false };
   const link = share
     ? await db.query.links.findFirst({ where: eq(links.id, share) })

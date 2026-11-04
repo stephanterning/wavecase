@@ -1790,6 +1790,52 @@ button:has(svg) {
   background: #182b23;
   color: #b2e0cd;
 }
+.artist-coowners {
+  margin-bottom: 32px;
+}
+.coowner-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+.coowner-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  border-bottom: 1px solid #39413d;
+}
+.coowner-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.coowner-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.coowner-actions .editor-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #aab7af;
+}
+.coowner-actions .editor-trigger:hover {
+  background: #182b23;
+  color: #b2e0cd;
+}
+.coowners-leave .editor-trigger {
+  margin-top: 12px;
+  font-size: 13px;
+}
 .artist-service-links {
   list-style: none;
   padding: 0;

@@ -11,6 +11,7 @@ export function CommentDialog({
   draft,
   owner,
   versionName,
+  visibility,
   error,
   onSubmit,
   onClose,
@@ -18,6 +19,7 @@ export function CommentDialog({
   draft: CommentDraft;
   owner: boolean;
   versionName: string;
+  visibility?: string;
   error: string;
   onSubmit: (form: HTMLFormElement, draft: CommentDraft) => Promise<boolean>;
   onClose: () => void;
@@ -88,6 +90,7 @@ export function CommentDialog({
           if (saved) onClose();
         }}
       >
+        {visibility && <p className="muted">{visibility}</p>}
         {!owner && (
           <label>
             Your name

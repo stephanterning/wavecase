@@ -1,3 +1,5 @@
+import { ArtistCoOwners } from "../components/artist-coowners";
+import { manageArtistMembers } from "../server/artist-members";
 import { Link } from "react-router";
 import { ReleaseCardContent } from "../components/release-card-content";
 import { Icon } from "../components/icons";
@@ -12,11 +14,17 @@ import {
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
 } from "react-router";
-import { desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gt } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../server/db";
-import { artists, releases } from "../server/schema";
-import { requireUser, sameOrigin } from "../server/security";
+import {
+  artists,
+  releases,
+  artistMembers,
+  artistInvitations,
+  users,
+} from "../server/schema";
+import { requireUser, sameOrigin, origin } from "../server/security";
 import { limitedBody } from "../server/request";
 import {
   directory,
@@ -27,8 +35,38 @@ import {
 import { parseLinks } from "../domain/releases";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const artist = await ownedArtist(request, params.id!);
+  const user = await requireUser(request);
+  const now = new Date();
   return {
+    loadedAt: now.getTime(),
     artist,
+    membershipManager: artist.ownerId === user.id,
+    invitationOrigin: origin,
+    invitations:
+      artist.ownerId === user.id
+        ? await db
+            .select()
+            .from(artistInvitations)
+            .where(
+              and(
+                eq(artistInvitations.artistId, artist.id),
+                gt(artistInvitations.expires, now),
+              ),
+            )
+            .orderBy(desc(artistInvitations.createdAt))
+        : [],
+    manager: (await db.query.users.findFirst({
+      where: eq(users.id, artist.ownerId),
+    }))!.name,
+    members: await db
+      .select({
+        id: artistMembers.id,
+        name: users.name,
+      })
+      .from(artistMembers)
+      .innerJoin(users, eq(users.id, artistMembers.userId))
+      .where(eq(artistMembers.artistId, artist.id))
+      .orderBy(asc(users.name)),
     releases: await db
       .select()
       .from(releases)
@@ -38,10 +76,28 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 }
 export async function action({ request, params }: ActionFunctionArgs) {
   sameOrigin(request);
-  await requireUser(request);
+  const user = await requireUser(request);
   try {
     const f = await (await limitedBody(request, 11 * 1024 * 1024)).formData();
     const intent = f.get("intent");
+    if (
+      [
+        "create-invitation",
+        "revoke-invitation",
+        "remove-member",
+        "leave-artist",
+      ].includes(String(intent))
+    ) {
+      await ownedArtist(request, params.id!);
+      await manageArtistMembers(user.id, params.id!, f);
+      if (f.has("_inline") && intent !== "leave-artist")
+        return { saved: true, error: undefined };
+      return redirect(
+        intent === "leave-artist"
+          ? "/artist-profiles"
+          : `/artist-profiles/${params.id}`,
+      );
+    }
     const name = z.string().trim().min(1).max(200).parse(f.get("name"));
     if (intent === "edit-artist" || intent === "artist-links") {
       const previous = await ownedArtist(request, params.id!);
@@ -80,7 +136,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 }
 export default function ArtistEdit() {
-  const { artist: a, releases: rows } = useLoaderData<typeof loader>();
+  const data = useLoaderData<typeof loader>();
+  const { artist: a, releases: rows } = data;
   const result = useActionData<typeof action>();
   return (
     <>
@@ -206,6 +263,7 @@ export default function ArtistEdit() {
           )}
         </section>
         <aside>
+          <ArtistCoOwners data={data} />
           <div className="artist-section-heading">
             <h2>Links</h2>
             <EditForm

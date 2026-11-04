@@ -1,3 +1,4 @@
+import { artistScope } from "../server/ownership";
 import { Link } from "react-router";
 import { useState } from "react";
 import { AddressField } from "../components/address-field";
@@ -30,7 +31,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       })
       .from(artists)
       .leftJoin(releases, eq(releases.artistId, artists.id))
-      .where(eq(artists.ownerId, user.id))
+      .where(artistScope(user.id))
       .groupBy(artists.id)
       .orderBy(asc(artists.name), asc(artists.id)),
   };
@@ -63,6 +64,7 @@ export default function ArtistProfiles() {
     <>
       <p className="eyebrow">YOUR ARTISTS</p>
       <h1>Artists</h1>
+      {result?.error && <p role="alert">{result.error}</p>}
       <CreateDialog title="Add artist" error={result?.error}>
         <Form method="post" className="panel">
           <label>

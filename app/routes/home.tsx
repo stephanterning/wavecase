@@ -1,3 +1,4 @@
+import { loginDestination } from "../domain/login-destination";
 import { useState } from "react";
 import { useLoaderData, redirect } from "react-router";
 import type { LoaderFunctionArgs } from "react-router";
@@ -8,9 +9,13 @@ import {
 import { db } from "../server/db";
 import { viewer } from "../server/security";
 export async function loader({ request }: LoaderFunctionArgs) {
-  if (await viewer(request)) return redirect("/dashboard");
+  const returnTo = loginDestination(
+    new URL(request.url).searchParams.get("returnTo"),
+  );
+  if (await viewer(request)) return redirect(returnTo);
   const settings = await db.query.settings.findFirst();
   return {
+    returnTo,
     setup: !settings,
     recovery: new URL(request.url).searchParams.get("recovery") || undefined,
     open: settings?.openRegistration || false,
@@ -62,7 +67,7 @@ export default function Home() {
           await startAuthentication({ optionsJSON: options }),
         );
       }
-      window.location.assign("/dashboard");
+      window.location.assign(data.returnTo);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Please try again.");
     } finally {

@@ -62,13 +62,11 @@ test(
         slug: `martin-${foreign}`,
       },
     ]);
-    await db
-      .insert(sessions)
-      .values({
-        id: hash(token),
-        userId: owner,
-        expires: new Date(Date.now() + 60000),
-      });
+    await db.insert(sessions).values({
+      id: hash(token),
+      userId: owner,
+      expires: new Date(Date.now() + 60000),
+    });
     assert.deepEqual(
       await resolveTrackArtist(owner, form({ artist: "  mArTiN dIcE\t" })),
       { artistId: artist, artist: "Martin Dice" },
@@ -156,6 +154,7 @@ test(
           intent: "metadata",
           title: "Private demo",
           artist: "Free name",
+          confirmArtistMove: "yes",
           description: "",
         }),
         { id: trackId },

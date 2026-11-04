@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { viewer } from "./server/security";
 import {
+  Form,
   Link,
   Links,
   useRouteLoaderData,
@@ -87,9 +88,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   >
                     Your account
                   </Link>
-                  <form method="post" action="/logout">
+                  <Form method="post" action="/logout">
                     <button type="submit">Log out</button>
-                  </form>
+                  </Form>
                 </nav>
               </div>
             </>

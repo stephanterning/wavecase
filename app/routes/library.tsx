@@ -1,3 +1,4 @@
+import { trackScope } from "../server/ownership";
 import { useState, useRef, useEffect } from "react";
 import {
   useWorkspacePlayback,
@@ -41,7 +42,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .innerJoin(tracks, eq(versions.trackId, tracks.id))
     .where(
       and(
-        eq(tracks.ownerId, user.id),
+        trackScope(user.id),
         eq(versions.state, "ready"),
         isNotNull(versions.playback),
       ),
@@ -76,7 +77,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
           .limit(1)})`,
       })
       .from(tracks)
-      .where(eq(tracks.ownerId, user.id)),
+      .where(trackScope(user.id)),
   };
 }
 export async function action({ request }: ActionFunctionArgs) {

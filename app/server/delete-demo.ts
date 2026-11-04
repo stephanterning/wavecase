@@ -1,3 +1,4 @@
+import { trackScope } from "./ownership";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "./db";
 import {
@@ -21,7 +22,7 @@ export async function deleteDemo(
     const [track] = await tx
       .select()
       .from(tracks)
-      .where(and(eq(tracks.id, trackId), eq(tracks.ownerId, ownerId)))
+      .where(and(eq(tracks.id, trackId), trackScope(ownerId)))
       .for("update");
     if (!track) throw new Response("Not found", { status: 404 });
     if (title !== track.title)
@@ -47,6 +48,13 @@ export async function deleteDemo(
       .delete(reuploadRequests)
       .where(eq(reuploadRequests.trackId, trackId));
     await tx.delete(links).where(eq(links.trackId, trackId));
+    if (all.length)
+      await tx.delete(comments).where(
+        inArray(
+          comments.versionId,
+          all.map((version) => version.id),
+        ),
+      );
     await tx.delete(versions).where(eq(versions.trackId, trackId));
     await tx.delete(tracks).where(eq(tracks.id, trackId));
     return [

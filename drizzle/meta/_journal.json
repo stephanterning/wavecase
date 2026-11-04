@@ -78,6 +78,13 @@
       "when": 1793698434839,
       "tag": "0010_omniscient_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793794325923,
+      "tag": "0011_shared_artist_workspaces",
+      "breakpoints": true
     }
   ]
 }

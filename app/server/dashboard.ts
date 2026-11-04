@@ -1,3 +1,4 @@
+import { artistScope, trackScope } from "./ownership";
 import { and, desc, eq, gte, isNotNull, lte, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
@@ -20,8 +21,8 @@ export async function dashboard(
     selected === "all"
       ? null
       : new Date(now.getTime() - Number(selected) * 86400000);
-  const demoOwner = eq(tracks.ownerId, ownerId),
-    artistOwner = eq(artists.ownerId, ownerId);
+  const demoOwner = trackScope(ownerId),
+    artistOwner = artistScope(ownerId);
   const feedbackWhere = and(
     demoOwner,
     eq(comments.owner, false),
@@ -41,7 +42,7 @@ export async function dashboard(
   ] = await Promise.all([
     db
       .select({
-        demos: sql<number>`(select count(*)::int from tracks where "ownerId"=${ownerId})`,
+        demos: sql<number>`(select count(*)::int from tracks where ${demoOwner})`,
         artists: sql<number>`count(distinct ${artists.id})::int`,
         published: sql<number>`count(${releases.id}) filter (where ${releases.published})::int`,
         drafts: sql<number>`count(${releases.id}) filter (where not ${releases.published})::int`,

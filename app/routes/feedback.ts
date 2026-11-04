@@ -134,8 +134,6 @@ export async function action({ request, params }: ActionFunctionArgs) {
         (!access.owner && parent.linkId !== access.link?.id))
     )
       throw new Response("Thread unavailable", { status: 404 });
-    if (access.owner && !parent)
-      throw new Response("Choose a thread to reply to", { status: 400 });
     if (
       (data.start !== null &&
         (!access.version.duration || data.start > access.version.duration)) ||
@@ -158,7 +156,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
         );
     await tx.insert(comments).values({
       versionId: params.id!,
-      linkId: parent?.linkId || access.link!.id,
+      linkId: parent ? parent.linkId : access.owner ? null : access.link!.id,
+      authorId: user?.id || null,
       threadId: parent?.id,
       name: user?.name || data.name,
       body: data.body,
