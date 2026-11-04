@@ -12,9 +12,8 @@ import { promisify } from "node:util";
 import type { ActionFunctionArgs } from "react-router";
 import { redirect } from "react-router";
 import { eq, and, sql, inArray } from "drizzle-orm";
-import { mkdir, writeFile, unlink } from "node:fs/promises";
+import { unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { db } from "../server/db";
 import {
@@ -27,7 +26,8 @@ import {
 import { artistScope, trackScope } from "../server/ownership";
 import { trackAccess } from "../server/access";
 import { sameOrigin, requireUser } from "../server/security";
-import { limitedBody } from "../server/request";
+import { storeUpload, uploadForm } from "../server/request";
+import { dataDir, maxUploadBytes } from "../server/config";
 import { removeAudioFiles } from "../server/audio-files";
 import { boss, queue } from "../server/queue";
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -35,16 +35,14 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const user = await requireUser(request);
   const access = await trackAccess(request, params.id!);
   if (!access.owner) throw new Response("Forbidden", { status: 403 });
-  const form = await (
-    await limitedBody(
-      request,
-      Number(process.env.MAX_UPLOAD_MB || 256) * 1024 * 1024 + 65536,
-    )
-  ).formData();
+  const { form, files, discard } = await uploadForm(
+    request,
+    maxUploadBytes() + 65536,
+  );
   try {
     const intent = form.get("intent");
     const removedFiles: string[] = [];
-    const directory = process.env.DATA_DIR || "data/audio";
+    const directory = dataDir();
     if (intent === "delete-track") {
       await deleteDemo(
         access.track.id,
@@ -115,14 +113,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
         if (current.cover) removedFiles.push(current.cover);
       });
     } else if (intent === "cover") {
-      const file = form.get("cover");
-      if (!(file instanceof File) || !file.size || file.size > 10 * 1024 * 1024)
+      const file = files.get("cover");
+      if (!file)
         throw new Response("Choose an image up to 10 MB", { status: 400 });
-      const key = randomUUID(),
-        input = join(directory, key),
+      const key = await storeUpload(file, {
+        limit: 10 * 1024 * 1024,
+        error: "Choose an image up to 10 MB",
+      });
+      const input = join(directory, key),
         output = join(directory, key + ".jpg");
-      await mkdir(directory, { recursive: true });
-      await writeFile(input, Buffer.from(await file.arrayBuffer()));
       try {
         await promisify(execFile)(
           "ffmpeg",
@@ -266,15 +265,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
       const id = z.uuid().parse(form.get("version"));
       let upload: { key: string; filename: string } | undefined;
       if (intent === "replace") {
-        const file = form.get("audio");
-        if (!(file instanceof File) || !file.size)
-          throw new Response("Choose an audio file", { status: 400 });
-        upload = { key: randomUUID(), filename: file.name };
-        await mkdir(directory, { recursive: true });
-        await writeFile(
-          join(directory, upload.key),
-          Buffer.from(await file.arrayBuffer()),
-        );
+        const file = files.get("audio");
+        if (!file) throw new Response("Choose an audio file", { status: 400 });
+        upload = {
+          key: await storeUpload(file, {
+            limit: maxUploadBytes(),
+            error: "Choose an audio file",
+          }),
+          filename: file.name,
+        };
       }
       await db
         .transaction(async (tx) => {
@@ -381,5 +380,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   } catch (error) {
     if (form.has("_inline")) return formError(error);
     throw error;
+  } finally {
+    await discard();
   }
 }

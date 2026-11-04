@@ -22,13 +22,13 @@ import { join } from "node:path";
 import { db } from "../server/db";
 import { releases, releaseTracks, releaseEvents } from "../server/schema";
 import { sameOrigin } from "../server/security";
-import { limitedBody } from "../server/request";
+import { storeUpload, uploadForm } from "../server/request";
+import { maxUploadBytes } from "../server/config";
 import {
   directory,
   formError,
   releaseAccess,
   storeArtwork,
-  storeFile,
 } from "../server/releases";
 import { releaseFields, trackFields, parseLinks } from "../domain/releases";
 import { boss, queue } from "../server/queue";
@@ -76,13 +76,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 export async function action({ request, params }: ActionFunctionArgs) {
   sameOrigin(request);
   const data = await releaseAccess(request, params.id!, true);
+  let upload: Awaited<ReturnType<typeof uploadForm>> | undefined;
   try {
-    const f = await (
-      await limitedBody(
-        request,
-        Number(process.env.MAX_UPLOAD_MB || 256) * 1024 * 1024 + 65536,
-      )
-    ).formData();
+    upload = await uploadForm(request, maxUploadBytes() + 65536);
+    const { form: f, files } = upload;
     const intent = f.get("intent");
     const removedFiles: string[] = [];
     const metadata = (fields: readonly string[]) =>
@@ -166,9 +163,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
         .set({ published: false })
         .where(eq(releases.id, data.release.id));
     } else if (intent === "cover") {
-      const file = f.get("cover");
-      if (!(file instanceof File))
-        throw new Response("Choose artwork", { status: 400 });
+      const file = files.get("cover");
+      if (!file) throw new Response("Choose artwork", { status: 400 });
       const key = await storeArtwork(file);
       if (data.release.cover) removedFiles.push(data.release.cover);
       await db
@@ -196,13 +192,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
       const id = z.uuid().parse(f.get("track"));
       let key: string | undefined;
       if (intent === "audio") {
-        const file = f.get("audio");
-        if (!(file instanceof File))
-          throw new Response("Choose a WAV file", { status: 400 });
-        key = await storeFile(
-          file,
-          Number(process.env.MAX_UPLOAD_MB || 256) * 1024 * 1024,
-        );
+        const file = files.get("audio");
+        if (!file) throw new Response("Choose a WAV file", { status: 400 });
+        key = await storeUpload(file, { limit: maxUploadBytes() });
       }
       await db
         .transaction(async (tx) => {
@@ -305,6 +297,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
     return redirect(`/releases/${data.release.id}`);
   } catch (error) {
     return formError(error);
+  } finally {
+    await upload?.discard();
   }
 }
 function Fields({

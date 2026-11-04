@@ -1,15 +1,16 @@
 import { artistScope, ownsArtist } from "./ownership";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { mkdir, writeFile, unlink } from "node:fs/promises";
+import { unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { db } from "./db";
 import { artists, releases, releaseTracks } from "./schema";
 import { requireUser, viewer } from "./security";
-export const directory = () => process.env.DATA_DIR || "data/audio";
+import { dataDir } from "./config";
+import { storeUpload, type Upload } from "./request";
+export const directory = dataDir;
 export async function ownedArtist(request: Request, id: string) {
   const user = await requireUser(request);
   const artist = await db.query.artists.findFirst({
@@ -42,21 +43,8 @@ export async function releaseAccess(
   return { ...row, owner, tracks };
 }
 
-export async function storeFile(file: File, limit: number) {
-  if (!file.size || file.size > limit)
-    throw new Response("Choose a file within the upload size limit.", {
-      status: 400,
-    });
-  await mkdir(directory(), { recursive: true });
-  const key = randomUUID();
-  await writeFile(
-    join(directory(), key),
-    Buffer.from(await file.arrayBuffer()),
-  );
-  return key;
-}
-export async function storeArtwork(file: File) {
-  const key = await storeFile(file, 10 * 1024 * 1024);
+export async function storeArtwork(file: Upload) {
+  const key = await storeUpload(file, { limit: 10 * 1024 * 1024 });
   try {
     await promisify(execFile)(
       "ffmpeg",

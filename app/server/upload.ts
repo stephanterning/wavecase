@@ -1,9 +1,10 @@
-import { mkdir, writeFile, unlink } from "node:fs/promises";
+import { unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { db } from "./db";
 import { versions } from "./schema";
 import { boss, queue } from "./queue";
+import { dataDir, maxUploadBytes } from "./config";
+import { storeUpload, type Upload } from "./request";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -12,36 +13,34 @@ import {
   versionNameFromFile,
   versionStatuses,
 } from "../domain/versions";
-export async function uploadVersion(trackId: string, form: FormData) {
+export const audioUploadError =
+  "Choose an audio file within the upload size limit.";
+export async function uploadVersion(
+  trackId: string,
+  form: FormData,
+  file: Upload | undefined,
+) {
   const status = z
     .enum(versionStatuses)
     .parse(form.get("status") || defaultVersionStatus);
-  const file = form.get("audio");
-  if (
-    !(file instanceof File) ||
-    !file.size ||
-    file.size > Number(process.env.MAX_UPLOAD_MB || 256) * 1024 * 1024
-  )
-    throw new Response("Choose an audio file within the upload size limit.", {
-      status: 400,
-    });
-  const name =
-    String(form.get("name") || "") ||
-    versionNameFromFile(file.name) ||
-    nextVersionName(
-      (
-        await db
-          .select({ name: versions.name })
-          .from(versions)
-          .where(eq(versions.trackId, trackId))
-      ).map((version) => version.name),
-    );
-  const id = randomUUID(),
-    directory = process.env.DATA_DIR || "data/audio";
-  await mkdir(directory, { recursive: true });
-  const path = join(directory, id);
-  await writeFile(path, Buffer.from(await file.arrayBuffer()));
+  if (!file) throw new Response(audioUploadError, { status: 400 });
+  const id = await storeUpload(file, {
+    limit: maxUploadBytes(),
+    error: audioUploadError,
+  });
+  const path = join(dataDir(), id);
   try {
+    const name =
+      String(form.get("name") || "") ||
+      versionNameFromFile(file.name) ||
+      nextVersionName(
+        (
+          await db
+            .select({ name: versions.name })
+            .from(versions)
+            .where(eq(versions.trackId, trackId))
+        ).map((version) => version.name),
+      );
     await db.insert(versions).values({
       id,
       trackId,

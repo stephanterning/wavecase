@@ -11,7 +11,8 @@ import { demoWavAvailable } from "../server/download";
 import { artistChoices } from "../server/track-artist";
 import { trackPage } from "../server/track-page";
 import { uploadVersion } from "../server/upload";
-import { limitedBody } from "../server/request";
+import { uploadForm } from "../server/request";
+import { maxUploadBytes, dataDir } from "../server/config";
 import { useWorkspacePlayback } from "../components/workspace-player";
 import { Player, type Playback } from "../components/player";
 import { Feedback } from "../components/feedback";
@@ -85,10 +86,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       page.versions.map(async (v, i) => ({
         ...v,
         peaks: peaks.get(v.id) ?? null,
-        wavDownload: await demoWavAvailable(
-          visible[i],
-          process.env.DATA_DIR || "data/audio",
-        ).catch(() => false),
+        wavDownload: await demoWavAvailable(visible[i], dataDir()).catch(
+          () => false,
+        ),
       })),
     ),
     links: access.owner
@@ -121,14 +121,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
   sameOrigin(request);
   const { owner, track } = await trackAccess(request, params.id!);
   if (!owner) throw new Response("Forbidden", { status: 403 });
-  const form = await (
-    await limitedBody(
-      request,
-      Number(process.env.MAX_UPLOAD_MB || 256) * 1024 * 1024 + 65536,
-    )
-  ).formData();
-  if (form.get("intent") === "link") {
-    try {
+  const { form, files, discard } = await uploadForm(
+    request,
+    maxUploadBytes() + 65536,
+  );
+  try {
+    if (form.get("intent") === "link") {
       const scope = await shareVersionScope(
         track.id,
         form.get("visibility") || "onward",
@@ -141,15 +139,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
         download: form.has("download"),
         ...scope,
       });
-    } catch (error) {
-      return formError(error);
-    }
-  } else {
-    try {
-      return { ok: true, version: await uploadVersion(track.id, form) };
-    } catch (error) {
-      return formError(error);
-    }
+    } else
+      return {
+        ok: true,
+        version: await uploadVersion(track.id, form, files.get("audio")),
+      };
+  } catch (error) {
+    return formError(error);
+  } finally {
+    await discard();
   }
   return { ok: true };
 }
