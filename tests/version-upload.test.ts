@@ -12,7 +12,7 @@ import { boss } from "../app/server/queue";
 import { users, sessions, tracks, versions } from "../app/server/schema";
 import { hash, origin } from "../app/server/security";
 import { action } from "../app/routes/track";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 after(async () => {
   if (enabled) await boss.stop();
   await pool.end();
