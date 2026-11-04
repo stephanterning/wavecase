@@ -13,7 +13,7 @@ import {
   releases,
 } from "../app/server/schema";
 import { hash, origin } from "../app/server/security";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 process.env.DATABASE_URL ??= "postgres://localhost/wavecase_test";
 const { loader: demo } = await import("../app/routes/track");
 const { loader: releasePage } = await import("../app/routes/release-page");
