@@ -733,6 +733,7 @@ body:has(.release-mini) {
 }
 .library-filter {
   width: min(100%, 560px);
+  margin-left: auto;
 }
 .library-filter label {
   margin: 0 0 6px;
@@ -1156,6 +1157,24 @@ body:has(.release-mini) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 260px;
   gap: 36px;
+}
+.artist-demo-list {
+  margin-top: 40px;
+}
+.artist-demo-list .library-toolbar {
+  align-items: center;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.artist-demo-list .library-toolbar h2 {
+  margin: 0;
+}
+.artist-demo-list .library-filter {
+  width: min(100%, 240px);
+}
+.artist-demo-list .library-filter-input input {
+  padding: 8px 12px;
 }
 .catalog-grid {
   display: grid;
