@@ -9,8 +9,8 @@ import {
   sessions,
   users,
 } from "./schema";
-export const origin = new URL(process.env.APP_URL || "http://localhost:5173")
-  .origin;
+import { appUrl } from "./config";
+export const origin = new URL(appUrl()).origin;
 export const rpID = new URL(origin).hostname;
 export const token = () => randomBytes(32).toString("base64url");
 export const hash = (value: string) =>

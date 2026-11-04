@@ -1,6 +1,8 @@
 import express from "express";
 import { rateLimit } from "express-rate-limit";
 import { createRequestHandler } from "@react-router/express";
+import { requireProductionConfig } from "../app/server/config";
+requireProductionConfig();
 const app = express();
 app.disable("x-powered-by");
 if (process.env.TRUST_PROXY)

@@ -11,6 +11,7 @@ import { ZipFile } from "yazl";
 import { z } from "zod";
 import { emailSchema } from "../domain/releases";
 import { versionAccess } from "./access";
+import { dataDir } from "./config";
 import { db } from "./db";
 import { demoAudioDownload, demoWavAvailable } from "./download";
 import { downloadName, zipDisposition } from "./release-filenames";
@@ -36,7 +37,7 @@ export async function downloadDemo(
       status: 400,
     });
   const { version } = access;
-  const directory = process.env.DATA_DIR || "data/audio";
+  const directory = dataDir();
   const format = String(
     form.get("format") ||
       ((await demoWavAvailable(version, directory)) ? "wav" : "mp3"),
