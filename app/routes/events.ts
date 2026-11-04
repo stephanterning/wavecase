@@ -64,11 +64,18 @@ export async function action({ request, params }: ActionFunctionArgs) {
   )
     throw new Response("Invalid interval", { status: 400 });
   const { referrer, occurredAt, ...values } = body;
+  const now = Date.now();
   await db
     .insert(events)
     .values({
       ...values,
-      createdAt: occurredAt ? new Date(occurredAt) : new Date(),
+      // Retried events keep their time, but clients cannot move events into
+      // the future or far into the past.
+      createdAt: new Date(
+        occurredAt
+          ? Math.min(now, Math.max(now - 86400000, Date.parse(occurredAt)))
+          : now,
+      ),
       versionId: version?.id || null,
       linkId: access.link!.id,
       context: await visitorContext(request, referrer),
