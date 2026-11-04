@@ -128,7 +128,9 @@ async function reconcile() {
     await rm(join(directory, key + streamSuffix + ".pcm"), { force: true });
   }
   for (const { key } of sources) {
-    if (!key || (await streamManifest(directory, key))) continue;
+    if (!key) continue;
+    const prepared = await streamManifest(directory, key);
+    if (prepared?.flacRate || prepared?.pcmCodecChecked) continue;
     try {
       await stat(join(directory, key));
     } catch (error) {
