@@ -30,7 +30,7 @@ app.use(
     limit: 300,
     standardHeaders: "draft-8",
     legacyHeaders: false,
-    skip: (request) => request.method === "GET",
+    skip: (request) => request.method === "GET" || request.method === "HEAD",
   }),
 );
 app.use(
