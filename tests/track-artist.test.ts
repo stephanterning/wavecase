@@ -17,11 +17,12 @@ import { hash, origin } from "../app/server/security";
 import { loader as artistPage } from "../app/routes/artist";
 import { TrackArtistField } from "../app/components/track-artist-field";
 import { enabled } from "./database";
+import { formFailure } from "./form-failure";
 process.env.DATABASE_URL ??= "postgres://localhost/wavecase_test";
 const { default: DemoPage, loader: demoPage } =
   await import("../app/routes/track");
 const { action: createTrack } = await import("../app/routes/library");
-const { action: manageTrack } = await import("../app/routes/manage");
+const { action: manageTrack } = await import("../app/routes/track");
 after(() => pool.end());
 const form = (values: Record<string, string>) => {
   const f = new FormData();
@@ -241,9 +242,10 @@ test(
     assert.equal(saved.artistId, null);
     assert.equal(saved.artist, "Audit Test Artist");
     assert.equal(saved.description, "New text");
-    await assert.rejects(
-      save({ artistId: artist, description: "New text" }),
-      (e) => e instanceof Response && e.status === 400,
+    assert.equal(
+      formFailure(await save({ artistId: artist, description: "New text" }))
+        .status,
+      400,
     );
     assert.equal((await stored()).artistId, null);
     await save({

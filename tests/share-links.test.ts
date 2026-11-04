@@ -14,12 +14,12 @@ import {
   comments,
 } from "../app/server/schema";
 import { hash, origin } from "../app/server/security";
-import { loader, action as create } from "../app/routes/track";
-import { action as manage } from "../app/routes/manage";
+import { action, loader } from "../app/routes/track";
 import { versionAccess } from "../app/server/access";
 import { loader as media, action as download } from "../app/routes/media";
 import { loader as feedback, action as comment } from "../app/routes/feedback";
 import { enabled } from "./database";
+import { formFailure } from "./form-failure";
 
 after(() => pool.end());
 test(
@@ -91,10 +91,10 @@ test(
         ])
         .returning();
       const createLink = (from: string, visibility = "single") =>
-        create(
+        action(
           args(
             post(`/tracks/${track}`, {
-              intent: "link",
+              intent: "create-link",
               label: "Fixed version",
               visibility,
               from,
@@ -110,15 +110,18 @@ test(
         pending.id,
         other.id,
       ]) {
-        assert.ok("error" in (await createLink(invalid)));
+        assert.equal(formFailure(await createLink(invalid)).status, 400);
       }
-      assert.ok("error" in (await createLink(selected.id, "unknown")));
+      assert.equal(
+        formFailure(await createLink(selected.id, "unknown")).status,
+        400,
+      );
       assert.equal(
         (await db.query.links.findMany({ where: eq(links.trackId, track) }))
           .length,
         0,
       );
-      assert.deepEqual(await createLink(selected.id), { ok: true });
+      assert.deepEqual(await createLink(selected.id), { saved: true });
       const link = (await db.query.links.findFirst({
         where: eq(links.trackId, track),
       }))!;
@@ -271,9 +274,9 @@ test(
         ["Renamed version"],
       );
       const edit = (visibility: string, from = "", active = true) =>
-        manage(
+        action(
           args(
-            post(`/tracks/${track}/manage`, {
+            post(`/tracks/${track}`, {
               intent: "link",
               link: link.id,
               label: "Edited",
@@ -285,7 +288,7 @@ test(
             { id: track },
           ),
         );
-      assert.ok("error" in (await edit("single", other.id)));
+      assert.equal(formFailure(await edit("single", other.id)).status, 400);
       assert.deepEqual(
         (await read()).versions.map((v) => v.id),
         [selected.id],

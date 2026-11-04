@@ -5,14 +5,12 @@ import {
 } from "../components/demo-editors";
 import { ShareLinks } from "../components/share-links";
 import { linkVersionScope } from "../domain/share-links";
-import { shareVersionScope } from "../server/share-links";
 import { EditForm } from "../components/editing";
 import { demoWavAvailable } from "../server/download";
 import { artistChoices } from "../server/track-artist";
 import { trackPage } from "../server/track-page";
-import { uploadVersion } from "../server/upload";
-import { uploadForm } from "../server/request";
-import { maxUploadBytes, dataDir } from "../server/config";
+import { demoMutation } from "../server/demo-mutations";
+import { dataDir } from "../server/config";
 import { useWorkspacePlayback } from "../components/workspace-player";
 import { Player, type Playback } from "../components/player";
 import { Feedback } from "../components/feedback";
@@ -46,9 +44,7 @@ import { recordVisit } from "../components/telemetry";
 import { useEffect, useRef, useState } from "react";
 import { db } from "../server/db";
 import { versions, links, reuploadRequests, events } from "../server/schema";
-import { sameOrigin, token, requireUser } from "../server/security";
-import { formError } from "../server/releases";
-import { trackAccess } from "../server/access";
+import { requireUser } from "../server/security";
 export const meta = () => [{ title: "Wavecase" }];
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -117,39 +113,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       : [],
   };
 }
-export async function action({ request, params }: ActionFunctionArgs) {
-  sameOrigin(request);
-  const { owner, track } = await trackAccess(request, params.id!);
-  if (!owner) throw new Response("Forbidden", { status: 403 });
-  const { form, files, discard } = await uploadForm(
-    request,
-    maxUploadBytes() + 65536,
-  );
-  try {
-    if (form.get("intent") === "link") {
-      const scope = await shareVersionScope(
-        track.id,
-        form.get("visibility") || "onward",
-        form.get("from"),
-      );
-      await db.insert(links).values({
-        id: token(),
-        trackId: track.id,
-        label: String(form.get("label") || "Shared link").slice(0, 200),
-        download: form.has("download"),
-        ...scope,
-      });
-    } else
-      return {
-        ok: true,
-        version: await uploadVersion(track.id, form, files.get("audio")),
-      };
-  } catch (error) {
-    return formError(error);
-  } finally {
-    await discard();
-  }
-  return { ok: true };
+export function action(args: ActionFunctionArgs) {
+  return demoMutation(args);
 }
 export default function Track() {
   const data = useLoaderData<typeof loader>();
@@ -275,6 +240,7 @@ function TrackContents() {
               <button className="button-primary">Upload new version</button>
             }
           >
+            <input type="hidden" name="intent" value="upload-version" />
             <label>
               Audio file
               <input
@@ -350,10 +316,7 @@ function TrackContents() {
               Reupload requested via {link?.label}
               {link && <> · {linkVersionScope(link, data.versions)}</>}
               {r.name && <> · {r.name}</>}
-              <Form
-                method="post"
-                action={"/tracks/" + data.track.id + "/manage"}
-              >
+              <Form method="post" action={"/tracks/" + data.track.id}>
                 <input type="hidden" name="link" value={r.linkId} />
                 <button name="intent" value="dismiss-request">
                   Dismiss

@@ -47,7 +47,7 @@ export function DemoIdentity({
   data: Data;
   artwork?: string;
 }) {
-  const action = `/tracks/${data.track.id}/manage`;
+  const action = `/tracks/${data.track.id}`;
   return (
     <div className="demo-identity">
       <div className="demo-identity-text">
@@ -222,7 +222,7 @@ export function VersionEditor({
   trackId: string;
   version: Version;
 }) {
-  const action = `/tracks/${trackId}/manage`;
+  const action = `/tracks/${trackId}`;
   return (
     <EditorDialog
       key={version.id}
@@ -328,7 +328,7 @@ export function ReplaceAudio({
         key={version.id}
         label={missing ? "Restore audio" : "Replace audio"}
         encType="multipart/form-data"
-        action={`/tracks/${trackId}/manage`}
+        action={`/tracks/${trackId}`}
         actions={
           <>
             <button

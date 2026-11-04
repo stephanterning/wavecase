@@ -384,7 +384,7 @@ test(
       const form = new FormData();
       form.set("intent", "remove");
       form.set("version", version);
-      const { action: manage } = await import("../app/routes/manage");
+      const { action: manage } = await import("../app/routes/track");
       await manage({
         ...args,
         params: { id: track },

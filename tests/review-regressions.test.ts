@@ -16,13 +16,13 @@ import {
 } from "../app/server/schema";
 import { hash, origin } from "../app/server/security";
 import { enabled } from "./database";
+import { formFailure } from "./form-failure";
 const modules = enabled
   ? {
       track: await import("../app/routes/track"),
       feedback: await import("../app/routes/feedback"),
       activity: await import("../app/routes/events"),
       share: await import("../app/routes/share"),
-      manage: await import("../app/routes/manage"),
       analytics: await import("../app/routes/analytics"),
     }
   : null;
@@ -65,7 +65,7 @@ test(
       });
     const linkForm = (visibility: string) => {
       const form = new FormData();
-      form.set("intent", "link");
+      form.set("intent", "create-link");
       form.set("label", "Review link");
       form.set("visibility", visibility);
       return form;
@@ -146,7 +146,7 @@ test(
       const rejected = await modules!.track.action(
         args(post("/tracks/" + empty, linkForm("onward"), true), { id: empty }),
       );
-      assert.ok("error" in rejected);
+      assert.equal(formFailure(rejected).status, 400);
       assert.equal(
         (await db.query.links.findMany({ where: eq(links.trackId, empty) }))
           .length,
@@ -281,8 +281,8 @@ test(
       assert.equal(analytics.events[0].version, null);
       const clear = new FormData();
       clear.set("intent", "clear-analytics");
-      await modules!.manage.action(
-        args(post("/tracks/" + empty + "/manage", clear, true), { id: empty }),
+      await modules!.track.action(
+        args(post("/tracks/" + empty, clear, true), { id: empty }),
       );
       assert.equal(
         (

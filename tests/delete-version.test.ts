@@ -21,10 +21,10 @@ import {
 } from "../app/server/schema";
 import { hash, origin } from "../app/server/security";
 import { versionAccess } from "../app/server/access";
-import { action } from "../app/routes/manage";
-import { loader } from "../app/routes/track";
+import { action, loader } from "../app/routes/track";
 import { dashboard } from "../app/server/dashboard";
 import { enabled } from "./database";
+import { formFailure } from "./form-failure";
 
 after(() => pool.end());
 test(
@@ -55,7 +55,7 @@ test(
     const post = (fields: Record<string, string>, token = tokens[0]) =>
       action(
         args(
-          new Request(`${origin}/tracks/${track}/manage`, {
+          new Request(`${origin}/tracks/${track}`, {
             method: "POST",
             headers: { origin, cookie: `session=${token}` },
             body: new URLSearchParams({ _inline: "1", ...fields }),
@@ -235,8 +235,7 @@ test(
           confirmation: foreignVersion.name,
         },
       ]) {
-        const result = await post(fields);
-        assert.ok("error" in result);
+        assert.ok(formFailure(await post(fields)).error);
       }
       assert.equal((await readdir(directory)).length, removed.length + 2);
       await db
