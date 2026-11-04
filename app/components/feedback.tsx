@@ -2,6 +2,7 @@ import { parseCommentTime } from "../domain/comment-time";
 import { useEffect, useState } from "react";
 import { browserIdentity } from "./telemetry";
 import { CommentDialog, type CommentDraft } from "./comment-dialog";
+import { ConfirmButton } from "./confirm-dialog";
 const timestamp = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 type Comment = {
@@ -18,6 +19,40 @@ type Comment = {
   createdAt: string;
   isNew?: boolean;
 };
+function DeleteComment({
+  comment,
+  onDelete,
+}: {
+  comment: Comment;
+  onDelete: () => void;
+}) {
+  const characters = [...(comment.body || "")];
+  const excerpt =
+    characters.length > 80
+      ? characters
+          .slice(0, 80)
+          .join("")
+          .replace(/\s+\S*$/, "") + "…"
+      : characters.join("");
+  return (
+    <ConfirmButton
+      className="secondary"
+      confirmTitle="Delete comment?"
+      confirmMessage={
+        <>
+          <p>
+            <strong>{comment.name}</strong>: “{excerpt}”
+          </p>
+          <p>This cannot be undone.</p>
+        </>
+      }
+      confirmLabel="Delete comment"
+      onConfirm={onDelete}
+    >
+      Delete
+    </ConfirmButton>
+  );
+}
 export function Feedback({
   versionId,
   share,
@@ -244,9 +279,7 @@ export function Feedback({
             )}
             <p>{c.body || "deleted"}</p>
             {c.canDelete && c.body && (
-              <button className="secondary" onClick={() => void remove(c)}>
-                Delete
-              </button>
+              <DeleteComment comment={c} onDelete={() => void remove(c)} />
             )}
             {visibleItems
               .filter((r) => r.threadId === c.id)
@@ -259,12 +292,10 @@ export function Feedback({
                   </strong>
                   <p>{r.body || "deleted"}</p>
                   {r.canDelete && r.body && (
-                    <button
-                      className="secondary"
-                      onClick={() => void remove(r)}
-                    >
-                      Delete
-                    </button>
+                    <DeleteComment
+                      comment={r}
+                      onDelete={() => void remove(r)}
+                    />
                   )}
                 </blockquote>
               ))}

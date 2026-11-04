@@ -10,6 +10,7 @@ import {
   reuploadRequests,
 } from "./schema";
 import { removeAudioFiles } from "./audio-files";
+import { matchesConfirmation } from "../domain/confirmation";
 
 // Lock parents before removing children so concurrent uploads and feedback cannot
 // leave new rows behind after the deletion transaction commits.
@@ -25,7 +26,7 @@ export async function deleteDemo(
       .where(and(eq(tracks.id, trackId), trackScope(ownerId)))
       .for("update");
     if (!track) throw new Response("Not found", { status: 404 });
-    if (title !== track.title)
+    if (!matchesConfirmation(title, track.title))
       throw new Response("Type the track title exactly to confirm deletion.", {
         status: 400,
       });
@@ -84,7 +85,7 @@ export async function deleteDemoVersion(
       .where(and(eq(versions.id, versionId), eq(versions.trackId, trackId)))
       .for("update");
     if (!version) throw new Response("Not found", { status: 404 });
-    if (name !== version.name)
+    if (!matchesConfirmation(name, version.name))
       throw new Response("Type the version name exactly to confirm deletion.", {
         status: 400,
       });

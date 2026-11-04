@@ -206,7 +206,11 @@ test(
       );
 
       assert.deepEqual(
-        await post({ intent: "metadata", field: "title", title: "Renamed" }),
+        await post({
+          intent: "metadata",
+          field: "title",
+          title: "Audit test – Delete me",
+        }),
         { saved: true },
       );
       const updated = await db.query.tracks.findFirst({
@@ -242,7 +246,7 @@ test(
 
       await assert.rejects(
         post(
-          { intent: "delete-track", confirmation: "Renamed" },
+          { intent: "delete-track", confirmation: "Audit test – Delete me" },
           track,
           outsider,
         ),
@@ -250,7 +254,7 @@ test(
       );
       const wrong = await post({
         intent: "delete-track",
-        confirmation: "Wrong title",
+        confirmation: "Audit test - Keep me",
       });
       assert.ok(!(wrong instanceof Response) && "error" in wrong);
       const forbiddenLink = await post({
@@ -313,7 +317,7 @@ test(
 
       const deleted = await post({
         intent: "delete-track",
-        confirmation: "Renamed",
+        confirmation: "Audit test - Delete me",
       });
       assert.ok(deleted instanceof Response);
       assert.equal(deleted.headers.get("location"), "/library");

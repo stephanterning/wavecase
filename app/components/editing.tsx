@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useBlocker, useFetcher, type FormProps } from "react-router";
+import { ConfirmButton, ConfirmDialog } from "./confirm-dialog";
 
 const DialogActions = createContext<{
   cancel: () => void;
@@ -31,13 +32,6 @@ export function EditingProvider({ children }: { children: ReactNode }) {
         currentLocation.search !== nextLocation.search),
   );
   useEffect(() => {
-    if (blocker.state === "blocked") {
-      if (window.confirm("Leave this page? Your unsaved changes will be lost."))
-        blocker.proceed();
-      else blocker.reset();
-    }
-  }, [blocker]);
-  useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (dirty()) {
         event.preventDefault();
@@ -47,7 +41,27 @@ export function EditingProvider({ children }: { children: ReactNode }) {
     window.addEventListener("beforeunload", beforeUnload);
     return () => window.removeEventListener("beforeunload", beforeUnload);
   });
-  return <Editing.Provider value={editors}>{children}</Editing.Provider>;
+  return (
+    <Editing.Provider value={editors}>
+      {children}
+      <ConfirmDialog
+        open={blocker.state === "blocked"}
+        title="Leave this page?"
+        confirmLabel="Discard and leave"
+        cancelLabel="Stay on page"
+        onConfirm={() => blocker.proceed?.()}
+        onCancel={() => blocker.reset?.()}
+      >
+        <p>
+          {blocker.state === "blocked" &&
+            `Unsaved changes will be lost: ${[...editors.values()]
+              .filter((editor) => editor.dirty())
+              .map((editor) => editor.label)
+              .join(", ")}.`}
+        </p>
+      </ConfirmDialog>
+    </Editing.Provider>
+  );
 }
 
 export function useConfirmDiscard() {
@@ -71,6 +85,8 @@ function snapshot(form: HTMLFormElement) {
       .filter(([key, value]) => {
         // Empty file controls are equivalent to disabled upload controls.
         if (value instanceof File && !value.name) return false;
+        // Typing a delete confirmation is not an edit worth keeping.
+        if (key === "confirmation") return false;
         const field = form.elements.namedItem(key);
         return !(
           field instanceof HTMLInputElement &&
@@ -169,7 +185,7 @@ function FormContents({
   const parts = Children.toArray(children);
   const submit = (child: ReactNode) =>
     isValidElement<{ type?: string }>(child) &&
-    child.type === "button" &&
+    (child.type === "button" || child.type === ConfirmButton) &&
     child.props.type !== "button";
   const refresh = () =>
     queueMicrotask(() => {
@@ -343,6 +359,7 @@ export function EditorDialog({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
@@ -352,14 +369,17 @@ export function EditorDialog({
     else if (wasOpen.current) button.current?.focus();
     wasOpen.current = open;
   }, [open]);
-  const complete = () => setOpen(false);
+  const complete = () => {
+    setDiscarding(false);
+    setOpen(false);
+  };
   const cancel = () => {
     if (dialog.current?.querySelector("fieldset:disabled")) return;
     const dirty = [...(editors?.entries() || [])].some(
       ([form, editor]) => dialog.current?.contains(form) && editor.dirty(),
     );
-    if (dirty && !window.confirm("Discard your unsaved changes?")) return;
-    complete();
+    if (dirty) setDiscarding(true);
+    else complete();
   };
   return (
     <>
@@ -394,6 +414,16 @@ export function EditorDialog({
           <DialogActions.Provider value={{ cancel, complete }}>
             {children}
           </DialogActions.Provider>
+          <ConfirmDialog
+            open={discarding}
+            title="Discard unsaved changes?"
+            confirmLabel="Discard changes"
+            cancelLabel="Keep editing"
+            onConfirm={complete}
+            onCancel={() => setDiscarding(false)}
+          >
+            <p>Your changes in “{title}” will not be saved.</p>
+          </ConfirmDialog>
         </dialog>
       )}
     </>

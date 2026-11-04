@@ -6,6 +6,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { db } from "../server/db";
 import { passkeys } from "../server/schema";
 import { requireUser, sameOrigin } from "../server/security";
+import { ConfirmButton } from "../components/confirm-dialog";
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   return {
@@ -78,9 +79,22 @@ export default function Account() {
           <Form method="post" key={key.id}>
             <input type="hidden" name="id" value={key.id} />
             <p>
-              Passkey {i + 1} · {key.id.slice(0, 8)}{" "}
-              <button disabled={keys.length <= 1}>Remove</button>
+              Passkey {i + 1} · {key.id.slice(0, 8)}
             </p>
+            <ConfirmButton
+              disabled={keys.length <= 1}
+              confirmTitle={`Remove passkey ${i + 1} · ${key.id.slice(0, 8)}?`}
+              confirmMessage={
+                <p>
+                  You will no longer be able to sign in with this passkey. Make
+                  sure you can sign in with one of your other passkeys first.
+                  This cannot be undone.
+                </p>
+              }
+              confirmLabel="Remove passkey"
+            >
+              Remove
+            </ConfirmButton>
           </Form>
         ))}
         {keys.length <= 1 && (

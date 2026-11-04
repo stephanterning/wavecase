@@ -1,13 +1,44 @@
 import { Link } from "react-router";
 import type { loader } from "../routes/track";
+import { ConfirmButton } from "./confirm-dialog";
 import { EditForm, EditorDialog } from "./editing";
 import { Icon } from "./icons";
 import { PublicLink } from "./public-links";
 import { TrackArtistField } from "./track-artist-field";
+import { matchesConfirmation } from "../domain/confirmation";
 import { versionStatuses } from "../domain/versions";
 
 type Data = Awaited<ReturnType<typeof loader>>;
 type Version = Data["versions"][number];
+
+function ConfirmationField({
+  label,
+  expected,
+}: {
+  label: string;
+  expected: string;
+}) {
+  return (
+    <label>
+      {label}
+      <input
+        name="confirmation"
+        required
+        autoComplete="off"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        onInput={(event) =>
+          event.currentTarget.setCustomValidity(
+            matchesConfirmation(event.currentTarget.value, expected)
+              ? ""
+              : `Type “${expected}” to confirm.`,
+          )
+        }
+      />
+    </label>
+  );
+}
 
 export function DemoIdentity({
   data,
@@ -87,10 +118,10 @@ export function DemoIdentity({
                       all versions, audio files, artwork, share links, feedback
                       and statistics? This cannot be undone.
                     </p>
-                    <label>
-                      Type the track title to confirm
-                      <input name="confirmation" required autoComplete="off" />
-                    </label>
+                    <ConfirmationField
+                      label="Type the track title to confirm"
+                      expected={data.track.title}
+                    />
                     <button className="button-danger">
                       Delete track permanently
                     </button>
@@ -140,14 +171,23 @@ export function DemoIdentity({
                 Save cover
               </button>
               {artwork && (
-                <button
+                <ConfirmButton
                   className="button-danger"
                   name="intent"
                   value="remove-cover"
                   formNoValidate
+                  confirmTitle="Remove cover image?"
+                  confirmMessage={
+                    <p>
+                      The cover of <strong>{data.track.title}</strong> will be
+                      deleted from the workspace and all share links. This
+                      cannot be undone.
+                    </p>
+                  }
+                  confirmLabel="Remove cover"
                 >
                   Remove cover
-                </button>
+                </ConfirmButton>
               )}
             </EditForm>
           ) : (
@@ -237,10 +277,10 @@ export function VersionEditor({
             Links starting at this version will still only allow later versions.
             Links sharing only this version will have no available version.
           </p>
-          <label>
-            Type the version name to confirm
-            <input name="confirmation" required autoComplete="off" />
-          </label>
+          <ConfirmationField
+            label="Type the version name to confirm"
+            expected={version.name}
+          />
           <button className="button-danger">Delete version permanently</button>
         </EditForm>
       </div>
@@ -275,17 +315,6 @@ export function ReplaceAudio({
             )}
           </span>
         }
-        onSubmit={(event) => {
-          const submitter = (event.nativeEvent as SubmitEvent)
-            .submitter as HTMLButtonElement | null;
-          if (
-            submitter?.value === "remove" &&
-            !window.confirm(
-              "Remove this audio file? The version, share links, feedback and statistics will remain.",
-            )
-          )
-            event.preventDefault();
-        }}
       >
         <input type="hidden" name="version" value={version.id} />
         <p>
@@ -318,14 +347,22 @@ export function ReplaceAudio({
           Upload replacement
         </button>
         {(version.state === "ready" || version.processing) && (
-          <button
+          <ConfirmButton
             name="intent"
             value="remove"
             formNoValidate
             className="button-danger"
+            confirmTitle="Remove audio file?"
+            confirmMessage={
+              <p>
+                The audio of <strong>{version.name}</strong> will be deleted.
+                The version, share links, feedback and statistics will remain.
+              </p>
+            }
+            confirmLabel="Remove audio file"
           >
             Remove audio file
-          </button>
+          </ConfirmButton>
         )}
       </EditForm>
     </div>

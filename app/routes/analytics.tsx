@@ -12,6 +12,7 @@ import { eq, desc } from "drizzle-orm";
 import { db } from "../server/db";
 import { events, links, versions } from "../server/schema";
 import { trackAccess } from "../server/access";
+import { ConfirmButton } from "../components/confirm-dialog";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const access = await trackAccess(request, params.id!);
   if (!access.owner) throw new Response("Forbidden", { status: 403 });
@@ -396,21 +397,23 @@ export default function Analytics() {
       {!downloads.length && (
         <p className="muted">No downloads for this selection.</p>
       )}
-      <Form
-        method="post"
-        action={"/tracks/" + data.track.id + "/manage"}
-        onSubmit={(e) => {
-          if (
-            !confirm(
-              "Permanently delete all listening statistics for this track, including other filter selections?",
-            )
-          )
-            e.preventDefault();
-        }}
-      >
-        <button name="intent" value="clear-analytics" className="button-danger">
+      <Form method="post" action={"/tracks/" + data.track.id + "/manage"}>
+        <ConfirmButton
+          name="intent"
+          value="clear-analytics"
+          className="button-danger"
+          confirmTitle={`Delete all statistics for “${data.track.title}”?`}
+          confirmMessage={
+            <p>
+              This deletes every recorded visit, play and download for all
+              versions and share links of this track, not only what the current
+              filters show. Feedback is kept. This cannot be undone.
+            </p>
+          }
+          confirmLabel="Delete all statistics"
+        >
           Delete all track statistics
-        </button>
+        </ConfirmButton>
       </Form>
     </>
   );
