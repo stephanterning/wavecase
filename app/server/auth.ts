@@ -21,12 +21,14 @@ import {
   setCookie,
   token,
 } from "./security";
-const enrollment = z.object({
-  name: z.string().trim().min(1).max(100),
+export const accountDetails = z.object({
+  name: z.string().trim().min(1, "Enter a display name.").max(100),
   email: z
-    .email()
+    .email("Enter a valid email address.")
     .max(254)
     .transform((v) => v.toLowerCase()),
+});
+const enrollment = accountDetails.extend({
   invitation: z.string().max(100).optional(),
   open: z.boolean().optional(),
 });
@@ -218,7 +220,11 @@ export async function auth(request: Request, action: string) {
     const key = await db.query.passkeys.findFirst({
       where: eq(passkeys.id, body.id),
     });
-    if (!key) throw new Response("Passkey not recognized", { status: 400 });
+    if (!key)
+      throw new Response(
+        "This passkey no longer belongs to a Wavecase account. Sign in with another passkey, or ask an administrator for a recovery link.",
+        { status: 404 },
+      );
     const result = await verifyAuthenticationResponse({
       response: body,
       expectedChallenge: challenge.value,
@@ -239,7 +245,10 @@ export async function auth(request: Request, action: string) {
     if (!user) throw new Response("Account unavailable", { status: 403 });
     await db
       .update(passkeys)
-      .set({ counter: result.authenticationInfo.newCounter })
+      .set({
+        counter: result.authenticationInfo.newCounter,
+        lastUsedAt: new Date(),
+      })
       .where(eq(passkeys.id, key.id));
     userId = key.userId;
   } else throw new Response("Invalid authentication flow", { status: 400 });

@@ -160,6 +160,45 @@ test(
 );
 
 test(
+  "users edit their own display name and email with registration's validation",
+  { skip: !enabled },
+  async () => {
+    const user = await signedIn();
+    const other = await signedIn();
+    const save = (name: string, email: string) =>
+      account(
+        args(post("/account", user.cookie, { intent: "details", name, email })),
+      );
+    const stored = async (id: string) =>
+      (await db.query.users.findFirst({ where: eq(users.id, id) }))!;
+    const before = await stored(user.id);
+    assert.equal(
+      (await save("   ", before.email)).error,
+      "Enter a display name.",
+    );
+    assert.equal(
+      (await save("Valid", "not-an-email")).error,
+      "Enter a valid email address.",
+    );
+    assert.equal(
+      (await save("Valid", other.id.toUpperCase() + "@test.invalid")).error,
+      "Another account already uses this email address.",
+    );
+    assert.deepEqual(
+      [(await stored(user.id)).name, (await stored(user.id)).email],
+      [before.name, before.email],
+    );
+    const email = randomUUID() + "@Test.Invalid";
+    assert.equal((await save("  Renamed owner  ", email)).saved, true);
+    assert.deepEqual(
+      [(await stored(user.id)).name, (await stored(user.id)).email],
+      ["Renamed owner", email.toLowerCase()],
+    );
+    assert.equal((await stored(other.id)).name, "Account " + other.id);
+  },
+);
+
+test(
   "the last passkey cannot be removed and other accounts' passkeys are untouched",
   { skip: !enabled },
   async () => {

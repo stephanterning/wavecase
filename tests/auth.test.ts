@@ -151,6 +151,20 @@ test(
       )?.email,
       identity.email,
     );
+    const used = await db.query.passkeys.findFirst({
+      where: eq(passkeys.id, first.id),
+    });
+    assert.ok(used?.createdAt && used.lastUsedAt);
+    assert.ok(used.lastUsedAt >= used.createdAt);
+    const unknownOptions = await post("login-options", {});
+    await assert.rejects(
+      post(
+        "login-verify",
+        { id: randomBytes(32).toString("base64url") },
+        cookieOf(unknownOptions),
+      ),
+      (error) => error instanceof Response && error.status === 404,
+    );
     const invitation = randomBytes(32).toString("base64url");
     await db
       .insert(invitations)

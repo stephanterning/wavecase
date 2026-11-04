@@ -41,9 +41,18 @@ async function post(path: string, body: unknown) {
   });
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text.startsWith("{") ? JSON.parse(text).error : text);
+    throw Object.assign(
+      new Error(text.startsWith("{") ? JSON.parse(text).error : text),
+      { status: response.status },
+    );
   }
   return response.json();
+}
+function forgetPasskey(rpId: string, credentialId: string) {
+  if ("signalUnknownCredential" in PublicKeyCredential)
+    PublicKeyCredential.signalUnknownCredential({ rpId, credentialId }).catch(
+      () => {},
+    );
 }
 export default function Home() {
   const data = useLoaderData<typeof loader>();
@@ -75,10 +84,11 @@ export default function Home() {
         );
       } else {
         const options = await post("login-options", {});
-        await post(
-          "login-verify",
-          await startAuthentication({ optionsJSON: options }),
-        );
+        const credential = await startAuthentication({ optionsJSON: options });
+        await post("login-verify", credential).catch((e) => {
+          if (e.status === 404) forgetPasskey(options.rpId, credential.id);
+          throw e;
+        });
       }
       window.location.assign(data.returnTo);
     } catch (e) {

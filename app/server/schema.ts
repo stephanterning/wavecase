@@ -37,6 +37,11 @@ export const passkeys = pgTable("passkeys", {
   publicKey: text().notNull(),
   counter: bigint({ mode: "number" }).notNull(),
   transports: jsonb().$type<string[]>().notNull().default([]),
+  // Nullable without a database default: passkeys from before this column have no known date.
+  createdAt: timestamp("created_at", { withTimezone: true }).$defaultFn(
+    () => new Date(),
+  ),
+  lastUsedAt: timestamp({ withTimezone: true }),
 });
 export const sessions = pgTable("sessions", {
   id: text().primaryKey(),
