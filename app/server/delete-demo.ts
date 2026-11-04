@@ -59,12 +59,7 @@ export async function deleteDemo(
     await tx.delete(tracks).where(eq(tracks.id, trackId));
     return [
       track.cover,
-      ...all.flatMap((v) => [
-        v.original,
-        v.playback,
-        v.pendingOriginal,
-        v.pendingOriginal ? v.pendingOriginal + ".wav" : null,
-      ]),
+      ...all.flatMap((v) => [v.original, v.playback, v.pendingOriginal]),
     ];
   });
   await removeAudioFiles(process.env.DATA_DIR || "data/audio", files);
@@ -98,12 +93,7 @@ export async function deleteDemoVersion(
     await tx.delete(versions).where(eq(versions.id, versionId));
     // Keep link boundaries and surviving positions unchanged, including when
     // this was a link's starting version. Older versions must stay private.
-    return [
-      version.original,
-      version.playback,
-      version.pendingOriginal,
-      version.pendingOriginal ? version.pendingOriginal + ".wav" : null,
-    ];
+    return [version.original, version.playback, version.pendingOriginal];
   });
   await removeAudioFiles(process.env.DATA_DIR || "data/audio", files);
 }

@@ -19,18 +19,18 @@ import {
 } from "../domain/audio-stream";
 
 import { encodeFlacParts } from "./demo-flac";
+import { flacPart, streamBase, streamFile, temporary } from "./storage-keys";
 type Prepared = StreamManifest & {
   flacEnds?: number[];
   pcmCodecChecked?: boolean;
 };
-export const streamSuffix = ".stream-v1";
 export async function streamManifest(
   directory: string,
   key: string,
 ): Promise<Prepared | null> {
   try {
     const manifest = JSON.parse(
-      await readFile(join(directory, key + streamSuffix + ".json"), "utf8"),
+      await readFile(join(directory, streamFile(key, "json")), "utf8"),
     );
     if (!validStreamManifest(manifest) || manifest.mp3Rate !== undefined)
       return null;
@@ -42,12 +42,11 @@ export async function streamManifest(
         !ends.every((n, i) => Number.isSafeInteger(n) && n > (ends[i - 1] ?? 0))
       )
         return null;
-      const size = (await stat(join(directory, key + streamSuffix + ".flac")))
-        .size;
+      const size = (await stat(join(directory, streamFile(key, "flac")))).size;
       return ends.at(-1) === size ? manifest : null;
     }
     if (manifest.flacEnds !== undefined) return null;
-    const pcm = await stat(join(directory, key + streamSuffix + ".pcm"));
+    const pcm = await stat(join(directory, streamFile(key, "pcm")));
     if (pcm.size !== manifest.frames * manifest.channels * 4) return null;
     return manifest;
   } catch (error) {
@@ -65,7 +64,8 @@ export async function streamManifest(
 export async function prepareStream(directory: string, key: string) {
   const existing = await streamManifest(directory, key);
   if (existing?.flacRate || existing?.pcmCodecChecked) return existing;
-  const file = join(directory, key + streamSuffix);
+  const path = (kind: "json" | "pcm" | "flac") =>
+    join(directory, streamFile(key, kind));
   const { stdout } = await promisify(execFile)(
     "ffprobe",
     [
@@ -101,13 +101,14 @@ export async function prepareStream(directory: string, key: string) {
     if (flac) {
       const flacEnds = await encodeFlacParts(
         join(directory, key),
-        file,
+        temporary(path("flac")),
+        join(directory, flacPart(key)),
         rate,
         samples,
       );
       const manifest: Prepared = {
         revision: createHash("sha256")
-          .update(key + streamSuffix + "-flac-v1")
+          .update(streamBase(key) + "-flac-v1")
           .digest("hex"),
         frames: Math.ceil((samples * streamRate) / rate),
         sampleRate: streamRate,
@@ -118,18 +119,18 @@ export async function prepareStream(directory: string, key: string) {
         flacEnds,
       };
       await stat(join(directory, key));
-      await rename(file + ".flac.tmp", file + ".flac");
-      await writeFile(file + ".json.tmp", JSON.stringify(manifest));
-      await rename(file + ".json.tmp", file + ".json");
-      await unlink(file + ".pcm").catch((e) => {
+      await rename(temporary(path("flac")), path("flac"));
+      await writeFile(temporary(path("json")), JSON.stringify(manifest));
+      await rename(temporary(path("json")), path("json"));
+      await unlink(path("pcm")).catch((e) => {
         if (e.code !== "ENOENT") throw e;
       });
       return manifest;
     }
     if (existing) {
       existing.pcmCodecChecked = true;
-      await writeFile(file + ".json.tmp", JSON.stringify(existing));
-      await rename(file + ".json.tmp", file + ".json");
+      await writeFile(temporary(path("json")), JSON.stringify(existing));
+      await rename(temporary(path("json")), path("json"));
       return existing;
     }
     await promisify(execFile)(
@@ -151,11 +152,11 @@ export async function prepareStream(directory: string, key: string) {
         "aresample=48000:filter_size=64",
         "-f",
         "f32le",
-        file + ".pcm.tmp",
+        temporary(path("pcm")),
       ],
       { timeout: 600_000, maxBuffer: 1024 * 1024 },
     );
-    const size = (await stat(file + ".pcm.tmp")).size;
+    const size = (await stat(temporary(path("pcm")))).size;
     const frames = size / (channels * 4);
     if (!Number.isSafeInteger(frames) || frames <= 0)
       throw new Error("Empty prepared audio");
@@ -163,22 +164,20 @@ export async function prepareStream(directory: string, key: string) {
     await stat(join(directory, key));
     const manifest: Prepared = {
       pcmCodecChecked: true,
-      revision: createHash("sha256")
-        .update(key + streamSuffix)
-        .digest("hex"),
+      revision: createHash("sha256").update(streamBase(key)).digest("hex"),
       sampleRate: streamRate,
       channels,
       frames,
       chunkFrames: streamChunkFrames,
     };
-    await rename(file + ".pcm.tmp", file + ".pcm");
-    await writeFile(file + ".json.tmp", JSON.stringify(manifest));
-    await rename(file + ".json.tmp", file + ".json");
+    await rename(temporary(path("pcm")), path("pcm"));
+    await writeFile(temporary(path("json")), JSON.stringify(manifest));
+    await rename(temporary(path("json")), path("json"));
     return manifest;
   } finally {
     await Promise.all(
-      [".pcm.tmp", ".json.tmp", ".flac.tmp"].map((suffix) =>
-        unlink(file + suffix).catch(() => {}),
+      (["pcm", "json", "flac"] as const).map((kind) =>
+        unlink(temporary(path(kind))).catch(() => {}),
       ),
     );
   }
@@ -248,10 +247,7 @@ export async function streamResponse(
       4;
   const bytes = Buffer.alloc(length);
   const file = await open(
-    join(
-      directory,
-      key + streamSuffix + (manifest.flacRate ? ".flac" : ".pcm"),
-    ),
+    join(directory, streamFile(key, manifest.flacRate ? "flac" : "pcm")),
     "r",
   );
   try {

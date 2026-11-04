@@ -6,6 +6,7 @@ import { createReadStream } from "node:fs";
 import { join } from "node:path";
 import { playbackPlan } from "./audio-policy";
 import { InvalidAudioError } from "./processing-errors";
+import { decodedPlayback, decodedSource, playbackWav } from "./storage-keys";
 const exec = promisify(execFile);
 const formats = "wav,aiff,flac,mp3,mov,matroska,ogg,aac,asf,ape,wv,au,caf";
 export const audioInput = [
@@ -53,8 +54,8 @@ export async function processAudio(directory: string, key: string) {
           : 0),
     probe.format.format_name,
   );
-  const originalRaw = join(directory, key + ".source.pcm");
-  const raw = join(directory, key + ".pcm");
+  const originalRaw = join(directory, decodedSource(key));
+  const raw = join(directory, decodedPlayback(key));
   const run = (args: string[]) =>
     exec("ffmpeg", ["-nostdin", "-y", "-v", "error", "-xerror", ...args], {
       timeout: 600000,
@@ -91,7 +92,7 @@ export async function processAudio(directory: string, key: string) {
         }
       }
     }
-    const playback = plan.keepOriginal ? key : key + ".wav";
+    const playback = plan.keepOriginal ? key : playbackWav(key);
     const output = join(directory, playback);
     // Force a real sample-format conversion for dither: 32-bit and 24-bit PCM
     // otherwise both use s32 internally and swresample may bypass quantization.

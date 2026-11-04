@@ -4,7 +4,8 @@ import type {
   DownloadDetails,
   FormatDetails,
 } from "../domain/download-details";
-import { probeDownload, losslessSuffix, unchangedWav } from "./audio-exports";
+import { probeDownload, unchangedWav } from "./audio-exports";
+import * as storage from "./storage-keys";
 
 /** Inspect only when the download dialog opens; never encode audio for an estimate. */
 export async function downloadDetails(
@@ -38,9 +39,9 @@ export async function downloadDetails(
       Number(audio.bits_per_raw_sample) || Number(audio.bits_per_sample);
     if (!Number.isFinite(duration) || duration <= 0)
       throw new Error("Invalid audio duration");
-    const cachedSize = async (suffix: string) => {
+    const cachedSize = async (name: string) => {
       try {
-        return (await stat(join(directory, key + suffix))).size;
+        return (await stat(join(directory, name))).size;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
         throw error;
@@ -50,7 +51,8 @@ export async function downloadDetails(
     original.bytes! += sourceBytes;
     original.sampleRates.push(rate);
     if (bits) original.bitDepths.push(bits);
-    mp3.bytes! += (await cachedSize(".mp3")) || (duration * 320_000) / 8;
+    mp3.bytes! +=
+      (await cachedSize(storage.mp3(key))) || (duration * 320_000) / 8;
     mp3.sampleRates.push(rate >= 48000 ? 48000 : rate >= 44100 ? 44100 : 32000);
     if (!plan.wavDownload) {
       lossless = false;
@@ -58,9 +60,9 @@ export async function downloadDetails(
     }
     wav.bytes! += unchangedWav(probe)
       ? sourceBytes
-      : (await cachedSize(losslessSuffix("wav"))) ||
+      : (await cachedSize(storage.lossless(key, "wav"))) ||
         duration * 44100 * 2 * Number(audio.channels) + 44;
-    const flacBytes = await cachedSize(losslessSuffix("flac"));
+    const flacBytes = await cachedSize(storage.lossless(key, "flac"));
     // FLAC size depends strongly on the signal; do not invent a compression ratio.
     flac.bytes =
       flac.bytes === null || flacBytes === null ? null : flac.bytes + flacBytes;

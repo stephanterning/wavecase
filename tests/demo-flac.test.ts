@@ -4,11 +4,7 @@ import { mkdtemp, readFile, writeFile, stat, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
-import {
-  prepareStream,
-  streamResponse,
-  streamSuffix,
-} from "../app/server/audio-stream";
+import { prepareStream, streamResponse } from "../app/server/audio-stream";
 import { removeAudioFiles } from "../app/server/audio-files";
 import { flacWindow } from "../app/domain/demo-flac";
 
@@ -21,7 +17,7 @@ for (const [rate, channels, bits] of [
     const dir = await mkdtemp(join(tmpdir(), "demo-flac-"));
     const key = "source.wav",
       file = join(dir, key),
-      base = file + streamSuffix;
+      base = file + ".stream-v1";
     const raw = bits === 8 ? "u8" : "s" + bits + "le";
     const codec = "pcm_" + raw;
     const ff = (...args: string[]) =>

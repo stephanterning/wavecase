@@ -6,11 +6,7 @@ import { promisify } from "node:util";
 import { gunzip } from "node:zlib";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  prepareStream,
-  streamResponse,
-  streamSuffix,
-} from "../app/server/audio-stream";
+import { prepareStream, streamResponse } from "../app/server/audio-stream";
 import { removeAudioFiles } from "../app/server/audio-files";
 const exec = promisify(execFile);
 
@@ -54,7 +50,7 @@ test("stream parts reconstruct continuous 44.1-to-48 kHz decoding, including pea
     const all = Buffer.concat(bytes);
     assert.deepEqual(
       all,
-      await readFile(join(directory, "source.wav" + streamSuffix + ".pcm")),
+      await readFile(join(directory, "source.wav" + ".stream-v1" + ".pcm")),
     );
     await exec("ffmpeg", [
       "-v",
@@ -84,7 +80,7 @@ test("stream parts reconstruct continuous 44.1-to-48 kHz decoding, including pea
       manifest,
       "prepared data is reusable",
     );
-    const derivative = join(directory, "source.wav" + streamSuffix + ".pcm");
+    const derivative = join(directory, "source.wav" + ".stream-v1" + ".pcm");
     await truncate(derivative, 4);
     await prepareStream(directory, "source.wav");
     assert.deepEqual(
@@ -121,7 +117,7 @@ test("stream parts reconstruct continuous 44.1-to-48 kHz decoding, including pea
     const mono = await prepareStream(directory, "mono.wav");
     assert.equal(mono.channels, 1, "mono must not be remixed or attenuated");
     const monoBytes = await readFile(
-      join(directory, "mono.wav" + streamSuffix + ".pcm"),
+      join(directory, "mono.wav" + ".stream-v1" + ".pcm"),
     );
     const monoSamples = new Float32Array(
       monoBytes.buffer,
@@ -132,11 +128,11 @@ test("stream parts reconstruct continuous 44.1-to-48 kHz decoding, including pea
       assert.equal(monoSamples[i], samples[i * 2]);
     await removeAudioFiles(directory, ["source.wav"]);
     await assert.rejects(
-      stat(join(directory, "source.wav" + streamSuffix + ".pcm")),
+      stat(join(directory, "source.wav" + ".stream-v1" + ".pcm")),
       { code: "ENOENT" },
     );
     await assert.rejects(
-      stat(join(directory, "source.wav" + streamSuffix + ".json")),
+      stat(join(directory, "source.wav" + ".stream-v1" + ".json")),
       { code: "ENOENT" },
     );
   } finally {

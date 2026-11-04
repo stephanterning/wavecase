@@ -1,10 +1,10 @@
 import { execFile } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import { rename, stat, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { playbackPlan } from "./audio-policy";
 import { audioInput } from "./audio";
+import { exportTemporary, lossless, mp3 } from "./storage-keys";
 
 const encoding = new Map<string, Promise<string>>();
 
@@ -24,7 +24,7 @@ function cachedExport(
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       }
-      const temporary = `${destination}.${randomUUID()}.tmp`;
+      const temporary = exportTemporary(destination);
       try {
         await encode(temporary);
         if (!(await stat(temporary)).size)
@@ -41,7 +41,7 @@ function cachedExport(
 }
 
 export function encodeMp3(directory: string, key: string) {
-  return cachedExport(directory, key + ".mp3", async (temporary) => {
+  return cachedExport(directory, mp3(key), async (temporary) => {
     const { stdout } = await promisify(execFile)(
       "ffprobe",
       [
@@ -127,9 +127,6 @@ export async function probeDownload(directory: string, key: string) {
   return { probe, plan };
 }
 
-// A separate cache name prevents reuse of older full-resolution WAV exports.
-export const losslessSuffix = (format: "wav" | "flac") => `.16-44100.${format}`;
-
 export function unchangedWav(
   probe: Awaited<ReturnType<typeof probeDownload>>["probe"],
 ) {
@@ -181,7 +178,7 @@ function cachedLossless(
   source: string,
   options: string[],
 ) {
-  return cachedExport(directory, key + losslessSuffix(format), (temporary) =>
+  return cachedExport(directory, lossless(key, format), (temporary) =>
     promisify(execFile)(
       "ffmpeg",
       [
