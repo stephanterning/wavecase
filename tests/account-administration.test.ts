@@ -8,7 +8,7 @@ import { passkeys, recoveries, sessions, users } from "../app/server/schema";
 import { hash, origin } from "../app/server/security";
 import { action as admin } from "../app/routes/admin";
 import { action as account } from "../app/routes/account";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 after(() => pool.end());
 
 const args = (request: Request) => ({

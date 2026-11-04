@@ -13,7 +13,7 @@ import {
   users,
 } from "../app/server/schema";
 import { deleteExpiredTokens } from "../app/server/security";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 after(() => pool.end());
 
 test(

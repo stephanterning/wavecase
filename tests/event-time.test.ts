@@ -7,7 +7,7 @@ import { db, pool } from "../app/server/db";
 import { events, links, tracks, users } from "../app/server/schema";
 import { origin } from "../app/server/security";
 import { action as visit } from "../app/routes/visits";
-const enabled = process.env.DATABASE_URL?.endsWith("/wavecase_test");
+import { enabled } from "./database";
 after(() => pool.end());
 
 test(
