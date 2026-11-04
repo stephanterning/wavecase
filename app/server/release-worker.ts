@@ -5,6 +5,7 @@ import { db } from "./db";
 import { releaseTracks } from "./schema";
 import { boss } from "./queue";
 import { processReleaseAudio, measureReleasePlayback } from "./release-audio";
+import { retryProcessing } from "./processing-errors";
 const directory = process.env.DATA_DIR || "data/audio";
 export async function startReleaseWorker() {
   await boss.work<{ trackId: string }>("process-release", async (jobs) => {
@@ -38,15 +39,8 @@ export async function startReleaseWorker() {
           cleanup.filter((p) => p !== (changed.length ? key : "")),
         );
       } catch (error) {
-        if (
-          job.retryCount < 3 &&
-          error instanceof Error &&
-          /ENOSPC|EMFILE|temporarily unavailable|Input.output/.test(
-            error.message,
-          )
-        )
-          throw error;
-        await db
+        if (retryProcessing(error, job)) throw error;
+        const failed = await db
           .update(releaseTracks)
           .set({
             pendingOriginal: null,
@@ -58,8 +52,10 @@ export async function startReleaseWorker() {
               eq(releaseTracks.id, track.id),
               eq(releaseTracks.pendingOriginal, key),
             ),
-          );
-        await removeAudioFiles(directory, [key, key + ".m4a"]);
+          )
+          .returning({ id: releaseTracks.id });
+        if (failed.length)
+          await removeAudioFiles(directory, [key, key + ".m4a"]);
       }
     }
   });

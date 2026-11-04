@@ -7,6 +7,7 @@ import { prepareStream, streamManifest, streamSuffix } from "./audio-stream";
 import { versions, comments, releaseTracks } from "./schema";
 import { boss, queue } from "./queue";
 import { processAudio, sameDuration } from "./audio";
+import { InvalidAudioError, retryProcessing } from "./processing-errors";
 import { startReleaseWorker, reconcileReleases } from "./release-worker";
 const directory = process.env.DATA_DIR || "data/audio";
 await queue();
@@ -48,7 +49,7 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
             result.metadata,
           )
         )
-          throw new Error(
+          throw new InvalidAudioError(
             "Replacement must have exactly the same duration because this version has comments.",
           );
         await tx
@@ -74,15 +75,8 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
         : [key, result.playback];
       await removeAudioFiles(directory, cleanup);
     } catch (error) {
-      if (
-        error instanceof Error &&
-        /No space left|Resource temporarily unavailable|Input.output error|EMFILE|ENOSPC/.test(
-          error.message,
-        ) &&
-        job.retryCount < 3
-      )
-        throw error;
-      await db
+      if (retryProcessing(error, job)) throw error;
+      const failed = await db
         .update(versions)
         .set({
           state: version.playback
@@ -91,10 +85,7 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
               ? "missing"
               : "failed",
           error:
-            error instanceof Error &&
-            /^(Replacement|Upload mono|Audio (exceeds|contains|is empty))/.test(
-              error.message,
-            )
+            error instanceof InvalidAudioError
               ? error.message
               : "Audio could not be processed. Check the format and try again.",
           pendingOriginal: null,
@@ -103,8 +94,10 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
         })
         .where(
           and(eq(versions.id, version.id), eq(versions.pendingOriginal, key)),
-        );
-      await removeAudioFiles(directory, [key, key + ".wav"]);
+        )
+        .returning({ id: versions.id });
+      // A failure after publication must not remove the now active audio.
+      if (failed.length) await removeAudioFiles(directory, [key, key + ".wav"]);
     }
   }
 });

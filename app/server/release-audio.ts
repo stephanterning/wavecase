@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { join } from "node:path";
 import { encodeMp3 } from "./audio-exports";
+import { InvalidAudioError } from "./processing-errors";
 const exec = promisify(execFile);
 // Analyze decoded playback, not the WAV download. This writes no audio.
 export async function measureReleasePlayback(directory: string, key: string) {
@@ -79,7 +80,7 @@ export async function processReleaseAudio(directory: string, key: string) {
     duration <= 0 ||
     duration > Number(process.env.MAX_DURATION_SECONDS || 7200)
   )
-    throw new Error(
+    throw new InvalidAudioError(
       "Upload a mono or stereo PCM WAV within the duration limit.",
     );
   const playback = await encodeMp3(directory, key);
