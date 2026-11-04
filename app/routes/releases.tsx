@@ -184,7 +184,13 @@ export default function Releases() {
           </select>
         </label>
       </div>
-      {!visible.length && <p>No releases match these filters.</p>}
+      {!visible.length && (
+        <p>
+          {data.releases.length
+            ? "No releases match these filters."
+            : "No releases yet."}
+        </p>
+      )}
       <div className="catalog-grid">
         {visible.map(({ release, artist }) => (
           <Link

@@ -37,6 +37,23 @@ export const trackFields = [
   "producers",
   "credits",
 ] as const;
+export const metadataLabels: Record<string, string> = {
+  releaseDate: "Release date",
+  label: "Label",
+  catalogNumber: "Catalog number",
+  upc: "UPC",
+  genre: "Genre",
+  copyright: "Copyright",
+  phonographicCopyright: "Phonographic copyright",
+  credits: "Credits",
+  artist: "Artist",
+  guests: "Guests",
+  version: "Version",
+  isrc: "ISRC",
+  songwriters: "Songwriters",
+  producers: "Producers",
+  explicit: "Explicit",
+};
 export type ReleaseMetadata = Partial<
   Record<(typeof releaseFields)[number], string>
 >;
@@ -128,7 +145,10 @@ export function releaseInfo(
   const fields = (data: object) =>
     Object.entries(data)
       .filter(([, v]) => v !== "" && v != null)
-      .map(([k, v]) => `${k}: ${v}`)
+      .map(
+        ([k, v]) =>
+          `${metadataLabels[k] || k}: ${typeof v === "boolean" ? (v ? "Yes" : "No") : v}`,
+      )
       .join("\n");
   return `${artist} — ${release.title}\nType: ${release.kind}\n${release.description}\n${fields(release.metadata)}\n\nIncluded tracks: ${tracks.length} of ${total}\n\n${tracks.map((t) => `${t.position}. ${t.title}\n${fields(t.metadata)}\n${format === "mp3" ? "MP3: 320 kbps" : format === "original" ? `Original WAV: ${t.bitDepth} bit, ${t.sampleRate} Hz` : `${format.toUpperCase()}: 16 bit, 44100 Hz`}`).join("\n\n")}\n`;
 }

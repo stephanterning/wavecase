@@ -707,6 +707,20 @@ body:has(.release-mini) {
 .table-scroll {
   overflow-x: auto;
 }
+.table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.table-scroll th,
+.table-scroll td {
+  padding: 12px 8px;
+  border-bottom: 1px solid #344038;
+  vertical-align: top;
+}
+.table-scroll td {
+  white-space: pre-line;
+}
 @media (max-width: 760px) {
   .release-layout {
     grid-template-columns: 1fr;
@@ -1047,6 +1061,12 @@ body:has(.release-mini) {
 }
 .section-nav a {
   padding: 8px 0;
+}
+.section-nav a[aria-current="page"] {
+  color: #f6f7f5;
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 2px solid #b2e0cd;
 }
 .filter-toolbar label {
   flex: 1 1 180px;
