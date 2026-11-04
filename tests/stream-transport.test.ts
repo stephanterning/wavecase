@@ -263,7 +263,7 @@ test("compressed reuse revalidates access, keeps decoder input intact and isolat
   await ready();
   assert.equal(gets, 3);
   denied = true;
-  audio.load();
+  audio.src = "https://example.test/audio?share=one";
   for (let i = 0; i < 200 && !audio.error; i++) await tick();
   assert.ok(audio.error);
   assert.equal(decodes, 4, "denied cached bytes are never decoded");

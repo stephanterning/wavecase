@@ -210,7 +210,7 @@ export class BufferedAudio extends EventTarget {
     const request = new AbortController();
     const signal = AbortSignal.any([this.request.signal, request.signal]);
     const url = this.asset(String(index));
-    const source = this.url;
+    const source = new URL(this.url, window.location.href).href;
     const generation = compressedAudioCache.generation;
     const compressed = !!(manifest.flacRate || manifest.mp3Rate);
     const promise = download(priority, signal, async () => {
@@ -500,7 +500,7 @@ export class BufferedAudio extends EventTarget {
       return;
     this.error =
       error instanceof Error ? error : new Error("Audio could not be loaded.");
-    compressedAudioCache.forget(this.url);
+    compressedAudioCache.forget(new URL(this.url, window.location.href).href);
     this.pause();
     this.request.abort();
     this.clearOutput();
