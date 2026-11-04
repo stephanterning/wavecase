@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { removeAudioFiles } from "./audio-files";
 import { db } from "./db";
 import { releaseTracks, versions } from "./schema";
 import type { DownloadFormat } from "../domain/download-details";
@@ -39,22 +40,43 @@ export async function demoWavAvailable(
   return (await probeDownload(directory, version.original)).plan.wavDownload;
 }
 
+const changed = () =>
+  new Response("Audio changed. Please try again.", { status: 409 });
+
+// Encoding holds no row lock. Replacement and removal delete an upload's files
+// after committing, so an export finished for a superseded upload is removed here.
+async function encodeCurrent(
+  directory: string,
+  original: string,
+  format: DownloadFormat,
+  current: () => Promise<string | null | undefined>,
+) {
+  try {
+    const file = await encodeDownload(directory, original, format);
+    if ((await current()) === original) return file;
+  } catch (error) {
+    if ((await current()) === original) throw error;
+  }
+  await removeAudioFiles(directory, [original]);
+  throw changed();
+}
+
 export async function releaseAudioDownload(
   trackId: string,
   original: string,
   directory: string,
   format: DownloadFormat,
 ) {
-  return db.transaction(async (tx) => {
-    const [current] = await tx
-      .select()
-      .from(releaseTracks)
-      .where(eq(releaseTracks.id, trackId))
-      .for("update");
-    if (current?.original !== original || !current.playback)
-      throw new Response("Audio changed. Please try again.", { status: 409 });
-    return encodeDownload(directory, original, format);
-  });
+  const track = () =>
+    db.query.releaseTracks.findFirst({ where: eq(releaseTracks.id, trackId) });
+  const current = await track();
+  if (current?.original !== original || !current.playback) throw changed();
+  return encodeCurrent(
+    directory,
+    original,
+    format,
+    async () => (await track())?.original,
+  );
 }
 
 export async function demoAudioDownload(
@@ -63,19 +85,19 @@ export async function demoAudioDownload(
   directory: string,
   format: DownloadFormat,
 ) {
-  // Serialize encoding across web processes and coordinate with replacement/removal.
-  return db.transaction(async (tx) => {
-    const [current] = await tx
-      .select()
-      .from(versions)
-      .where(eq(versions.id, versionId))
-      .for("update");
-    if (current?.original !== original || current.state !== "ready")
-      throw new Response("Audio changed. Please try again.", { status: 409 });
-    if (format === "wav" || format === "flac") {
-      if (!(await demoWavAvailable(current, directory)))
-        throw new Response("Download format unavailable", { status: 400 });
-    }
-    return encodeDownload(directory, original, format);
-  });
+  const version = () =>
+    db.query.versions.findFirst({ where: eq(versions.id, versionId) });
+  const current = await version();
+  if (current?.original !== original || current.state !== "ready")
+    throw changed();
+  if (format === "wav" || format === "flac") {
+    if (!(await demoWavAvailable(current, directory)))
+      throw new Response("Download format unavailable", { status: 400 });
+  }
+  return encodeCurrent(
+    directory,
+    original,
+    format,
+    async () => (await version())?.original,
+  );
 }

@@ -85,26 +85,32 @@ export async function reconcileReleases() {
 }
 
 // Keep existing playback available until the MP3 and its measurements are ready.
-// The same row lock as downloads prevents two encoders sharing a temporary file.
 export async function upgradeReleasePlayback(trackId: string) {
-  const obsolete = await db.transaction(async (tx) => {
-    const [track] = await tx
-      .select()
-      .from(releaseTracks)
-      .where(eq(releaseTracks.id, trackId))
-      .for("update");
-    if (!track?.original || !track.playback || track.pendingOriginal)
-      return null;
-    if (track.playback.endsWith(".mp3") && track.audioMeasurements) return null;
-    const playback = await encodeMp3(directory, track.original);
-    const audioMeasurements = await measureReleasePlayback(directory, playback);
-    await tx
-      .update(releaseTracks)
-      .set({ playback, audioMeasurements })
-      .where(eq(releaseTracks.id, trackId));
-    return track.playback !== playback && track.playback !== track.original
-      ? track.playback
-      : null;
-  });
-  if (obsolete) await removeAudioFiles(directory, [obsolete]);
+  const track = () =>
+    db.query.releaseTracks.findFirst({ where: eq(releaseTracks.id, trackId) });
+  const current = await track();
+  if (!current?.original || !current.playback || current.pendingOriginal)
+    return;
+  if (current.playback.endsWith(".mp3") && current.audioMeasurements) return;
+  const playback = await encodeMp3(directory, current.original);
+  const audioMeasurements = await measureReleasePlayback(directory, playback);
+  const upgraded = await db
+    .update(releaseTracks)
+    .set({ playback, audioMeasurements })
+    .where(
+      and(
+        eq(releaseTracks.id, trackId),
+        eq(releaseTracks.original, current.original),
+        eq(releaseTracks.playback, current.playback),
+      ),
+    )
+    .returning({ id: releaseTracks.id });
+  if (!upgraded.length) {
+    // Removal or replacement has already deleted the files of the old master.
+    if ((await track())?.original !== current.original)
+      await removeAudioFiles(directory, [current.original]);
+    return;
+  }
+  if (current.playback !== playback && current.playback !== current.original)
+    await removeAudioFiles(directory, [current.playback]);
 }

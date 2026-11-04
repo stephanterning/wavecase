@@ -24,12 +24,16 @@ import {
   sessions,
   events,
   artists,
+  comments,
 } from "../app/server/schema";
+import { action as comment } from "../app/routes/feedback";
+import { action as telemetry } from "../app/routes/events";
 import { processAudio } from "../app/server/audio";
 import { inflateRawSync } from "node:zlib";
 import { action as download, loader as media } from "../app/routes/media";
 import { hash, origin } from "../app/server/security";
 import { enabled } from "./database";
+import { holdFfmpeg } from "./hold-ffmpeg";
 after(() => pool.end());
 
 function unzip(buffer: ArrayBuffer) {
@@ -297,41 +301,23 @@ test(
         ).length,
         2,
       );
-      // Hold the same row lock used during encoding, then revoke the link while
-      // the already-authorized request is waiting. Cached exports must recheck too.
-      const blocker = await pool.connect();
+      // Revoke the link while an already-authorized request is encoding.
+      await rm(join(directory, "master.wav.mp3"));
+      const encoder = await holdFfmpeg();
       let waiting: Promise<Response | unknown> | undefined;
       try {
-        await blocker.query("BEGIN");
-        await blocker.query(
-          "SELECT id FROM versions WHERE id = $1 FOR UPDATE",
-          [version],
-        );
-        const {
-          rows: [{ pid }],
-        } = await blocker.query("SELECT pg_backend_pid() AS pid");
         waiting = get("mp3").catch((error: unknown) => error);
-        let blocked = false;
-        for (let i = 0; i < 100 && !blocked; i++) {
-          const { rows } = await pool.query(
-            "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))) AS blocked",
-            [pid],
-          );
-          blocked = rows[0].blocked;
-          if (!blocked) await new Promise((resolve) => setTimeout(resolve, 20));
-        }
-        assert.equal(
-          blocked,
-          true,
-          "Download should be waiting for the encoding lock",
-        );
+        await encoder.started();
         await db.update(links).set({ active: false }).where(eq(links.id, link));
       } finally {
-        await blocker.query("ROLLBACK");
-        blocker.release();
+        await encoder.release();
       }
       const revoked = await waiting;
       assert.ok(revoked instanceof Response && revoked.status === 404);
+      assert.deepEqual(
+        await readFile(join(directory, "master.wav.mp3")),
+        bytes[0],
+      );
       await db.update(links).set({ active: true }).where(eq(links.id, link));
       await db
         .update(versions)
@@ -427,6 +413,174 @@ test(
       );
       await assert.rejects(get("original"), status(404));
     } finally {
+      if (previous === undefined) delete process.env.DATA_DIR;
+      else process.env.DATA_DIR = previous;
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  "exports encode without blocking feedback and discard replaced audio",
+  { skip: !enabled, timeout: 30000 },
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), "wavecase-export-"));
+    const previous = process.env.DATA_DIR;
+    process.env.DATA_DIR = directory;
+    let encoder: Awaited<ReturnType<typeof holdFfmpeg>> | undefined;
+    try {
+      const owner = randomUUID(),
+        track = randomUUID(),
+        version = randomUUID(),
+        link = randomUUID();
+      await db
+        .insert(users)
+        .values({ id: owner, name: "Owner", email: owner + "@test.invalid" });
+      await db
+        .insert(tracks)
+        .values({ id: track, ownerId: owner, title: "Exports" });
+      await db.insert(links).values({
+        id: link,
+        trackId: track,
+        label: "Listener",
+        download: true,
+      });
+      await promisify(execFile)("ffmpeg", [
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "sine=duration=2:sample_rate=48000",
+        "-c:a",
+        "pcm_s24le",
+        join(directory, "master.wav"),
+      ]);
+      await db.insert(versions).values({
+        id: version,
+        trackId: track,
+        name: "v1",
+        filename: "master.wav",
+        state: "ready",
+        download: true,
+        ...(await processAudio(directory, "master.wav")),
+      });
+      const prepared = await readdir(directory);
+      const args = {
+        params: { id: version },
+        context: new RouterContextProvider(),
+        url: new URL(origin),
+        pattern: "/",
+      };
+      const listener = (body: string | URLSearchParams) =>
+        new Request(origin + "?share=" + link, {
+          method: "POST",
+          headers: { origin },
+          body,
+        });
+      const get = (format: string) =>
+        download({
+          ...args,
+          request: listener(
+            new URLSearchParams({
+              share: link,
+              email: "listener@example.test",
+              format,
+            }),
+          ),
+        });
+
+      encoder = await holdFfmpeg();
+      let settled = false;
+      const exports = Promise.all([get("wav"), get("wav")]).finally(() => {
+        settled = true;
+      });
+      await encoder.started();
+      let deadline: NodeJS.Timeout | undefined;
+      await Promise.race([
+        Promise.all([
+          comment({
+            ...args,
+            request: listener(
+              JSON.stringify({
+                name: "Listener",
+                body: "Posted during encoding",
+                secret: "s".repeat(64),
+                start: 1,
+                end: null,
+              }),
+            ),
+          }),
+          telemetry({
+            ...args,
+            request: listener(
+              JSON.stringify({
+                browser: randomUUID(),
+                session: randomUUID(),
+                name: null,
+                kind: "play",
+                position: 0,
+              }),
+            ),
+          }),
+        ]),
+        new Promise((_, reject) => {
+          deadline = setTimeout(
+            () => reject(new Error("Feedback waited for the encoder")),
+            5000,
+          );
+        }),
+      ]).finally(() => clearTimeout(deadline));
+      assert.equal(settled, false);
+      await encoder.release();
+      const name = "Exports - v1/Exports - v1.wav";
+      const [first, second] = await Promise.all(
+        (await exports).map(async (r) =>
+          unzip(await r.arrayBuffer()).get(name),
+        ),
+      );
+      assert.deepEqual(
+        first,
+        await readFile(join(directory, "master.wav.16-44100.wav")),
+      );
+      assert.deepEqual(second, first);
+      assert.deepEqual(
+        (await readdir(directory)).sort(),
+        [...prepared, "master.wav.16-44100.wav"].sort(),
+      );
+      assert.equal(
+        (
+          await db
+            .select()
+            .from(comments)
+            .where(eq(comments.versionId, version))
+        ).length,
+        1,
+      );
+      assert.equal(
+        (await db.select().from(events).where(eq(events.versionId, version)))
+          .length,
+        3,
+      );
+
+      // Publish a replacement while the MP3 export encodes the old upload.
+      encoder = await holdFfmpeg();
+      const replaced = get("mp3").catch((error: unknown) => error);
+      await encoder.started();
+      await writeFile(
+        join(directory, "replacement.wav"),
+        await readFile(join(directory, "master.wav")),
+      );
+      await db
+        .update(versions)
+        .set({ original: "replacement.wav", playback: "replacement.wav" })
+        .where(eq(versions.id, version));
+      await encoder.release();
+      const response = await replaced;
+      assert.ok(response instanceof Response && response.status === 409);
+      assert.deepEqual(await readdir(directory), ["replacement.wav"]);
+    } finally {
+      await encoder?.release();
       if (previous === undefined) delete process.env.DATA_DIR;
       else process.env.DATA_DIR = previous;
       await rm(directory, { recursive: true, force: true });

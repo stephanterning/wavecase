@@ -1,38 +1,66 @@
 import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import { rename, stat, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { playbackPlan } from "./audio-policy";
 import { audioInput } from "./audio";
 
-export async function encodeMp3(directory: string, key: string) {
-  const destination = join(directory, key + ".mp3");
-  try {
-    if ((await stat(destination)).size > 0) return key + ".mp3";
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+const encoding = new Map<string, Promise<string>>();
+
+// Requests in this process share one encoder per export. Unique temporary names
+// keep other processes apart; outputs are deterministic, so any rename is valid.
+function cachedExport(
+  directory: string,
+  output: string,
+  encode: (temporary: string) => Promise<unknown>,
+) {
+  const destination = join(directory, output);
+  let pending = encoding.get(destination);
+  if (!pending) {
+    pending = (async () => {
+      try {
+        if ((await stat(destination)).size > 0) return output;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+      const temporary = `${destination}.${randomUUID()}.tmp`;
+      try {
+        await encode(temporary);
+        if (!(await stat(temporary)).size)
+          throw new Error("Empty audio output");
+        await rename(temporary, destination);
+        return output;
+      } finally {
+        await unlink(temporary).catch(() => {});
+      }
+    })().finally(() => encoding.delete(destination));
+    encoding.set(destination, pending);
   }
-  const { stdout } = await promisify(execFile)(
-    "ffprobe",
-    [
-      "-v",
-      "error",
-      ...audioInput,
-      "-select_streams",
-      "a:0",
-      "-show_entries",
-      "stream=sample_rate",
-      "-of",
-      "json",
-      join(directory, key),
-    ],
-    { timeout: 120000 },
-  );
-  const sourceRate = Number(JSON.parse(stdout).streams[0]?.sample_rate);
-  const rate =
-    sourceRate >= 48000 ? 48000 : sourceRate >= 44100 ? 44100 : 32000;
-  const temporary = destination + ".tmp";
-  try {
+  return pending;
+}
+
+export function encodeMp3(directory: string, key: string) {
+  return cachedExport(directory, key + ".mp3", async (temporary) => {
+    const { stdout } = await promisify(execFile)(
+      "ffprobe",
+      [
+        "-v",
+        "error",
+        ...audioInput,
+        "-select_streams",
+        "a:0",
+        "-show_entries",
+        "stream=sample_rate",
+        "-of",
+        "json",
+        join(directory, key),
+      ],
+      { timeout: 120000 },
+    );
+    const sourceRate = Number(JSON.parse(stdout).streams[0]?.sample_rate);
+    const rate =
+      sourceRate >= 48000 ? 48000 : sourceRate >= 44100 ? 44100 : 32000;
     await promisify(execFile)(
       "ffmpeg",
       [
@@ -62,12 +90,7 @@ export async function encodeMp3(directory: string, key: string) {
       ],
       { timeout: 600000, maxBuffer: 4 * 1024 * 1024 },
     );
-    if (!(await stat(temporary)).size) throw new Error("Empty MP3 output");
-    await rename(temporary, destination);
-    return key + ".mp3";
-  } finally {
-    await unlink(temporary).catch(() => {});
-  }
+  });
 }
 
 export async function probeDownload(directory: string, key: string) {
@@ -151,23 +174,15 @@ export async function encodeFlac(directory: string, key: string) {
   ]);
 }
 
-async function cachedLossless(
+function cachedLossless(
   directory: string,
   key: string,
   format: "wav" | "flac",
   source: string,
   options: string[],
 ) {
-  const output = key + losslessSuffix(format);
-  const destination = join(directory, output);
-  try {
-    if ((await stat(destination)).size > 0) return output;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
-  const temporary = destination + ".tmp";
-  try {
-    await promisify(execFile)(
+  return cachedExport(directory, key + losslessSuffix(format), (temporary) =>
+    promisify(execFile)(
       "ffmpeg",
       [
         "-nostdin",
@@ -187,11 +202,6 @@ async function cachedLossless(
         temporary,
       ],
       { timeout: 600000, maxBuffer: 4 * 1024 * 1024 },
-    );
-    if (!(await stat(temporary)).size) throw new Error("Empty audio output");
-    await rename(temporary, destination);
-    return output;
-  } finally {
-    await unlink(temporary).catch(() => {});
-  }
+    ),
+  );
 }
