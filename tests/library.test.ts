@@ -67,6 +67,7 @@ test(
       const kiosken = result.tracks.find((row) => row.id === track)!;
       assert.equal(kiosken.latestVersion, "v5.2");
       assert.equal(kiosken.latestStatus, "early idea");
+      assert.equal(kiosken.latestState, "processing");
       assert.equal(result.playable.length, 1);
       assert.equal(result.playable[0].trackId, track);
       assert.equal(result.playable[0].name, "v5.1");

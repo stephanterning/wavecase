@@ -65,6 +65,12 @@ export async function demoList(userId: string, artistId?: string) {
         .where(eq(versions.trackId, tracks.id))
         .orderBy(desc(versions.position))
         .limit(1)})`,
+      latestState: sql<string | null>`(${db
+        .select({ state: versions.state })
+        .from(versions)
+        .where(eq(versions.trackId, tracks.id))
+        .orderBy(desc(versions.position))
+        .limit(1)})`,
     })
     .from(tracks)
     .leftJoin(artists, eq(tracks.artistId, artists.id))

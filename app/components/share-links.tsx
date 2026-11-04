@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { linkVersionScope } from "../domain/share-links";
 import { EditForm, PreviewLink } from "./editing";
 import { Icon } from "./icons";
 
@@ -174,11 +175,7 @@ export function ShareLinks({
                   </span>
                 </td>
                 <td data-label="Versions">
-                  {link.pinnedOrder != null
-                    ? `Only ${versions.find((v) => v.position === link.pinnedOrder)?.name || "deleted version"}`
-                    : link.fromOrder != null
-                      ? `From ${versions.find((v) => v.position === link.fromOrder)?.name || "deleted version"} onward`
-                      : "All versions"}
+                  {linkVersionScope(link, versions)}
                 </td>
                 <td data-label="Plays">
                   <a

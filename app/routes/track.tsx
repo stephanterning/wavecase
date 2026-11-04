@@ -4,7 +4,7 @@ import {
   ReplaceAudio,
 } from "../components/demo-editors";
 import { ShareLinks } from "../components/share-links";
-import { visibleThroughLink } from "../domain/share-links";
+import { linkVersionScope, visibleThroughLink } from "../domain/share-links";
 import { shareVersionScope } from "../server/share-links";
 import { EditForm, useConfirmDiscard } from "../components/editing";
 import { demoWavAvailable } from "../server/download";
@@ -217,7 +217,8 @@ function TrackContents() {
   const [search] = useSearchParams();
   const confirmDiscard = useConfirmDiscard();
   const selectVersion = (id: string) => {
-    if (!confirmDiscard(["Edit version", "Replace audio"])) return false;
+    if (!confirmDiscard(["Edit version", "Replace audio", "Restore audio"]))
+      return false;
     setSelection(id);
     return true;
   };
@@ -345,41 +346,52 @@ function TrackContents() {
         </nav>
       )}
       {result?.error && <p role="alert">{result.error}</p>}
-      {!data.owner && !data.versions.some((v) => v.state === "ready") && (
-        <Form
-          method="post"
-          onSubmit={(event) => {
-            if (data.preview) {
-              event.preventDefault();
-              alert("Preview only. No reupload request was sent.");
-              return;
-            }
-            const field = event.currentTarget.elements.namedItem("name");
-            if (field instanceof HTMLInputElement)
-              field.value = localStorage.getItem("wavecase.name") || "";
-          }}
-        >
-          <input type="hidden" name="name" />
-          <button>Request reupload</button>
-          {result?.requested && (
-            <p role="status">Your reupload request has been sent.</p>
-          )}
-        </Form>
+      {!data.owner && !data.versions.length && (
+        <p role="status">No version is available through this link.</p>
       )}
+      {!data.owner &&
+        !!data.versions.length &&
+        !data.versions.some((v) => v.state === "ready") && (
+          <Form
+            method="post"
+            onSubmit={(event) => {
+              if (data.preview) {
+                event.preventDefault();
+                alert("Preview only. No reupload request was sent.");
+                return;
+              }
+              const field = event.currentTarget.elements.namedItem("name");
+              if (field instanceof HTMLInputElement)
+                field.value = localStorage.getItem("wavecase.name") || "";
+            }}
+          >
+            <input type="hidden" name="name" />
+            <button>Request reupload</button>
+            {result?.requested && (
+              <p role="status">Your reupload request has been sent.</p>
+            )}
+          </Form>
+        )}
       {data.owner &&
-        data.requests.map((r) => (
-          <div key={r.linkId} className="panel">
-            Reupload requested via{" "}
-            {data.links.find((l) => l.id === r.linkId)?.label}
-            {r.name && <> · {r.name}</>}
-            <Form method="post" action={"/tracks/" + data.track.id + "/manage"}>
-              <input type="hidden" name="link" value={r.linkId} />
-              <button name="intent" value="dismiss-request">
-                Dismiss
-              </button>
-            </Form>
-          </div>
-        ))}
+        data.requests.map((r) => {
+          const link = data.links.find((l) => l.id === r.linkId);
+          return (
+            <div key={r.linkId} className="panel">
+              Reupload requested via {link?.label}
+              {link && <> · {linkVersionScope(link, data.versions)}</>}
+              {r.name && <> · {r.name}</>}
+              <Form
+                method="post"
+                action={"/tracks/" + data.track.id + "/manage"}
+              >
+                <input type="hidden" name="link" value={r.linkId} />
+                <button name="intent" value="dismiss-request">
+                  Dismiss
+                </button>
+              </Form>
+            </div>
+          );
+        })}
       {current && (
         <section className="panel player-panel">
           <div className="version-heading">
@@ -417,9 +429,11 @@ function TrackContents() {
           {current.description && (
             <p className="demo-description">{current.description}</p>
           )}
-          {data.owner && current.processing && (
-            <p role="status">Processing replacement audio…</p>
-          )}
+          {data.owner &&
+            current.processing &&
+            current.state !== "processing" && (
+              <p role="status">Processing replacement audio…</p>
+            )}
           {data.owner && current.error && <p role="alert">{current.error}</p>}
           <div className="metrics">
             {[
@@ -431,7 +445,8 @@ function TrackContents() {
               <span key={key}>
                 {label}{" "}
                 <strong>
-                  {typeof current.metadata?.[key] === "number"
+                  {current.state === "ready" &&
+                  typeof current.metadata?.[key] === "number"
                     ? Number(current.metadata[key]).toFixed(1)
                     : "—"}
                 </strong>

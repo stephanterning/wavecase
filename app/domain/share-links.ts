@@ -8,3 +8,16 @@ export function visibleThroughLink(
     (link.pinnedOrder === null || version.position === link.pinnedOrder)
   );
 }
+
+export function linkVersionScope(
+  link: { fromOrder: number | null; pinnedOrder: number | null },
+  versions: { name: string; position?: number }[],
+) {
+  const name = (order: number) =>
+    versions.find((v) => v.position === order)?.name || "deleted version";
+  return link.pinnedOrder != null
+    ? `Only ${name(link.pinnedOrder)}`
+    : link.fromOrder != null
+      ? `From ${name(link.fromOrder)} onward`
+      : "All versions";
+}
