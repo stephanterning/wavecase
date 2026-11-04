@@ -58,8 +58,6 @@ export const meta: MetaFunction<typeof loader> = ({ loaderData: data }) => {
     `Listen to ${data.release.title} by ${data.artist.name}. Streaming links, credits and master downloads.`;
   return [
     { title },
-    // Native POST downloads need a same-origin Origin header; external links still receive no referrer.
-    { name: "referrer", content: "same-origin" },
     { name: "description", content: description },
     { property: "og:title", content: title },
     { property: "og:description", content: description },

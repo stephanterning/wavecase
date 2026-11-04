@@ -23,7 +23,6 @@ export const meta: MetaFunction<typeof loader> = ({
   image.searchParams.set("share", share!);
   return [
     { title: `${title} · Wavecase` },
-    { name: "referrer", content: "same-origin" },
     { name: "robots", content: "noindex" },
     { name: "description", content: description },
     { property: "og:site_name", content: "Wavecase" },
