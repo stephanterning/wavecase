@@ -164,53 +164,85 @@ export function VersionEditor({
   trackId: string;
   version: Version;
 }) {
+  const action = `/tracks/${trackId}/manage`;
   return (
-    <EditForm
+    <EditorDialog
       key={version.id}
-      label="Edit version"
-      action={`/tracks/${trackId}/manage`}
+      title="Edit version"
       trigger="Edit version"
+      id="edit-version"
     >
-      <input type="hidden" name="intent" value="version" />
-      <input type="hidden" name="version" value={version.id} />
-      <label>
-        Version name
-        <input
-          name="name"
-          defaultValue={version.name}
-          required
-          maxLength={100}
-        />
-      </label>
-      <label>
-        Description
-        <textarea
-          name="description"
-          defaultValue={version.description}
-          maxLength={5000}
-        />
-      </label>
-      <label>
-        Status
-        <select name="status" defaultValue={version.status}>
-          {versionStatuses.map((status) => (
-            <option key={status}>{status}</option>
-          ))}
-        </select>
-      </label>
-      <label className="check">
-        <input
-          type="checkbox"
-          name="download"
-          defaultChecked={version.download}
-        />
-        Allow downloads
-      </label>
-      <p className="muted">
-        Listener downloads also require permission on the share link.
-      </p>
-      <button>Save version</button>
-    </EditForm>
+      <EditForm label="Edit version" action={action} modal>
+        <input type="hidden" name="intent" value="version" />
+        <input type="hidden" name="version" value={version.id} />
+        <p className="version-filename">
+          <span className="muted">File name: </span>
+          {version.filename}
+        </p>
+        <label>
+          Version name
+          <input
+            name="name"
+            defaultValue={version.name}
+            required
+            maxLength={100}
+          />
+        </label>
+        <label>
+          Description
+          <textarea
+            name="description"
+            defaultValue={version.description}
+            maxLength={5000}
+          />
+        </label>
+        <label>
+          Status
+          <select name="status" defaultValue={version.status}>
+            {versionStatuses.map((status) => (
+              <option key={status}>{status}</option>
+            ))}
+          </select>
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            name="download"
+            defaultChecked={version.download}
+          />
+          Allow downloads
+        </label>
+        <p className="muted">
+          Listener downloads also require permission on the share link.
+        </p>
+        <button>Save version</button>
+      </EditForm>
+      <div className="track-delete-section">
+        <EditForm
+          label="Delete version"
+          action={action}
+          trigger="Delete version"
+        >
+          <input type="hidden" name="intent" value="delete-version" />
+          <input type="hidden" name="version" value={version.id} />
+          <p>
+            Permanently delete <strong>{version.name}</strong>, its audio files,
+            feedback, replies and statistics? They will also be removed from all
+            totals. This cannot be undone.
+          </p>
+          <p>
+            The track, artwork, other versions and share links will remain.
+            Links starting at this version will still only allow later versions.
+            Links sharing only this version will have no available version.
+          </p>
+          <label>
+            Type the version name to confirm
+            <input name="confirmation" required autoComplete="off" />
+          </label>
+          <button className="danger">Delete version permanently</button>
+        </EditForm>
+      </div>
+    </EditorDialog>
   );
 }
 

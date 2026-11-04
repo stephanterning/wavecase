@@ -31,6 +31,10 @@ function ShareVersionFields({
   const published = versions.filter(
     (v) => v.state === "ready" || v.state === "missing",
   );
+  const boundary =
+    visibility === "single" ? link?.pinnedOrder : link?.fromOrder;
+  const deletedBoundary =
+    boundary != null && !published.some((v) => v.position === boundary);
   return (
     <>
       <label>
@@ -53,17 +57,23 @@ function ShareVersionFields({
         <label>
           {visibility === "single" ? "Version to share" : "Starting version"}
           <select
+            key={visibility}
             name="from"
             required
             defaultValue={
-              published.find(
-                (v) => v.position === (link?.pinnedOrder ?? link?.fromOrder),
-              )?.id ||
+              (deletedBoundary
+                ? "unchanged"
+                : published.find((v) => v.position === boundary)?.id) ||
               published[0]?.id ||
               ""
             }
           >
-            {!published.length && (
+            {deletedBoundary && (
+              <option value="unchanged">
+                Deleted version (keep current limit)
+              </option>
+            )}
+            {!published.length && !deletedBoundary && (
               <option value="">No published versions</option>
             )}
             {published.map((v) => (
@@ -165,9 +175,9 @@ export function ShareLinks({
                 </td>
                 <td data-label="Versions">
                   {link.pinnedOrder != null
-                    ? `Only ${versions.find((v) => v.position === link.pinnedOrder)?.name || "selected version"}`
+                    ? `Only ${versions.find((v) => v.position === link.pinnedOrder)?.name || "deleted version"}`
                     : link.fromOrder != null
-                      ? `From ${versions.find((v) => v.position === link.fromOrder)?.name || "selected version"} onward`
+                      ? `From ${versions.find((v) => v.position === link.fromOrder)?.name || "deleted version"} onward`
                       : "All versions"}
                 </td>
                 <td data-label="Plays">

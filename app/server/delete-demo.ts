@@ -70,6 +70,44 @@ export async function deleteDemo(
   await removeAudioFiles(process.env.DATA_DIR || "data/audio", files);
 }
 
+export async function deleteDemoVersion(
+  trackId: string,
+  versionId: string,
+  ownerId: string,
+  name: string,
+) {
+  const files = await db.transaction(async (tx) => {
+    const [track] = await tx
+      .select({ id: tracks.id })
+      .from(tracks)
+      .where(and(eq(tracks.id, trackId), trackScope(ownerId)))
+      .for("update");
+    if (!track) throw new Response("Not found", { status: 404 });
+    const [version] = await tx
+      .select()
+      .from(versions)
+      .where(and(eq(versions.id, versionId), eq(versions.trackId, trackId)))
+      .for("update");
+    if (!version) throw new Response("Not found", { status: 404 });
+    if (name !== version.name)
+      throw new Response("Type the version name exactly to confirm deletion.", {
+        status: 400,
+      });
+    await tx.delete(comments).where(eq(comments.versionId, versionId));
+    await tx.delete(events).where(eq(events.versionId, versionId));
+    await tx.delete(versions).where(eq(versions.id, versionId));
+    // Keep link boundaries and surviving positions unchanged, including when
+    // this was a link's starting version. Older versions must stay private.
+    return [
+      version.original,
+      version.playback,
+      version.pendingOriginal,
+      version.pendingOriginal ? version.pendingOriginal + ".wav" : null,
+    ];
+  });
+  await removeAudioFiles(process.env.DATA_DIR || "data/audio", files);
+}
+
 export async function deleteShareLink(trackId: string, linkId: string) {
   await db.transaction(async (tx) => {
     const [link] = await tx
