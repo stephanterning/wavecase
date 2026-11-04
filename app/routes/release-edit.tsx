@@ -180,7 +180,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
           .select()
           .from(releases)
           .where(eq(releases.id, data.release.id))
-          .for("update");
+          .for("no key update");
         const rows = await tx
           .select()
           .from(releaseTracks)
@@ -193,93 +193,99 @@ export async function action({ request, params }: ActionFunctionArgs) {
       });
     } else {
       const id = z.uuid().parse(f.get("track"));
-      await db.transaction(async (tx) => {
-        await tx
-          .select()
-          .from(releases)
-          .where(eq(releases.id, data.release.id))
-          .for("update");
-        const [track] = await tx
-          .select()
-          .from(releaseTracks)
-          .where(
-            and(
-              eq(releaseTracks.id, id),
-              eq(releaseTracks.releaseId, data.release.id),
-            ),
-          )
-          .for("update");
-        if (!track) throw new Response("Track not found", { status: 404 });
-        if (intent === "track") {
-          const position = z.coerce
-            .number()
-            .int()
-            .min(1)
-            .max(999)
-            .parse(f.get("position"));
-          if (position !== track.position)
-            await tx
-              .update(releaseTracks)
-              .set({ position: track.position })
-              .where(
-                and(
-                  eq(releaseTracks.releaseId, data.release.id),
-                  eq(releaseTracks.position, position),
-                ),
-              );
+      let key: string | undefined;
+      if (intent === "audio") {
+        const file = f.get("audio");
+        if (!(file instanceof File))
+          throw new Response("Choose a WAV file", { status: 400 });
+        key = await storeFile(
+          file,
+          Number(process.env.MAX_UPLOAD_MB || 256) * 1024 * 1024,
+        );
+      }
+      await db
+        .transaction(async (tx) => {
           await tx
-            .update(releaseTracks)
-            .set({
-              title: z.string().trim().min(1).max(200).parse(f.get("title")),
-              position,
-              metadata: {
-                ...metadata(trackFields),
-                explicit: f.has("explicit"),
-              },
-            })
-            .where(eq(releaseTracks.id, id));
-        } else if (intent === "audio") {
-          if (track.pendingOriginal)
-            throw new Response("This track already has an upload processing.", {
-              status: 409,
-            });
-          const file = f.get("audio");
-          if (!(file instanceof File))
-            throw new Response("Choose a WAV file", { status: 400 });
-          const key = await storeFile(
-            file,
-            Number(process.env.MAX_UPLOAD_MB || 256) * 1024 * 1024,
-          );
-          try {
+            .select()
+            .from(releases)
+            .where(eq(releases.id, data.release.id))
+            .for("no key update");
+          const [track] = await tx
+            .select()
+            .from(releaseTracks)
+            .where(
+              and(
+                eq(releaseTracks.id, id),
+                eq(releaseTracks.releaseId, data.release.id),
+              ),
+            )
+            .for("no key update");
+          if (!track) throw new Response("Track not found", { status: 404 });
+          if (intent === "track") {
+            const position = z.coerce
+              .number()
+              .int()
+              .min(1)
+              .max(999)
+              .parse(f.get("position"));
+            if (position !== track.position)
+              await tx
+                .update(releaseTracks)
+                .set({ position: track.position })
+                .where(
+                  and(
+                    eq(releaseTracks.releaseId, data.release.id),
+                    eq(releaseTracks.position, position),
+                  ),
+                );
             await tx
               .update(releaseTracks)
-              .set({ pendingOriginal: key, error: null })
+              .set({
+                title: z.string().trim().min(1).max(200).parse(f.get("title")),
+                position,
+                metadata: {
+                  ...metadata(trackFields),
+                  explicit: f.has("explicit"),
+                },
+              })
               .where(eq(releaseTracks.id, id));
-          } catch (error) {
-            await unlink(join(directory(), key)).catch(() => {});
-            throw error;
-          }
-        } else if (intent === "remove-audio") {
-          removedFiles.push(
-            ...[track.original, track.playback, track.pendingOriginal].filter(
-              (p): p is string => !!p,
-            ),
-          );
-          await tx
-            .update(releaseTracks)
-            .set({
-              original: null,
-              playback: null,
-              audioMeasurements: null,
-              pendingOriginal: null,
-              duration: null,
-              sampleRate: null,
-              bitDepth: null,
-              error: null,
-            })
-            .where(eq(releaseTracks.id, id));
-        } else throw new Response("Unknown action", { status: 400 });
-      });
+          } else if (intent === "audio") {
+            if (track.pendingOriginal)
+              throw new Response(
+                "This track already has an upload processing.",
+                {
+                  status: 409,
+                },
+              );
+            await tx
+              .update(releaseTracks)
+              .set({ pendingOriginal: key!, error: null })
+              .where(eq(releaseTracks.id, id));
+          } else if (intent === "remove-audio") {
+            removedFiles.push(
+              ...[track.original, track.playback, track.pendingOriginal].filter(
+                (p): p is string => !!p,
+              ),
+            );
+            await tx
+              .update(releaseTracks)
+              .set({
+                original: null,
+                playback: null,
+                audioMeasurements: null,
+                pendingOriginal: null,
+                duration: null,
+                sampleRate: null,
+                bitDepth: null,
+                error: null,
+              })
+              .where(eq(releaseTracks.id, id));
+          } else throw new Response("Unknown action", { status: 400 });
+        })
+        .catch(async (error) => {
+          if (key) await unlink(join(directory(), key)).catch(() => {});
+          throw error;
+        });
       if (intent === "audio") {
         try {
           await queue();
