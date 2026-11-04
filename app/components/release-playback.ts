@@ -184,7 +184,7 @@ export class ReleasePlayback {
     void this.load(0);
   };
 
-  private load(index: number) {
+  private load(index: number, autoplay = true) {
     const { queue } = this.state;
     if (!queue) return Promise.resolve();
     const track = queue.tracks[index];
@@ -199,14 +199,14 @@ export class ReleasePlayback {
     this.counted = false;
     this.update({
       index,
-      status: "loading",
+      status: autoplay ? "loading" : "paused",
       position: 0,
       duration: track.duration,
       error: "",
       seeking: false,
     });
     this.media.src = `/release-assets/${queue.releaseId}/audio?track=${track.id}`;
-    return this.play();
+    return autoplay ? this.play() : Promise.resolve();
   }
 
   play = async (): Promise<void> => {
@@ -263,6 +263,21 @@ export class ReleasePlayback {
   setRepeat = (repeat: boolean) => {
     if (this.media) this.media.loop = repeat;
     this.update({ repeat });
+  };
+
+  previousTrack = () => {
+    if (!this.media || !this.state.queue) return;
+    if (this.media.currentTime > 3 || this.state.index === 0) this.seek(0);
+    else void this.load(this.state.index - 1, !this.media.paused);
+  };
+
+  nextTrack = () => {
+    if (
+      this.media &&
+      this.state.queue &&
+      this.state.index + 1 < this.state.queue.tracks.length
+    )
+      void this.load(this.state.index + 1, !this.media.paused);
   };
 
   fail = (

@@ -131,7 +131,7 @@ The 220-pixel waveform may normalize visual amplitude. Click/tap seeks, wheel zo
 
 Comment time fields use minutes:seconds with optional hundredths, converted to numeric seconds on submission. Comment/reply/download dialogs trap focus, support Escape/close, and return focus to their trigger. A comment retains its selected version/thread while open and closes after successful submission.
 
-Media Session provides title, artist, available artwork, play/pause, and seek where supported. Private artwork keeps its access checks. Update metadata when tracks change; clear it on player exit, media failure, or learned revocation. Background/lock-screen behavior requires real-device verification; repeat remains a web control.
+Media Session provides title, artist, available artwork, play/pause, and seek where supported. Report duration, position and playback rate, keeping the timeline synchronized on playback, pause, seeking and source changes. Demo backward/forward controls seek by the platform interval, defaulting to ten seconds within track boundaries. Release controls use the existing queue: Next selects the following queued track and is unavailable at the end; Previous restarts after three seconds or selects the preceding queued track near the beginning. Navigation preserves playing/paused state, never wraps or extends the queue, and uses the existing normalization and actual-play counting. Lock-screen seeking updates the shared player, including seeking back into the final track after the queue ends. Private artwork keeps its access checks. Update metadata when tracks change; clear it on player exit, media failure, or learned revocation. Background/lock-screen behavior requires real-device verification; repeat remains a web control.
 
 ### Analytics
 

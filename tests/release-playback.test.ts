@@ -270,3 +270,66 @@ test("replaying the same release track retains its prepared beginning", async ()
   assert.equal(assignments, 1, "replay must not reload the source");
   assert.deepEqual(plays, ["a/a3", "a/a3"]);
 });
+
+test("remote track navigation retains the queue, normalization and actual-play counting", () => {
+  const { playback, media, state, plays, gains } = setup();
+  playback.start(release(), "a1");
+  media.playing();
+  const queue = state().queue;
+  playback.seek(20);
+  playback.previousTrack();
+  assert.equal(state().index, 0);
+  assert.equal(state().position, 0);
+  assert.equal(media.paused, false);
+  assert.deepEqual(plays, ["a/a1"], "restarting by seeking is not a new play");
+
+  playback.nextTrack();
+  assert.equal(state().index, 1);
+  assert.deepEqual(plays, ["a/a1"], "wait for delivered audio");
+  media.playing();
+  assert.deepEqual(plays, ["a/a1", "a/a2"]);
+  playback.seek(12);
+  playback.previousTrack();
+  assert.equal(
+    state().index,
+    1,
+    "after three seconds, restart the current track",
+  );
+  assert.equal(state().position, 0);
+  playback.previousTrack();
+  media.playing();
+  assert.equal(state().index, 0);
+  assert.deepEqual(plays, ["a/a1", "a/a2", "a/a1"]);
+  playback.nextTrack();
+  playback.nextTrack();
+  media.playing();
+  assert.equal(state().index, 2);
+  playback.nextTrack();
+  assert.equal(state().index, 2, "next never wraps past the final track");
+  assert.equal(state().queue, queue);
+  assert.deepEqual(gains, [-1, -2, -1, -2, -3]);
+});
+
+test("remote navigation while paused does not start or count playback", async () => {
+  const { playback, media, state, plays, gains } = setup();
+  playback.start(release(), "a2");
+  media.playing();
+  media.pause();
+  playback.nextTrack();
+  assert.equal(state().index, 1);
+  assert.equal(state().position, 0);
+  assert.equal(state().status, "paused");
+  assert.equal(media.paused, true);
+  assert.deepEqual(plays, ["a/a2"]);
+  assert.deepEqual(gains, [-2]);
+  // Loading a new source resets native currentTime before it can play.
+  media.currentTime = 0;
+  playback.previousTrack();
+  assert.equal(state().index, 0);
+  assert.equal(state().status, "paused");
+  assert.equal(media.paused, true);
+  await playback.play();
+  media.playing();
+  assert.deepEqual(plays, ["a/a2", "a/a2"]);
+  assert.deepEqual(gains, [-2, -2]);
+});
