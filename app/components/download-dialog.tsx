@@ -2,15 +2,8 @@ import {
   formatDownloadDetails,
   type DownloadDetails,
 } from "../domain/download-details";
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type ReactNode,
-  type FormEvent,
-} from "react";
-import { Icon } from "./icons";
+import { useEffect, useState, type ReactNode, type FormEvent } from "react";
+import { Modal } from "./modal";
 
 export function DownloadDialog({
   title,
@@ -27,43 +20,16 @@ export function DownloadDialog({
   onClose: () => void;
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const heading = useId();
   const [submitted, setSubmitted] = useState(false);
-  useEffect(() => {
-    const element = dialog.current!;
-    const previous = document.activeElement;
-    element.showModal();
-    return () => {
-      element.close();
-      if (previous instanceof HTMLElement && previous.isConnected)
-        previous.focus({ preventScroll: true });
-    };
-  }, []);
   return (
-    <dialog
-      ref={dialog}
-      className="comment-dialog download-dialog"
-      aria-labelledby={heading}
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
+    <Modal
+      open
+      onClose={onClose}
+      title="Download audio"
+      eyebrow={title}
+      closeLabel="Close download"
+      className="download-dialog"
     >
-      <div className="dialog-heading">
-        <div>
-          <p className="eyebrow">{title}</p>
-          <h2 id={heading}>Download audio</h2>
-        </div>
-        <button
-          type="button"
-          className="icon-action"
-          aria-label="Close download"
-          onClick={onClose}
-        >
-          <Icon name="close" />
-        </button>
-      </div>
       <form
         action={action}
         method="post"
@@ -90,7 +56,7 @@ export function DownloadDialog({
           </button>
         </div>
       </form>
-    </dialog>
+    </Modal>
   );
 }
 

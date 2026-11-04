@@ -67,6 +67,9 @@ export function ArtistCoOwners({ data }: { data: Data }) {
             label="Invite co-owner"
             trigger={<Icon name="plus" />}
             triggerLabel="Invite co-owner"
+            actions={
+              <button className="button-primary">Create invitation link</button>
+            }
           >
             <input type="hidden" name="intent" value="create-invitation" />
             <p>
@@ -83,7 +86,6 @@ export function ArtistCoOwners({ data }: { data: Data }) {
               Invitation label (optional)
               <input name="label" maxLength={200} placeholder="e.g. Hugo" />
             </label>
-            <button className="button-primary">Create invitation link</button>
           </EditForm>
         )}
       </div>
@@ -102,6 +104,9 @@ export function ArtistCoOwners({ data }: { data: Data }) {
                   label={`Remove ${member.name} as co-owner`}
                   trigger={<Icon name="trash" />}
                   triggerLabel={`Remove ${member.name} as co-owner`}
+                  actions={
+                    <button className="button-danger">Remove co-owner</button>
+                  }
                 >
                   <input type="hidden" name="intent" value="remove-member" />
                   <input type="hidden" name="member" value={member.id} />
@@ -114,7 +119,6 @@ export function ArtistCoOwners({ data }: { data: Data }) {
                     discussions and statistics. Their uploads and comments will
                     stay with the artist.
                   </p>
-                  <button className="button-danger">Remove co-owner</button>
                 </EditForm>
               </div>
             )}
@@ -188,14 +192,17 @@ export function ArtistCoOwners({ data }: { data: Data }) {
       {revoke.data?.error && <p role="alert">{revoke.data.error}</p>}
       {!membershipManager && (
         <div className="coowners-leave">
-          <EditForm label="Leave artist" trigger="Leave artist">
+          <EditForm
+            label="Leave artist"
+            trigger="Leave artist"
+            actions={<button className="button-danger">Leave artist</button>}
+          >
             <input type="hidden" name="intent" value="leave-artist" />
             <p>
               Leave <strong>{artist.name}</strong>? You will lose private access
               to its music and discussions. Your uploads and comments will stay
               with the artist.
             </p>
-            <button className="button-danger">Leave artist</button>
           </EditForm>
         </div>
       )}

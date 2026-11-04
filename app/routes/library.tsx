@@ -1,6 +1,6 @@
 import { demoList } from "../server/demo-list";
 import { DemoList } from "../components/demo-list";
-import { useRef, useEffect } from "react";
+import { CreateDialog } from "../components/create-dialog";
 import { TrackArtistField } from "../components/track-artist-field";
 import { artistChoices, resolveTrackArtist } from "../server/track-artist";
 import { audioUploadError, uploadVersion } from "../server/upload";
@@ -8,13 +8,7 @@ import { uploadForm } from "../server/request";
 import { maxUploadBytes } from "../server/config";
 import { defaultVersionStatus, versionStatuses } from "../domain/versions";
 import { redirect } from "react-router";
-import {
-  Form,
-  useLoaderData,
-  useActionData,
-  useNavigation,
-  useSearchParams,
-} from "react-router";
+import { useLoaderData, useActionData, useNavigation } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { db } from "../server/db";
 import { and, eq } from "drizzle-orm";
@@ -99,16 +93,6 @@ export default function Library() {
   const data = useLoaderData<typeof loader>();
   const result = useActionData<typeof action>();
   const navigation = useNavigation();
-  const [search] = useSearchParams();
-  const dialog = useRef<HTMLDialogElement>(null);
-  const createTrigger = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (
-      (result?.error || search.get("create") === "1") &&
-      !dialog.current?.open
-    )
-      dialog.current?.showModal();
-  }, [result, search]);
   return (
     <>
       <div className="heading">
@@ -118,23 +102,19 @@ export default function Library() {
         </div>
       </div>
       <DemoList data={data}>
-        <button
-          ref={createTrigger}
-          type="button"
-          onClick={() => dialog.current?.showModal()}
+        <CreateDialog
+          title="Add new track"
+          error={result?.error}
+          encType="multipart/form-data"
+          submit={
+            <button
+              className="button-primary"
+              disabled={navigation.state !== "idle"}
+            >
+              {navigation.state !== "idle" ? "Creating…" : "Create track"}
+            </button>
+          }
         >
-          Add new track
-        </button>
-      </DemoList>
-      <dialog
-        ref={dialog}
-        onClose={() => createTrigger.current?.focus()}
-        className="comment-dialog"
-        aria-labelledby="new-track-title"
-      >
-        <Form method="post" encType="multipart/form-data" className="panel">
-          <h2 id="new-track-title">Add new track</h2>
-
           <label>
             First audio version (optional)
             <input
@@ -164,24 +144,8 @@ export default function Library() {
             </select>
           </label>
           <TrackArtistField profiles={data.artists} />
-          <div className="dialog-actions">
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => dialog.current?.close()}
-            >
-              Cancel
-            </button>
-            <button
-              className="button-primary"
-              disabled={navigation.state !== "idle"}
-            >
-              {navigation.state !== "idle" ? "Creating…" : "Create track"}
-            </button>
-          </div>
-          {result?.error && <p role="alert">{result.error}</p>}
-        </Form>
-      </dialog>
+        </CreateDialog>
+      </DemoList>
     </>
   );
 }

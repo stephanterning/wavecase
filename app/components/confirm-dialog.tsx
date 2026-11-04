@@ -1,9 +1,10 @@
 import {
-  useId,
+  useEffect,
   useRef,
   useState,
   type ComponentProps,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { Modal } from "./modal";
 
@@ -13,6 +14,7 @@ export function ConfirmDialog({
   children,
   confirmLabel,
   cancelLabel = "Cancel",
+  trigger,
   onConfirm,
   onCancel,
 }: {
@@ -21,21 +23,31 @@ export function ConfirmDialog({
   children: ReactNode;
   confirmLabel: string;
   cancelLabel?: string;
+  trigger?: RefObject<HTMLElement | null>;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  const heading = useId();
+  const cancel = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (open) cancel.current?.focus();
+  }, [open]);
   return (
     <Modal
       open={open}
       onClose={onCancel}
+      title={title}
+      closeLabel={cancelLabel}
+      trigger={trigger}
       className="confirm-dialog"
-      aria-labelledby={heading}
     >
-      <h2 id={heading}>{title}</h2>
       {children}
       <div className="dialog-actions">
-        <button type="button" className="secondary" onClick={onCancel}>
+        <button
+          ref={cancel}
+          type="button"
+          className="secondary"
+          onClick={onCancel}
+        >
           {cancelLabel}
         </button>
         <button type="button" className="button-danger" onClick={onConfirm}>
@@ -78,6 +90,7 @@ export function ConfirmButton({
         open={open}
         title={confirmTitle}
         confirmLabel={confirmLabel}
+        trigger={button}
         onCancel={() => setOpen(false)}
         onConfirm={() => {
           setOpen(false);

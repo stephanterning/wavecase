@@ -3,7 +3,6 @@ import { Link } from "react-router";
 import { useState } from "react";
 import { AddressField } from "../components/address-field";
 import {
-  Form,
   redirect,
   useActionData,
   useLoaderData,
@@ -65,26 +64,27 @@ export default function ArtistProfiles() {
       <p className="eyebrow">YOUR ARTISTS</p>
       <h1>Artists</h1>
       {result?.error && <p role="alert">{result.error}</p>}
-      <CreateDialog title="Add artist" error={result?.error}>
-        <Form method="post" className="panel">
-          <label>
-            Artist name
-            <input
-              name="name"
-              required
-              maxLength={200}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
-          <AddressField
-            name={name}
-            prefix="/artists"
-            value={slug}
-            onChange={setSlug}
+      <CreateDialog
+        title="Add artist"
+        error={result?.error}
+        submit={<button className="button-primary">Create artist</button>}
+      >
+        <label>
+          Artist name
+          <input
+            name="name"
+            required
+            maxLength={200}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
           />
-          <button className="button-primary">Create artist</button>
-        </Form>
+        </label>
+        <AddressField
+          name={name}
+          prefix="/artists"
+          value={slug}
+          onChange={setSlug}
+        />
       </CreateDialog>
       <div className="catalog-grid">
         {data.artists.map((a) => (

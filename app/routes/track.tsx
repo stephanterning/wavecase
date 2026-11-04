@@ -267,15 +267,14 @@ function TrackContents() {
             trigger="Upload new version"
             resetOnSave
             encType="multipart/form-data"
-            className="panel"
             onSuccess={(saved) => {
               if ("version" in saved && typeof saved.version === "string")
                 setSelection(saved.version);
             }}
+            actions={
+              <button className="button-primary">Upload new version</button>
+            }
           >
-            <h2 id="upload-version" tabIndex={-1}>
-              Upload a version
-            </h2>
             <label>
               Audio file
               <input
@@ -313,7 +312,6 @@ function TrackContents() {
               <input type="checkbox" name="download" />
               Allow downloads
             </label>
-            <button className="button-primary">Upload new version</button>
           </EditForm>
         </nav>
       )}

@@ -114,6 +114,7 @@ export function ShareLinks({
           label="New share link"
           trigger="＋ Create link"
           action={`/tracks/${trackId}`}
+          actions={<button className="button-primary">Create link</button>}
         >
           <input type="hidden" name="intent" value="link" />
           <label>
@@ -125,7 +126,6 @@ export function ShareLinks({
             <input type="checkbox" name="download" />
             Allow downloads
           </label>
-          <button className="button-primary">Create link</button>
         </EditForm>
         <p className="muted" id="share-plays-help">
           Plays count listener playback starts across all versions, for all
@@ -232,6 +232,9 @@ export function ShareLinks({
                   <EditForm
                     label={`Share link: ${link.label}`}
                     action={`/tracks/${trackId}/manage`}
+                    actions={
+                      <button className="button-primary">Save link</button>
+                    }
                     trigger={
                       <span title={`Edit link: ${link.label}`}>
                         <Icon name="edit" />
@@ -267,11 +270,15 @@ export function ShareLinks({
                       Allow downloads
                     </label>
                     <ShareVersionFields versions={versions} link={link} />
-                    <button className="button-primary">Save link</button>
                   </EditForm>
                   <EditForm
                     label={`Delete share link: ${link.label}`}
                     action={`/tracks/${trackId}/manage`}
+                    actions={
+                      <button className="button-danger">
+                        Delete link permanently
+                      </button>
+                    }
                     trigger={
                       <span title={`Delete link: ${link.label}`}>
                         <Icon name="trash" />
@@ -293,9 +300,6 @@ export function ShareLinks({
                       The shared URL will stop working. Other links and the
                       track will remain.
                     </p>
-                    <button className="button-danger">
-                      Delete link permanently
-                    </button>
                   </EditForm>
                 </td>
               </tr>

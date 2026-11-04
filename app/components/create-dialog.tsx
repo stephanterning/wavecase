@@ -1,53 +1,57 @@
 import { Icon } from "./icons";
-import { useEffect, useId, useRef } from "react";
-import { useSearchParams } from "react-router";
+import { Modal } from "./modal";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Form, useSearchParams, type FormProps } from "react-router";
 
+/** Opens from its button or a `?create=1` shortcut, which is then removed. */
 export function CreateDialog({
   title,
   error,
+  submit,
   children,
-}: {
+  ...props
+}: Omit<FormProps, "method"> & {
   title: string;
   error?: string;
-  children: React.ReactNode;
+  submit: ReactNode;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const [search, setSearch] = useSearchParams();
-  const id = useId();
+  const [open, setOpen] = useState(
+    () => search.get("create") === "1" || !!error,
+  );
   useEffect(() => {
-    if ((search.get("create") === "1" || error) && !dialog.current?.open)
-      dialog.current?.showModal();
-    if (search.has("create")) {
-      const next = new URLSearchParams(search);
-      next.delete("create");
-      setSearch(next, { replace: true, preventScrollReset: true });
-    }
-  }, [search, error, setSearch]);
+    if (!search.has("create")) return;
+    const next = new URLSearchParams(search);
+    next.delete("create");
+    setSearch(next, { replace: true, preventScrollReset: true });
+  }, [search, setSearch]);
   return (
     <>
-      <button ref={trigger} onClick={() => dialog.current?.showModal()}>
+      <button ref={trigger} onClick={() => setOpen(true)}>
         <Icon name="plus" /> {title}
       </button>
-      <dialog
-        ref={dialog}
-        className="comment-dialog"
-        aria-labelledby={id}
-        onClose={() => trigger.current?.focus()}
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={title}
+        trigger={trigger}
       >
-        <div className="dialog-heading">
-          <h2 id={id}>{title}</h2>
-          <button
-            type="button"
-            aria-label="Close dialog"
-            onClick={() => dialog.current?.close()}
-          >
-            ×
-          </button>
-        </div>
-        {children}
-        {error && <p role="alert">{error}</p>}
-      </dialog>
+        <Form method="post" {...props}>
+          {children}
+          <div className="dialog-actions">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </button>
+            {submit}
+          </div>
+          {error && <p role="alert">{error}</p>}
+        </Form>
+      </Modal>
     </>
   );
 }

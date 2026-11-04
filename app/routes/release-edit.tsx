@@ -486,12 +486,11 @@ export default function ReleaseEditor() {
             <EditForm
               label="Release details"
               trigger="Edit release details"
-              className="panel"
               key={d.release.id}
               id="release-details"
+              actions={<button className="button-primary">Save release</button>}
             >
               <input type="hidden" name="intent" value="metadata" />
-              <h2>Release details</h2>
               <label>
                 Title
                 <input
@@ -542,17 +541,17 @@ export default function ReleaseEditor() {
                 />
                 Enable playback and email-gated downloads together
               </label>
-              <button className="button-primary">Save release</button>
             </EditForm>
             <EditForm
               label="Artwork"
               trigger={d.release.cover ? "Change artwork" : "Add artwork"}
               encType="multipart/form-data"
-              className="panel"
               id="release-artwork"
+              actions={
+                <button className="button-primary">Upload artwork</button>
+              }
             >
               <input type="hidden" name="intent" value="cover" />
-              <h2>Artwork</h2>
               {d.release.cover && (
                 <img
                   className="release-thumb"
@@ -569,7 +568,6 @@ export default function ReleaseEditor() {
                   required
                 />
               </label>
-              <button className="button-primary">Upload artwork</button>
             </EditForm>
           </div>
           <h2 id="release-tracks" tabIndex={-1}>
@@ -592,6 +590,7 @@ export default function ReleaseEditor() {
               <EditForm
                 label={`Track ${t.position}: ${t.title}`}
                 trigger="Edit track"
+                actions={<button className="button-primary">Save track</button>}
               >
                 <input type="hidden" name="intent" value="track" />
                 <input type="hidden" name="track" value={t.id} />
@@ -637,7 +636,6 @@ export default function ReleaseEditor() {
                   />
                   Explicit
                 </label>
-                <button className="button-primary">Save track</button>
               </EditForm>
               <p>
                 {t.original
@@ -656,6 +654,14 @@ export default function ReleaseEditor() {
                 label={`Audio: ${t.title}`}
                 trigger={t.original ? "Replace master" : "Upload master"}
                 encType="multipart/form-data"
+                actions={
+                  <button
+                    className="button-primary"
+                    disabled={!!t.pendingOriginal}
+                  >
+                    {t.original ? "Replace master" : "Upload master"}
+                  </button>
+                }
               >
                 <input type="hidden" name="intent" value="audio" />
                 <input type="hidden" name="track" value={t.id} />
@@ -669,12 +675,6 @@ export default function ReleaseEditor() {
                     disabled={!!t.pendingOriginal}
                   />
                 </label>
-                <button
-                  className="button-primary"
-                  disabled={!!t.pendingOriginal}
-                >
-                  {t.original ? "Replace master" : "Upload master"}
-                </button>
               </EditForm>
               {(t.original || t.pendingOriginal) && (
                 <Form method="post">
@@ -704,14 +704,13 @@ export default function ReleaseEditor() {
             label="New track"
             trigger="＋ Add track"
             resetOnSave
-            className="panel"
+            actions={<button className="button-primary">Add track</button>}
           >
             <input type="hidden" name="intent" value="add-track" />
             <label>
               New track title
               <input name="title" required maxLength={200} />
             </label>
-            <button className="button-primary">Add track</button>
             <p>
               Audio is optional. Add all tracks, including those without
               downloadable audio.
