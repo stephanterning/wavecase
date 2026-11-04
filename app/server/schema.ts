@@ -1,6 +1,7 @@
 import {
   pgTable,
   uniqueIndex,
+  primaryKey,
   index,
   uuid,
   text,
@@ -77,6 +78,18 @@ export const tracks = pgTable("tracks", {
   description: text().notNull().default(""),
   createdAt: created(),
 });
+export const trackFavorites = pgTable(
+  "track_favorites",
+  {
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    trackId: uuid()
+      .notNull()
+      .references(() => tracks.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.trackId] })],
+);
 export const versions = pgTable("versions", {
   position: bigserial({ mode: "number" }).notNull().unique(),
   id: id(),
@@ -90,6 +103,8 @@ export const versions = pgTable("versions", {
   state: text().notNull().default("processing"),
   pendingOriginal: text(),
   pendingFilename: text(),
+  pendingUploadedAt: timestamp({ withTimezone: true }),
+  uploadedAt: timestamp({ withTimezone: true }),
   original: text(),
   playback: text(),
   filename: text().notNull(),

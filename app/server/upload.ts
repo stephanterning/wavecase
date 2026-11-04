@@ -39,6 +39,7 @@ export async function uploadVersion(trackId: string, form: FormData) {
       filename: file.name,
       pendingOriginal: id,
       pendingFilename: file.name,
+      pendingUploadedAt: new Date(),
     });
   } catch (error) {
     await unlink(path).catch(() => {});

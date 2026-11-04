@@ -84,6 +84,7 @@ test(
         filename: "original.wav",
         pendingOriginal: "original.wav",
         pendingFilename: "original.wav",
+        pendingUploadedAt: new Date("2026-10-30T09:00:00Z"),
       });
       const artist = randomUUID(),
         release = randomUUID(),
@@ -178,6 +179,11 @@ test(
       assert.notEqual(initial.original, initial.playback);
       assert.equal(initial.filename, "original.wav");
       assert.equal(initial.metadata?.sampleRate, 96000);
+      assert.equal(
+        initial.uploadedAt?.toISOString(),
+        "2026-10-30T09:00:00.000Z",
+      );
+      assert.equal(initial.pendingUploadedAt, null);
       async function removed(key: string) {
         for (let i = 0; i < 50; i++) {
           try {
@@ -222,7 +228,11 @@ test(
       ]);
       await db
         .update(versions)
-        .set({ pendingOriginal: "short.wav", pendingFilename: "short.wav" })
+        .set({
+          pendingOriginal: "short.wav",
+          pendingFilename: "short.wav",
+          pendingUploadedAt: new Date("2026-11-01T10:00:00Z"),
+        })
         .where(eq(versions.id, version));
       await boss.send(
         "process-audio",
@@ -232,6 +242,8 @@ test(
       const rejected = await waitFor(version);
       assert.equal(rejected.state, "ready");
       assert.match(rejected.error!, /exactly the same duration/);
+      assert.deepEqual(rejected.uploadedAt, initial.uploadedAt);
+      assert.equal(rejected.pendingUploadedAt, null);
       assert.deepEqual(
         await readFile(join(directory, rejected.playback!)),
         originalBytes,
@@ -250,7 +262,11 @@ test(
       ]);
       await db
         .update(versions)
-        .set({ pendingOriginal: "over.wav", pendingFilename: "over.wav" })
+        .set({
+          pendingOriginal: "over.wav",
+          pendingFilename: "over.wav",
+          pendingUploadedAt: new Date("2026-11-02T10:00:00Z"),
+        })
         .where(eq(versions.id, version));
       await boss.send(
         "process-audio",
@@ -261,6 +277,7 @@ test(
       assert.equal(overRange.state, "ready");
       assert.match(overRange.error!, /Audio exceeds the PCM range/);
       assert.equal(overRange.original, initial.original);
+      assert.deepEqual(overRange.uploadedAt, initial.uploadedAt);
       assert.deepEqual(
         await readFile(join(directory, overRange.original!)),
         uploadedBytes,
@@ -277,6 +294,7 @@ test(
         .set({
           pendingOriginal: "replacement.wav",
           pendingFilename: "replacement.wav",
+          pendingUploadedAt: new Date("2026-11-04T11:00:00Z"),
         })
         .where(eq(versions.id, version));
       await boss.send(
@@ -289,6 +307,12 @@ test(
       assert.equal(replaced.error, null);
       assert.equal(replaced.original, "replacement.wav");
       assert.equal(replaced.position, initial.position);
+      assert.deepEqual(replaced.createdAt, initial.createdAt);
+      assert.equal(
+        replaced.uploadedAt?.toISOString(),
+        "2026-11-04T11:00:00.000Z",
+      );
+      assert.equal(replaced.pendingUploadedAt, null);
       assert.equal(replaced.original, replaced.playback);
       await removed(initial.original!);
       await removed(initial.playback!);

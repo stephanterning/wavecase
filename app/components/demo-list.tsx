@@ -5,8 +5,10 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { Link } from "react-router";
+import { Link, useFetcher } from "react-router";
 import type { DemoListData } from "../server/demo-list";
+import type { action as libraryAction } from "../routes/library";
+import { compareLibraryTracks, type LibrarySort } from "../domain/library";
 import type { DemoSource } from "./demo-playback";
 import { Icon } from "./icons";
 import { playbackGainDb } from "./playback-audio";
@@ -62,9 +64,7 @@ export function DemoList({
     workspace.getSnapshot().playback?.reconcile(data.availableSources);
   }, [workspace, data.availableSources]);
   const [filter, setFilter] = useState("");
-  const [sort, setSort] = useState<"title" | "createdAt" | "artist">(
-    "createdAt",
-  );
+  const [sort, setSort] = useState<LibrarySort>("updatedAt");
   const [ascending, setAscending] = useState(false);
   const rows = data.tracks
     .filter((track) =>
@@ -72,16 +72,7 @@ export function DemoList({
         .toLocaleLowerCase()
         .includes(filter.toLocaleLowerCase()),
     )
-    .sort((a, b) => {
-      const order =
-        sort === "createdAt"
-          ? new Date(a[sort]).getTime() - new Date(b[sort]).getTime()
-          : a[sort].localeCompare(b[sort], undefined, {
-              sensitivity: "base",
-              numeric: true,
-            });
-      return (ascending ? order : -order) || a.id.localeCompare(b.id);
-    });
+    .sort((a, b) => compareLibraryTracks(a, b, sort, ascending));
   return (
     <>
       <div className="library-toolbar">
@@ -108,12 +99,14 @@ export function DemoList({
         <table className="library-table">
           <thead>
             <tr>
-              <th scope="col" aria-label="Playback" />
               {(
                 [
+                  ["favorite", "Favorite"],
                   ["title", "Name"],
-                  ["createdAt", "Created"],
                   ["artist", "Artist"],
+                  ["versionCount", "Versions"],
+                  ["updatedAt", "Updated"],
+                  ["createdAt", "Created"],
                 ] as const
               ).map(([key, label]) => (
                 <th
@@ -129,6 +122,10 @@ export function DemoList({
                 >
                   <button
                     type="button"
+                    aria-label={
+                      key === "favorite" ? "Sort by favorite" : undefined
+                    }
+                    title={key === "favorite" ? "Sort by favorite" : undefined}
                     onClick={() => {
                       setSort(key);
                       setAscending(
@@ -138,7 +135,7 @@ export function DemoList({
                       );
                     }}
                   >
-                    {label}
+                    {key === "favorite" ? <Icon name="heart" /> : label}
                     {sort === key && (
                       <span aria-hidden="true">{ascending ? " ↑" : " ↓"}</span>
                     )}
@@ -167,28 +164,43 @@ export function DemoList({
                 : null;
               return (
                 <tr key={track.id}>
-                  <td>
-                    <LibraryPlay source={source} />
+                  <td className="library-favorite-cell">
+                    <FavoriteButton track={track} />
                   </td>
+                  <td className="library-name-cell">
+                    <div className="library-track">
+                      <LibraryPlay source={source} />
+                      <div>
+                        <Link
+                          className="library-row-link"
+                          to={"/tracks/" + track.id}
+                        >
+                          {track.title}
+                        </Link>
+                        <small className="track-summary">
+                          {track.latestVersion
+                            ? `${track.latestVersion} · ${track.latestStatus}`
+                            : "No versions yet"}
+                        </small>
+                      </div>
+                    </div>
+                  </td>
+                  <td>{track.artist || "—"}</td>
+                  <td>{track.versionCount}</td>
                   <td>
-                    <Link
-                      className="library-row-link"
-                      to={"/tracks/" + track.id}
-                    >
-                      {track.title}
-                    </Link>
-                    <small className="track-summary">
-                      {track.latestVersion
-                        ? `${track.latestVersion} · ${track.latestStatus}`
-                        : "No versions yet"}
-                    </small>
+                    {track.updatedAt ? (
+                      <time dateTime={new Date(track.updatedAt).toISOString()}>
+                        {new Date(track.updatedAt).toISOString().slice(0, 10)}
+                      </time>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td>
                     <time dateTime={new Date(track.createdAt).toISOString()}>
                       {new Date(track.createdAt).toISOString().slice(0, 10)}
                     </time>
                   </td>
-                  <td>{track.artist || "—"}</td>
                 </tr>
               );
             })}
@@ -200,6 +212,40 @@ export function DemoList({
           {data.tracks.length ? "No tracks match your filter." : emptyMessage}
         </p>
       )}
+    </>
+  );
+}
+
+function FavoriteButton({
+  track,
+}: {
+  track: { id: string; title: string; favorite: boolean };
+}) {
+  const fetcher = useFetcher<typeof libraryAction>();
+  const favorite = fetcher.formData
+    ? fetcher.formData.get("favorite") === "1"
+    : track.favorite;
+  const label = favorite
+    ? `Remove ${track.title} from favorites`
+    : `Add ${track.title} to favorites`;
+  return (
+    <>
+      <fetcher.Form method="post" action="/library">
+        <input type="hidden" name="intent" value="favorite" />
+        <input type="hidden" name="trackId" value={track.id} />
+        <input type="hidden" name="favorite" value={favorite ? "0" : "1"} />
+        <button
+          className="library-favorite"
+          type="submit"
+          aria-label={label}
+          title={label}
+          aria-pressed={favorite}
+          disabled={fetcher.state !== "idle"}
+        >
+          <Icon name="heart" />
+        </button>
+      </fetcher.Form>
+      {fetcher.data?.error && <small role="alert">{fetcher.data.error}</small>}
     </>
   );
 }
