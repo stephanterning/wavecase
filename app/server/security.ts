@@ -21,7 +21,10 @@ export function setCookie(name: string, value: string, maxAge: number) {
 }
 export function sameOrigin(request: Request) {
   if (request.headers.get("origin") !== origin)
-    throw new Response("Invalid request origin", { status: 403 });
+    throw new Response(
+      `Wavecase only accepts forms sent from ${origin}. Open Wavecase at that address and try again.`,
+      { status: 403 },
+    );
 }
 export async function viewer(request: Request) {
   const value = cookie(request, "session");

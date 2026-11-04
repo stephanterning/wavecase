@@ -40,10 +40,7 @@ import {
 } from "../server/security";
 import { formError } from "../server/releases";
 import { trackAccess } from "../server/access";
-export const meta = () => [
-  { title: "Wavecase" },
-  { name: "referrer", content: "same-origin" },
-];
+export const meta = () => [{ title: "Wavecase" }];
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   let id = params.id;

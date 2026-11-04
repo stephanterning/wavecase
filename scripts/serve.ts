@@ -8,7 +8,7 @@ if (process.env.TRUST_PROXY)
 app.use((request, response, next) => {
   request.headers["x-wavecase-ip"] =
     request.ip || request.socket.remoteAddress || "";
-  response.setHeader("Referrer-Policy", "no-referrer");
+  response.setHeader("Referrer-Policy", "same-origin");
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("X-Frame-Options", "DENY");
   response.setHeader("Cache-Control", "private, no-store");
