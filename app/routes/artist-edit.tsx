@@ -1,4 +1,6 @@
 import { ArtistCoOwners } from "../components/artist-coowners";
+import { DemoList } from "../components/demo-list";
+import { demoList } from "../server/demo-list";
 import { manageArtistMembers } from "../server/artist-members";
 import { Link } from "react-router";
 import { ReleaseCardContent } from "../components/release-card-content";
@@ -40,6 +42,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   return {
     loadedAt: now.getTime(),
     artist,
+    demos: await demoList(user.id, artist.id),
     membershipManager: artist.ownerId === user.id,
     invitationOrigin: origin,
     invitations:
@@ -217,51 +220,71 @@ export default function ArtistEdit() {
       </header>
       {result?.error && <p role="alert">{result.error}</p>}
       <div className="artist-editor-columns">
-        <section>
-          <div className="artist-section-heading">
-            <h2>
-              Releases <span className="section-count">{rows.length}</span>
-            </h2>
-            <Link
-              className="artist-icon-action"
-              to={`/releases?create=1&artist=${a.id}`}
-              aria-label={`Add release for ${a.name}`}
-              title={`Add release for ${a.name}`}
-            >
-              <Icon name="plus" />
-            </Link>
-          </div>
-          <div className="catalog-grid">
-            {rows.map((release) => (
+        <div>
+          <section>
+            <div className="artist-section-heading">
+              <h2>
+                Releases <span className="section-count">{rows.length}</span>
+              </h2>
               <Link
-                className="catalog-item"
-                to={`/releases/${release.id}`}
-                key={release.id}
+                className="artist-icon-action"
+                to={`/releases?create=1&artist=${a.id}`}
+                aria-label={`Add release for ${a.name}`}
+                title={`Add release for ${a.name}`}
               >
-                <ReleaseCardContent
-                  releaseId={release.id}
-                  title={release.title}
-                  kind={release.kind}
-                  releaseDate={release.metadata.releaseDate}
-                  hasArtwork={!!release.cover}
-                />
-                <span
-                  className={
-                    release.published
-                      ? "release-status published"
-                      : "release-status"
-                  }
-                >
-                  {release.published && <Icon name="check-circle" />}
-                  {release.published ? "Published" : "Draft"}
-                </span>
+                <Icon name="plus" />
               </Link>
-            ))}
-          </div>
-          {!rows.length && (
-            <p>No releases yet. Create a draft to get started.</p>
-          )}
-        </section>
+            </div>
+            <div className="catalog-grid">
+              {rows.map((release) => (
+                <Link
+                  className="catalog-item"
+                  to={`/releases/${release.id}`}
+                  key={release.id}
+                >
+                  <ReleaseCardContent
+                    releaseId={release.id}
+                    title={release.title}
+                    kind={release.kind}
+                    releaseDate={release.metadata.releaseDate}
+                    hasArtwork={!!release.cover}
+                  />
+                  <span
+                    className={
+                      release.published
+                        ? "release-status published"
+                        : "release-status"
+                    }
+                  >
+                    {release.published && <Icon name="check-circle" />}
+                    {release.published ? "Published" : "Draft"}
+                  </span>
+                </Link>
+              ))}
+            </div>
+            {!rows.length && (
+              <p>No releases yet. Create a draft to get started.</p>
+            )}
+          </section>
+          <section
+            className="artist-demo-list"
+            aria-labelledby="artist-demos-heading"
+          >
+            <div className="artist-section-heading">
+              <h2 id="artist-demos-heading">
+                Work in progress{" "}
+                <span className="section-count">
+                  {data.demos.tracks.length}
+                </span>
+              </h2>
+            </div>
+            <DemoList
+              key={a.id}
+              data={data.demos}
+              emptyMessage="No demos linked to this artist yet."
+            />
+          </section>
+        </div>
         <aside>
           <ArtistCoOwners data={data} />
           <div className="artist-section-heading">

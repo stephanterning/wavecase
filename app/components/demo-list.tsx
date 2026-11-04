@@ -1,0 +1,205 @@
+import {
+  useEffect,
+  useId,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
+import { Link } from "react-router";
+import type { DemoListData } from "../server/demo-list";
+import type { DemoSource } from "./demo-playback";
+import { Icon } from "./icons";
+import { playbackGainDb } from "./playback-audio";
+import { useWorkspacePlayback, useWorkspaceSnapshot } from "./workspace-player";
+
+function LibraryPlay({
+  source,
+}: {
+  source: (DemoSource & { trackId: string }) | null;
+}) {
+  const workspace = useWorkspacePlayback()!;
+  const { playback, trackId } = useWorkspaceSnapshot(workspace);
+  const empty = () => null;
+  const state = useSyncExternalStore(
+    playback?.subscribe ?? (() => () => {}),
+    playback?.getSnapshot ?? empty,
+    playback?.getSnapshot ?? empty,
+  );
+  const active =
+    (state?.source?.key === source?.key ||
+      (!state?.source && trackId === source?.trackId)) &&
+    (state?.playing || state?.starting);
+  return (
+    <button
+      type="button"
+      className="icon-action library-play"
+      disabled={!source}
+      aria-label={
+        source
+          ? `${active ? "Pause" : "Play"} ${source.title}`
+          : "No playable version"
+      }
+      onClick={() => {
+        if (source) workspace.start(source);
+      }}
+    >
+      <Icon name={active ? "pause" : "play"} />
+    </button>
+  );
+}
+export function DemoList({
+  data,
+  children,
+  emptyMessage = "Your library is quiet. Add a track to get started.",
+}: {
+  data: DemoListData;
+  children?: ReactNode;
+  emptyMessage?: string;
+}) {
+  const workspace = useWorkspacePlayback()!;
+  const filterId = useId();
+  useEffect(() => {
+    workspace.getSnapshot().playback?.reconcile(data.availableSources);
+  }, [workspace, data.availableSources]);
+  const [filter, setFilter] = useState("");
+  const [sort, setSort] = useState<"title" | "createdAt" | "artist">(
+    "createdAt",
+  );
+  const [ascending, setAscending] = useState(false);
+  const rows = data.tracks
+    .filter((track) =>
+      `${track.title} ${track.artist}`
+        .toLocaleLowerCase()
+        .includes(filter.toLocaleLowerCase()),
+    )
+    .sort((a, b) => {
+      const order =
+        sort === "createdAt"
+          ? new Date(a[sort]).getTime() - new Date(b[sort]).getTime()
+          : a[sort].localeCompare(b[sort], undefined, {
+              sensitivity: "base",
+              numeric: true,
+            });
+      return (ascending ? order : -order) || a.id.localeCompare(b.id);
+    });
+  return (
+    <>
+      <div className="library-toolbar">
+        {children}
+        <div className="library-filter">
+          <div className="library-filter-input">
+            <input
+              aria-label="Search your music"
+              id={filterId}
+              type="search"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              placeholder="Search your music…"
+            />
+          </div>
+        </div>
+      </div>
+      <div
+        className="library-scroll"
+        role="region"
+        aria-label="Tracks"
+        tabIndex={0}
+      >
+        <table className="library-table">
+          <thead>
+            <tr>
+              <th scope="col" aria-label="Playback" />
+              {(
+                [
+                  ["title", "Name"],
+                  ["createdAt", "Created"],
+                  ["artist", "Artist"],
+                ] as const
+              ).map(([key, label]) => (
+                <th
+                  key={key}
+                  scope="col"
+                  aria-sort={
+                    sort === key
+                      ? ascending
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSort(key);
+                      setAscending(
+                        sort === key
+                          ? !ascending
+                          : key === "title" || key === "artist",
+                      );
+                    }}
+                  >
+                    {label}
+                    {sort === key && (
+                      <span aria-hidden="true">{ascending ? " ↑" : " ↓"}</span>
+                    )}
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((track) => {
+              const version = data.playable.find((v) => v.trackId === track.id);
+              const source = version
+                ? {
+                    trackId: track.id,
+                    key: version.id + version.revision,
+                    versionId: version.id,
+                    versionName: version.name,
+                    title: track.title,
+                    artist: track.artist,
+                    url: `/media/${version.id}`,
+                    duration: version.duration || 0,
+                    gainDb: playbackGainDb(version.metadata),
+                    peaks: [],
+                    artwork: track.cover ? `/cover/${track.id}` : undefined,
+                  }
+                : null;
+              return (
+                <tr key={track.id}>
+                  <td>
+                    <LibraryPlay source={source} />
+                  </td>
+                  <td>
+                    <Link
+                      className="library-row-link"
+                      to={"/tracks/" + track.id}
+                    >
+                      {track.title}
+                    </Link>
+                    <small className="track-summary">
+                      {track.latestVersion
+                        ? `${track.latestVersion} · ${track.latestStatus}`
+                        : "No versions yet"}
+                    </small>
+                  </td>
+                  <td>
+                    <time dateTime={new Date(track.createdAt).toISOString()}>
+                      {new Date(track.createdAt).toISOString().slice(0, 10)}
+                    </time>
+                  </td>
+                  <td>{track.artist || "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {!rows.length && (
+        <p role="status" className="muted">
+          {data.tracks.length ? "No tracks match your filter." : emptyMessage}
+        </p>
+      )}
+    </>
+  );
+}
