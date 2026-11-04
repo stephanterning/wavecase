@@ -67,8 +67,10 @@ export async function action({ request, params }: ActionFunctionArgs) {
   );
   const body = await (await limitedBody(request, 65536)).json();
   return db.transaction(async (tx) => {
+    // Conflicts only with the worker's publication lock, so a replacement's
+    // duration check sees this comment while other inserts proceed.
     await tx.execute(
-      sql`select id from versions where id=${params.id!} for update`,
+      sql`select id from versions where id=${params.id!} for key share`,
     );
     const current = await tx.query.versions.findFirst({
       where: eq(versions.id, params.id!),

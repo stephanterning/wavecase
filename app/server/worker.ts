@@ -32,6 +32,7 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
     try {
       const result = await processAudio(directory, key);
       const changed = await db.transaction(async (tx) => {
+        // FOR UPDATE also excludes new comments until the duration check commits.
         await tx.execute(
           sql`select id from versions where id=${version.id} for update`,
         );

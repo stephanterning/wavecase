@@ -30,6 +30,7 @@ import {
 } from "../app/server/schema";
 import { hash, origin } from "../app/server/security";
 import { releaseAccess } from "../app/server/releases";
+import { holdFfmpeg } from "./hold-ffmpeg";
 import {
   action as assetAction,
   loader as assetLoader,
@@ -614,41 +615,24 @@ test(
         ).releases.length,
         1,
       );
-      // Revoke downloads while a request waits for the encoder's row lock.
-      const blocker = await pool.connect();
+      // Revoke downloads while an already-authorized request is encoding.
+      await rm(join(dir, "master.wav.16-44100.flac"));
+      const encoder = await holdFfmpeg();
       let waiting: Promise<unknown> | undefined;
       try {
-        await blocker.query("BEGIN");
-        await blocker.query(
-          "SELECT id FROM release_tracks WHERE id = $1 FOR UPDATE",
-          [track],
-        );
-        const {
-          rows: [{ pid }],
-        } = await blocker.query("SELECT pg_backend_pid() AS pid");
         waiting = assetAction(
           args(
-            post({ email: "revoked@example.test", format: "mp3" }),
+            post({ email: "revoked@example.test", format: "flac" }),
             "download",
           ),
         ).catch((e: unknown) => e);
-        let blocked = false;
-        for (let i = 0; i < 100 && !blocked; i++) {
-          const { rows } = await pool.query(
-            "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))) AS blocked",
-            [pid],
-          );
-          blocked = rows[0].blocked;
-          if (!blocked) await new Promise((resolve) => setTimeout(resolve, 20));
-        }
-        assert.equal(blocked, true);
+        await encoder.started();
         await db
           .update(releases)
           .set({ audioEnabled: false })
           .where(eq(releases.id, release));
       } finally {
-        await blocker.query("ROLLBACK");
-        blocker.release();
+        await encoder.release();
       }
       for (const request of [streamRequest, streamPart])
         await assert.rejects(assetLoader(args(request, "audio")), denied(404));

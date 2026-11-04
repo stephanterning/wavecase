@@ -78,7 +78,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
           .select()
           .from(versions)
           .where(eq(versions.trackId, access.track.id))
-          .for("update");
+          .for("no key update");
         await tx
           .update(versions)
           .set({
@@ -106,7 +106,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
           .select()
           .from(tracks)
           .where(eq(tracks.id, access.track.id))
-          .for("update");
+          .for("no key update");
         if (!current) throw new Response("Not found", { status: 404 });
         await tx
           .update(tracks)
@@ -150,7 +150,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
             .select()
             .from(tracks)
             .where(eq(tracks.id, access.track.id))
-            .for("update");
+            .for("no key update");
           if (!current) throw new Response("Not found", { status: 404 });
           await tx
             .update(tracks)
@@ -264,97 +264,108 @@ export async function action({ request, params }: ActionFunctionArgs) {
         );
     } else {
       const id = z.uuid().parse(form.get("version"));
-      await db.transaction(async (tx) => {
-        await tx.execute(
-          sql`select id from versions where id=${id} for update`,
+      let upload: { key: string; filename: string } | undefined;
+      if (intent === "replace") {
+        const file = form.get("audio");
+        if (!(file instanceof File) || !file.size)
+          throw new Response("Choose an audio file", { status: 400 });
+        upload = { key: randomUUID(), filename: file.name };
+        await mkdir(directory, { recursive: true });
+        await writeFile(
+          join(directory, upload.key),
+          Buffer.from(await file.arrayBuffer()),
         );
-        const version = await tx.query.versions.findFirst({
-          where: and(
-            eq(versions.id, id),
-            eq(versions.trackId, access.track.id),
-          ),
+      }
+      await db
+        .transaction(async (tx) => {
+          await tx.execute(
+            sql`select id from versions where id=${id} for no key update`,
+          );
+          const version = await tx.query.versions.findFirst({
+            where: and(
+              eq(versions.id, id),
+              eq(versions.trackId, access.track.id),
+            ),
+          });
+          if (!version) throw new Response("Not found", { status: 404 });
+          if (intent === "remove") {
+            await tx
+              .update(versions)
+              .set({
+                state: "missing",
+                original: null,
+                playback: null,
+                pendingOriginal: null,
+                pendingFilename: null,
+                pendingUploadedAt: null,
+                error: null,
+              })
+              .where(eq(versions.id, id));
+            removedFiles.push(
+              ...[
+                ...new Set([
+                  version.original,
+                  version.playback,
+                  version.pendingOriginal,
+                ]),
+              ].filter((p): p is string => !!p),
+            );
+          } else if (intent === "version") {
+            const field = z
+              .enum(["name", "description", "settings", "all"])
+              .parse(form.get("field") || "all");
+            await tx
+              .update(versions)
+              .set({
+                ...(field === "name" || field === "all"
+                  ? {
+                      name: z
+                        .string()
+                        .trim()
+                        .min(1)
+                        .max(100)
+                        .parse(form.get("name")),
+                    }
+                  : {}),
+                ...(field === "description" || field === "all"
+                  ? {
+                      description: String(form.get("description") || "").slice(
+                        0,
+                        5000,
+                      ),
+                    }
+                  : {}),
+                ...(field === "settings" || field === "all"
+                  ? {
+                      status: z.enum(versionStatuses).parse(form.get("status")),
+                      download: form.has("download"),
+                    }
+                  : {}),
+              })
+              .where(eq(versions.id, id));
+          } else if (intent === "replace") {
+            if (version.pendingOriginal)
+              throw new Response(
+                "This version is already processing an upload",
+                {
+                  status: 409,
+                },
+              );
+            await tx
+              .update(versions)
+              .set({
+                pendingOriginal: upload!.key,
+                pendingFilename: upload!.filename,
+                pendingUploadedAt: new Date(),
+                error: null,
+              })
+              .where(eq(versions.id, id));
+          } else throw new Response("Unknown action", { status: 400 });
+        })
+        .catch(async (error) => {
+          if (upload) await unlink(join(directory, upload.key)).catch(() => {});
+          throw error;
         });
-        if (!version) throw new Response("Not found", { status: 404 });
-        if (intent === "remove") {
-          await tx
-            .update(versions)
-            .set({
-              state: "missing",
-              original: null,
-              playback: null,
-              pendingOriginal: null,
-              pendingFilename: null,
-              pendingUploadedAt: null,
-              error: null,
-            })
-            .where(eq(versions.id, id));
-          removedFiles.push(
-            ...[
-              ...new Set([
-                version.original,
-                version.playback,
-                version.pendingOriginal,
-              ]),
-            ].filter((p): p is string => !!p),
-          );
-        } else if (intent === "version") {
-          const field = z
-            .enum(["name", "description", "settings", "all"])
-            .parse(form.get("field") || "all");
-          await tx
-            .update(versions)
-            .set({
-              ...(field === "name" || field === "all"
-                ? {
-                    name: z
-                      .string()
-                      .trim()
-                      .min(1)
-                      .max(100)
-                      .parse(form.get("name")),
-                  }
-                : {}),
-              ...(field === "description" || field === "all"
-                ? {
-                    description: String(form.get("description") || "").slice(
-                      0,
-                      5000,
-                    ),
-                  }
-                : {}),
-              ...(field === "settings" || field === "all"
-                ? {
-                    status: z.enum(versionStatuses).parse(form.get("status")),
-                    download: form.has("download"),
-                  }
-                : {}),
-            })
-            .where(eq(versions.id, id));
-        } else if (intent === "replace") {
-          if (version.pendingOriginal)
-            throw new Response("This version is already processing an upload", {
-              status: 409,
-            });
-          const file = form.get("audio");
-          if (!(file instanceof File) || !file.size)
-            throw new Response("Choose an audio file", { status: 400 });
-          const key = randomUUID();
-          await mkdir(directory, { recursive: true });
-          await writeFile(
-            join(directory, key),
-            Buffer.from(await file.arrayBuffer()),
-          );
-          await tx
-            .update(versions)
-            .set({
-              pendingOriginal: key,
-              pendingFilename: file.name,
-              pendingUploadedAt: new Date(),
-              error: null,
-            })
-            .where(eq(versions.id, id));
-        } else throw new Response("Unknown action", { status: 400 });
-      });
       if (intent === "replace") {
         await queue();
         await boss.send(
