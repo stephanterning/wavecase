@@ -54,7 +54,7 @@ test("analytics restores both filters from the URL", () => {
   const html = render("?link=a&browser=one");
   assert.match(html, /value="a" selected=""/);
   assert.match(html, /value="one" selected=""/);
-  assert.match(html, /0 visits · 2 plays · 1 browsers/);
+  assert.match(html, /0 visits · 2 plays · 1 browser ·/);
   assert.doesNotMatch(html, /Browser ID: three/);
 });
 

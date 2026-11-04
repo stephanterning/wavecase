@@ -9,6 +9,7 @@ import { Link, useFetcher } from "react-router";
 import type { DemoListData } from "../server/demo-list";
 import type { action as libraryAction } from "../routes/library";
 import { compareLibraryTracks, type LibrarySort } from "../domain/library";
+import { formatDate } from "../domain/format";
 import type { DemoSource } from "./demo-playback";
 import { Icon } from "./icons";
 import { playbackGainDb } from "./playback-audio";
@@ -196,7 +197,7 @@ export function DemoList({
                   <td>
                     {track.updatedAt ? (
                       <time dateTime={new Date(track.updatedAt).toISOString()}>
-                        {new Date(track.updatedAt).toISOString().slice(0, 10)}
+                        {formatDate(track.updatedAt)}
                       </time>
                     ) : (
                       "—"
@@ -204,7 +205,7 @@ export function DemoList({
                   </td>
                   <td>
                     <time dateTime={new Date(track.createdAt).toISOString()}>
-                      {new Date(track.createdAt).toISOString().slice(0, 10)}
+                      {formatDate(track.createdAt)}
                     </time>
                   </td>
                 </tr>

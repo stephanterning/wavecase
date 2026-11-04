@@ -1,10 +1,9 @@
 import { parseCommentTime } from "../domain/comment-time";
+import { formatClock } from "../domain/format";
 import { useEffect, useState } from "react";
 import { browserIdentity } from "./telemetry";
 import { CommentDialog, type CommentDraft } from "./comment-dialog";
 import { ConfirmButton } from "./confirm-dialog";
-const timestamp = (seconds: number) =>
-  `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
 type Comment = {
   id: string;
   versionId: string;
@@ -181,13 +180,17 @@ export function Feedback({
         },
       );
       if (!r.ok)
-        throw new Error("Could not save feedback. Please check the fields.");
+        throw new Error(
+          r.status === 400
+            ? "Could not save feedback. Check that the times are within the version and the end comes after the start."
+            : "Could not save feedback. Please try again.",
+        );
       form.reset();
       setRevision((v) => v + 1);
       setError("");
       return true;
     } catch (e) {
-      setError(String(e));
+      setError(e instanceof Error ? e.message : String(e));
       return false;
     }
   }
@@ -255,7 +258,7 @@ export function Feedback({
               <p className="eyebrow">
                 {versions.find((v) => v.id === c.versionId)?.name} ·{" "}
                 {c.linkId === null
-                  ? "Internal · artist members only"
+                  ? "Internal · owners only"
                   : `External · ${links.find((l) => l.id === c.linkId)?.label}`}
               </p>
             )}
@@ -263,7 +266,7 @@ export function Feedback({
               <strong>{c.name}</strong>
               {c.isNew && <span className="eyebrow"> New</span>}{" "}
               {c.start !== null
-                ? `${timestamp(c.start)}${c.end !== null ? "–" + timestamp(c.end) : ""}`
+                ? `${formatClock(c.start)}${c.end !== null ? "–" + formatClock(c.end) : ""}`
                 : "Whole version"}
             </p>
             {c.start !== null && (
@@ -288,7 +291,7 @@ export function Feedback({
                   <strong>
                     {r.name}
                     {r.isNew ? " · New" : ""}
-                    {r.owner ? " · Artist member" : ""}
+                    {r.owner ? " · Owner" : ""}
                   </strong>
                   <p>{r.body || "deleted"}</p>
                   {r.canDelete && r.body && (

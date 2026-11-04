@@ -7,6 +7,7 @@ import {
 } from "react-router";
 import { requireUser } from "../server/security";
 import { dashboard } from "../server/dashboard";
+import { formatCount, formatDateTime } from "../domain/format";
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await requireUser(request);
   return {
@@ -29,8 +30,6 @@ function Cards({ values }: { values: [string, number][] }) {
     </div>
   );
 }
-const date = (value: Date | string) =>
-  new Date(value).toISOString().slice(0, 16).replace("T", " ") + " UTC";
 export default function Dashboard() {
   const d = useLoaderData<typeof loader>();
   const submit = useSubmit();
@@ -38,7 +37,7 @@ export default function Dashboard() {
     <>
       <p className="eyebrow">DASHBOARD</p>
       <div className="dashboard-heading">
-        <h1>Welcome back, {d.name}.</h1>
+        <h1>Welcome, {d.name}.</h1>
         <Form method="get" className="period-form">
           <label>
             Activity period
@@ -56,9 +55,10 @@ export default function Dashboard() {
         </Form>
       </div>
       <p className="muted">
-        Your library now: {d.inventory.demos} demos · {d.inventory.published}{" "}
-        published releases · {d.inventory.drafts} release drafts ·{" "}
-        {d.inventory.artists} artists
+        Your library now: {formatCount(d.inventory.demos, "demo")} ·{" "}
+        {formatCount(d.inventory.published, "published release")} ·{" "}
+        {formatCount(d.inventory.drafts, "release draft")} ·{" "}
+        {formatCount(d.inventory.artists, "artist")}
       </p>
 
       <section className="panel">
@@ -82,7 +82,7 @@ export default function Dashboard() {
                   {f.title} · {f.version}
                 </Link>
                 <span>
-                  {f.name} · {date(f.createdAt)}
+                  {f.name} · {formatDateTime(f.createdAt)}
                 </span>
                 <p>{f.body}</p>
               </li>
@@ -98,7 +98,7 @@ export default function Dashboard() {
               <li key={r.id}>
                 <Link to={r.href}>{r.title}</Link>
                 <span className="muted">
-                  {r.kind} · {date(r.createdAt)}
+                  {r.kind} · {formatDateTime(r.createdAt)}
                 </span>
               </li>
             ))}

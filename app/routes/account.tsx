@@ -64,7 +64,7 @@ export default function Account() {
       if (!verified.ok) throw new Error("Could not save passkey");
       await revalidator.revalidate();
     } catch (e) {
-      setError(String(e));
+      setError(e instanceof Error ? e.message : String(e));
     }
   }
   return (
