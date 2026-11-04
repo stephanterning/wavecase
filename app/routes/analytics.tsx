@@ -1,9 +1,10 @@
 import { Link } from "react-router";
 import { heatmap } from "../domain/listening";
 import {
-  activityTimeline,
+  activityReport,
   playedIntervals,
   summarizeActivity,
+  timelineBar,
   uniqueCoverage,
 } from "../domain/activity";
 import { Form, useLoaderData, useSearchParams } from "react-router";
@@ -148,23 +149,12 @@ function eventDescription(event: Row["event"]) {
 export default function Analytics() {
   const data = useLoaderData<typeof loader>();
   const [search, setSearch] = useSearchParams();
-  const requestedLink = search.get("link") || "";
-  const link = data.links.some((item) => item.id === requestedLink)
-    ? requestedLink
-    : "";
-  const linkRows = data.events.filter((r) => !link || r.event.linkId === link);
-  const browserIds = [...new Set(linkRows.map((r) => r.event.browser))];
-  const requestedBrowser = search.get("browser") || "";
-  const browser = browserIds.includes(requestedBrowser) ? requestedBrowser : "";
-  const rows = linkRows.filter((r) => !browser || r.event.browser === browser);
-  const sessions = [
-    ...new Set(
-      rows.map((r) =>
-        JSON.stringify([r.event.linkId, r.event.browser, r.event.session]),
-      ),
-    ),
-  ];
-  const downloads = rows.filter((r) => r.event.kind === "download-started");
+  const report = activityReport(
+    data.events,
+    data.links.map((l) => l.id),
+    { link: search.get("link") || "", browser: search.get("browser") || "" },
+  );
+  const { link, browser, rows } = report;
   return (
     <>
       <Link to={"/tracks/" + data.track.id}>← {data.track.title}</Link>
@@ -217,11 +207,9 @@ export default function Analytics() {
             }}
           >
             <option value="">All browsers</option>
-            {browserIds.map((id) => (
+            {report.listeners.map(({ id, name }) => (
               <option key={id} value={id}>
-                {linkRows.find((r) => r.event.browser === id && r.event.name)
-                  ?.event.name || "Unnamed listener"}{" "}
-                · {id.slice(0, 8)}
+                {name || "Unnamed listener"} · {id.slice(0, 8)}
               </option>
             ))}
           </select>
@@ -238,28 +226,22 @@ export default function Analytics() {
                 {l.label}
                 {!l.active && " · Disabled"}
               </h2>
-              <Summary rows={rows.filter((r) => r.event.linkId === l.id)} />
+              <Summary rows={report.byLink.get(l.id) ?? []} />
             </section>
           ))}
       </details>
       <details className="panel">
         <summary>Activity by listener browser</summary>
-        {browserIds
-          .filter((id) => !browser || browser === id)
-          .map((id) => {
-            const activity = rows.filter((r) => r.event.browser === id);
-            return (
-              <section key={id}>
-                <h2>
-                  {activity.find((r) => r.event.name)?.event.name ||
-                    "Unnamed listener"}
-                </h2>
-                <p className="muted">Browser ID: {id}</p>
-                <Summary rows={activity} />
-                <Context value={activity[0]?.event.context} />
-              </section>
-            );
-          })}
+        {report.listeners
+          .filter(({ id }) => !browser || browser === id)
+          .map((listener) => (
+            <section key={listener.id}>
+              <h2>{listener.name || "Unnamed listener"}</h2>
+              <p className="muted">Browser ID: {listener.id}</p>
+              <Summary rows={listener.rows} />
+              <Context value={listener.rows[0]?.event.context} />
+            </section>
+          ))}
       </details>
       <h2>Version coverage</h2>
       <p className="muted">
@@ -268,7 +250,7 @@ export default function Analytics() {
         coverage.
       </p>
       {data.versions.map((version) => {
-        const activity = rows.filter((r) => r.event.versionId === version.id);
+        const activity = report.byVersion.get(version.id) ?? [];
         const ev = activity.map((r) => r.event);
         return (
           <section className="panel" key={version.id}>
@@ -287,82 +269,48 @@ export default function Analytics() {
         );
       })}
       <h2>Listening sessions</h2>
-      {sessions.map((key) => {
-        const [linkId, browserId, session] = JSON.parse(key) as string[];
-        const activity = rows.filter(
-          (r) =>
-            r.event.session === session &&
-            r.event.browser === browserId &&
-            r.event.linkId === linkId,
-        );
-        const segments = activityTimeline(activity.map((r) => r.event));
-        return (
-          <details className="panel" key={key}>
-            <summary>
-              {activity[0].label} ·{" "}
-              {activity.find((r) => r.event.name)?.event.name ||
-                "Unnamed listener"}{" "}
-              · {browserId.slice(0, 8)} ·{" "}
-              {time(activity.at(-1)!.event.createdAt)}
-            </summary>
-            <Summary rows={activity} />
-            <Context value={activity[0].event.context} />
-            <p className="muted">
-              Timeline in event order. Green: listened. Orange: skipped forward.
-              Purple: sought back. Replayed passages appear again.
-            </p>
-            <ol className="session-timeline">
-              {segments.map((event) => {
-                const version = data.versions.find(
-                  (v) => v.id === event.versionId,
-                );
-                const duration = version?.duration || 1;
-                const start = event.position || 0,
-                  end = event.end ?? start;
-                const left = Math.min(
-                  100,
-                  (Math.min(start, end) / duration) * 100,
-                );
-                const width = Math.max(
-                  0.5,
-                  Math.min(
-                    100 - left,
-                    (Math.abs(end - start) / duration) * 100,
-                  ),
-                );
-                return (
-                  <li key={event.id}>
-                    <div>
-                      <span className="muted">{time(event.createdAt)}</span> ·{" "}
-                      {version?.name || "Share page"} ·{" "}
-                      {eventDescription(event)}
+      {report.sessions.map((session) => (
+        <details className="panel" key={session.key}>
+          <summary>
+            {session.rows[0].label} · {session.name || "Unnamed listener"} ·{" "}
+            {session.browser.slice(0, 8)} ·{" "}
+            {time(session.rows.at(-1)!.event.createdAt)}
+          </summary>
+          <Summary rows={session.rows} />
+          <Context value={session.rows[0].event.context} />
+          <p className="muted">
+            Timeline in event order. Green: listened. Orange: skipped forward.
+            Purple: sought back. Replayed passages appear again.
+          </p>
+          <ol className="session-timeline">
+            {session.timeline.map((event) => {
+              const version = data.versions.find(
+                (v) => v.id === event.versionId,
+              );
+              const bar = timelineBar(event, version?.duration || 1);
+              return (
+                <li key={event.id}>
+                  <div>
+                    <span className="muted">{time(event.createdAt)}</span> ·{" "}
+                    {version?.name || "Share page"} · {eventDescription(event)}
+                  </div>
+                  {version && (
+                    <div
+                      className="session-track"
+                      aria-label={eventDescription(event)}
+                    >
+                      <span
+                        className={bar.kind}
+                        style={{ left: bar.left + "%", width: bar.width + "%" }}
+                      />
                     </div>
-                    {version && (
-                      <div
-                        className="session-track"
-                        aria-label={eventDescription(event)}
-                      >
-                        <span
-                          className={
-                            event.kind === "interval"
-                              ? "played"
-                              : event.kind === "seek"
-                                ? end >= start
-                                  ? "skipped"
-                                  : "backward"
-                                : "marker"
-                          }
-                          style={{ left: left + "%", width: width + "%" }}
-                        />
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          </details>
-        );
-      })}
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </details>
+      ))}
       {!rows.length && (
         <p className="muted">No activity for this selection yet.</p>
       )}
@@ -371,7 +319,7 @@ export default function Analytics() {
         These are initiated transfers, not confirmation that the entire file was
         received.
       </p>
-      {downloads.map((r) => (
+      {report.downloads.map((r) => (
         <details className="panel" key={r.event.id}>
           <summary>
             {r.label} · {r.version} · {r.event.name || "Unnamed listener"} ·{" "}
@@ -395,7 +343,7 @@ export default function Analytics() {
           <Context value={r.event.context} />
         </details>
       ))}
-      {!downloads.length && (
+      {!report.downloads.length && (
         <p className="muted">No downloads for this selection.</p>
       )}
       <Form method="post" action={"/tracks/" + data.track.id}>
