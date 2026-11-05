@@ -89,21 +89,23 @@ export default function ArtistInvitation() {
         </>
       )}
       {result?.error && <p role="alert">{result.error}</p>}
-      {data.alreadyConnected ? (
-        <a href={`/artist-profiles/${data.artist.id}`}>Open artist</a>
-      ) : (
-        <Form method="post">
-          <input type="hidden" name="account" value={data.account.id} />
-          <button disabled={navigation.state !== "idle"}>
-            Connect artist to this account
-          </button>
+      <div className="welcome-actions">
+        {data.alreadyConnected ? (
+          <a href={`/artist-profiles/${data.artist.id}`}>Open artist</a>
+        ) : (
+          <Form method="post">
+            <input type="hidden" name="account" value={data.account.id} />
+            <button disabled={navigation.state !== "idle"}>
+              Connect artist to this account
+            </button>
+          </Form>
+        )}
+        <Form method="post" action="/logout">
+          <input type="hidden" name="returnTo" value={data.invitationPath} />
+          <button className="secondary">Use another account</button>
         </Form>
-      )}
-      <Form method="post" action="/logout">
-        <input type="hidden" name="returnTo" value={data.invitationPath} />
-        <button className="secondary">Use another account</button>
-      </Form>
-      <a href="/dashboard">Cancel</a>
+        <a href="/dashboard">Cancel</a>
+      </div>
     </section>
   );
 }

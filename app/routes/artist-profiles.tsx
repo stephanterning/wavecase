@@ -61,7 +61,7 @@ export default function ArtistProfiles() {
   const [slug, setSlug] = useState("");
   return (
     <>
-      <p className="eyebrow">YOUR ARTISTS</p>
+      <p className="eyebrow">Your artists</p>
       <h1>Artists</h1>
       {result?.error && <p role="alert">{result.error}</p>}
       <CreateDialog

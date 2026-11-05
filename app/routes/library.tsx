@@ -97,7 +97,7 @@ export default function Library() {
     <>
       <div className="heading">
         <div>
-          <p className="eyebrow">YOUR LIBRARY</p>
+          <p className="eyebrow">Your library</p>
           <h1>Work in progress</h1>
         </div>
       </div>

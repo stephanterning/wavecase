@@ -90,7 +90,7 @@ export default function Releases() {
   );
   return (
     <>
-      <p className="eyebrow">YOUR RELEASES</p>
+      <p className="eyebrow">Your releases</p>
       <h1>Releases</h1>
       <CreateDialog
         title="Add release"
@@ -214,7 +214,7 @@ export default function Releases() {
               </div>
             )}
             <p className="eyebrow">
-              {release.published ? "PUBLISHED" : "DRAFT"} · {release.kind}
+              {release.published ? "Published" : "Draft"} · {release.kind}
             </p>
             <h2>{release.title}</h2>
             <p>{artist.name}</p>

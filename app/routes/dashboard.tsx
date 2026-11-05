@@ -35,7 +35,7 @@ export default function Dashboard() {
   const submit = useSubmit();
   return (
     <>
-      <p className="eyebrow">DASHBOARD</p>
+      <p className="eyebrow">Dashboard</p>
       <div className="dashboard-heading">
         <h1>Welcome, {d.name}.</h1>
         <Form method="get" className="period-form">

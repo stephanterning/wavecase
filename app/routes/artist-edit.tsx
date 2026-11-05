@@ -189,7 +189,7 @@ export default function ArtistEdit() {
           </EditForm>
         </div>
         <div>
-          <p className="eyebrow">ARTIST</p>
+          <p className="eyebrow">Artist</p>
           <h1>{a.name}</h1>
           <p className="artist-biography">
             {a.bio || "Add a biography to introduce your music."}

@@ -191,7 +191,7 @@ export default function ReleasePage() {
         </div>
         <div className="release-content">
           <p className="eyebrow">
-            {d.release.kind.toUpperCase()}
+            {d.release.kind}
             {d.release.metadata.releaseDate &&
               ` · ${d.release.metadata.releaseDate}`}
           </p>
