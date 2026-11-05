@@ -1,14 +1,13 @@
-import { compressedAudioCache } from "./compressed-audio-cache";
-import { BufferedAudio } from "./buffered-audio";
 import {
-  crossfadePlayback,
+  switchPlayback,
   createPlaybackMedia,
+  setPlaybackSource,
   type PlaybackMedia,
-  disconnectPlaybackAudio,
+  destroyPlaybackMedia,
   observePlaybackLoop,
-  playNormalized,
+  playMedia,
   seekPlayback,
-  transitionSeconds,
+  startPlaybackAt,
 } from "./playback-audio";
 
 export type DemoSource = {
@@ -18,7 +17,6 @@ export type DemoSource = {
   versionId: string;
   url: string;
   duration: number;
-  gainDb: number;
   peaks: number[];
   title: string;
   artist: string;
@@ -36,6 +34,17 @@ type State = {
   repeating: boolean;
 };
 
+function openMedia(url: string) {
+  const media = createPlaybackMedia();
+  setPlaybackSource(media, url);
+  return media;
+}
+
+// HLS seeks are not sample-accurate and take longer than a frame, so a version
+// change accepts a small offset instead of chasing the advancing old version.
+const alignmentSeconds = 0.25;
+const alignmentAttempts = 3;
+
 function ready(
   media: PlaybackMedia,
   predicate: () => boolean,
@@ -43,12 +52,17 @@ function ready(
 ) {
   return new Promise<void>((resolve, reject) => {
     const events = ["loadedmetadata", "canplay", "seeked", "playing", "error"];
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error("Audio loading timed out."));
+    }, 30000);
     const cleanup = () => {
+      clearTimeout(timeout);
       for (const event of events) media.removeEventListener(event, check);
       signal.removeEventListener("abort", check);
     };
-    const check = () => {
-      if (signal.aborted || media.error) {
+    const check = (event?: Event) => {
+      if (signal.aborted || media.error || event?.type === "error") {
         cleanup();
         reject(signal.reason || new Error("Audio could not be loaded."));
       } else if (predicate()) {
@@ -63,7 +77,7 @@ function ready(
 }
 
 /** Owns audio independently of the waveform. Retains the audible version and
- * either its predecessor or requested replacement for quick A/B comparison.
+ * either its paused predecessor or requested replacement for A/B comparison.
  */
 export class DemoPlayback {
   private state: State = {
@@ -82,16 +96,15 @@ export class DemoPlayback {
     abort: AbortController;
     seekTo?: number;
   };
-  private retired = new Set<PlaybackMedia>();
-  private standby?: { media: BufferedAudio; source: DemoSource };
+  private standby?: { media: PlaybackMedia; source: DemoSource };
   private stopLoop?: () => void;
   private wantPlay = false;
   private playAttempt = 0;
 
   constructor(
-    private createMedia = createPlaybackMedia,
-    private playAudio = playNormalized,
-    private fade = crossfadePlayback,
+    private createMedia = openMedia,
+    private playAudio = playMedia,
+    private switchTo = switchPlayback,
   ) {}
 
   getSnapshot = () => this.state;
@@ -105,18 +118,11 @@ export class DemoPlayback {
     this.state = { ...this.state, ...change };
     for (const listener of this.listeners) listener();
   }
-  private release(media: PlaybackMedia) {
-    media.pause();
-    disconnectPlaybackAudio(media);
-    media.removeAttribute("src");
-    media.load();
-    this.retired.delete(media);
-  }
   private cancelPending() {
     const pending = this.pending;
     this.pending = undefined;
     pending?.abort.abort();
-    if (pending) this.release(pending.media);
+    if (pending) destroyPlaybackMedia(pending.media);
   }
 
   select = async (source: DemoSource) => {
@@ -129,10 +135,9 @@ export class DemoPlayback {
     ++this.playAttempt;
     const cached =
       this.standby?.source.key === source.key ? this.standby.media : undefined;
-    if (this.standby && !cached) this.release(this.standby.media);
+    if (this.standby && !cached) destroyPlaybackMedia(this.standby.media);
     this.standby = undefined;
-    cached?.follow(null);
-    const media = cached ?? this.createMedia(source.duration);
+    const media = cached ?? this.createMedia(source.url);
     const pending = {
       media,
       source,
@@ -142,55 +147,58 @@ export class DemoPlayback {
     this.pending = pending;
     media.preload = this.wantPlay ? "auto" : "metadata";
     media.loop = this.state.repeating;
-    if (!cached) {
-      media.src = source.url;
-      if (media instanceof BufferedAudio)
-        media.currentTime = this.state.media?.currentTime ?? 0;
-    }
     this.update({ loading: true, error: "" });
     const signal = pending.abort.signal;
     // Retry can run directly inside a user gesture on mobile Safari. Start
     // the silent candidate now, before metadata/network awaits lose it.
     const earlyPlay = this.wantPlay
-      ? this.playAudio(media, source.gainDb, true).then(
+      ? this.playAudio(media, true).then(
           () => null,
           (error: unknown) => error,
         )
       : null;
+    const previous = this.state.media;
+    const previousSource = this.state.source;
+    const position = () => {
+      const time = pending.seekTo ?? previous?.currentTime ?? 0;
+      const duration = Number.isFinite(media.duration)
+        ? media.duration
+        : source.duration;
+      return time < duration ? time : 0;
+    };
     try {
-      await ready(media, () => media.readyState >= 1, signal);
-      const previous = this.state.media;
-      const position = () => {
-        const time = pending.seekTo ?? previous?.currentTime ?? 0;
-        return time < media.duration ? time : 0;
-      };
-      media.currentTime = position();
       if (this.wantPlay) {
+        await ready(media, () => media.readyState >= 1, signal);
+        media.currentTime = position();
         try {
           if (earlyPlay) {
             const error = await earlyPlay;
             if (error) throw error;
-          } else await this.playAudio(media, source.gainDb, true);
+          } else await this.playAudio(media, true);
         } catch (error) {
           if (this.wantPlay) throw error;
         }
         // Loading can take seconds. Align against the advancing old version,
         // not the position captured when the user selected the new version.
-        do {
+        for (let attempt = 0; this.wantPlay; attempt++) {
           await ready(
             media,
             () => media.readyState >= 3 && !media.seeking,
             signal,
           );
-          if (!previous || Math.abs(media.currentTime - position()) <= 0.05)
+          if (
+            !previous ||
+            attempt === alignmentAttempts ||
+            Math.abs(media.currentTime - position()) <= alignmentSeconds
+          )
             break;
           media.currentTime = position();
-        } while (this.wantPlay);
+        }
       }
       signal.throwIfAborted();
       if (!this.wantPlay) {
         media.pause();
-        media.currentTime = position();
+        startPlaybackAt(media, position());
       }
       this.stopLoop?.();
       const stopLoop = observePlaybackLoop(media);
@@ -198,10 +206,10 @@ export class DemoPlayback {
         this.wantPlay = false;
       };
       media.addEventListener("ended", ended);
-      const sync = () =>
+      const sync = (event: Event) =>
         this.update({
           playing: !media.paused,
-          ...(media.error
+          ...(media.error || event.type === "error"
             ? { error: "Audio is unavailable. Please try again." }
             : {}),
         });
@@ -212,35 +220,10 @@ export class DemoPlayback {
         media.removeEventListener("ended", ended);
         for (const event of events) media.removeEventListener(event, sync);
       };
-      if (this.wantPlay) {
-        this.fade(previous, media);
-      }
-      if (
-        previous instanceof BufferedAudio &&
-        media instanceof BufferedAudio &&
-        this.state.source
-      ) {
-        const standby = { media: previous, source: this.state.source };
-        this.standby = standby;
-        const keep = () => {
-          if (this.standby !== standby) return;
-          previous.pause();
-          previous.follow(media);
-        };
-        if (this.wantPlay) setTimeout(keep, transitionSeconds * 1000 + 50);
-        else keep();
-      } else if (previous && this.wantPlay && !previous.paused) {
-        this.retired.add(previous);
-        setTimeout(
-          () => {
-            if (this.retired.has(previous)) this.release(previous);
-            // The gain reaches zero on the audio clock after 5 ms. Retain the
-            // silent source a little longer so timer jitter cannot cut the ramp.
-          },
-          transitionSeconds * 1000 + 50,
-        );
-      } else {
-        if (previous) this.release(previous);
+      if (this.wantPlay) this.switchTo(previous, media);
+      if (previous && previousSource) {
+        previous.pause();
+        this.standby = { media: previous, source: previousSource };
       }
       this.pending = undefined;
       this.update({
@@ -269,13 +252,12 @@ export class DemoPlayback {
     const attempt = ++this.playAttempt;
     this.wantPlay = true;
     this.update({ error: "" });
-    const { media, source } = this.state;
+    const { media } = this.state;
     const target = media || this.pending?.media;
-    const gain = source?.gainDb ?? this.pending?.source.gainDb;
-    if (target && gain !== undefined) {
+    if (target) {
       if (!media) this.update({ starting: true });
       try {
-        await this.playAudio(target, gain, !media);
+        await this.playAudio(target, !media);
       } catch (error) {
         if (attempt !== this.playAttempt) return;
         this.wantPlay = false;
@@ -293,7 +275,6 @@ export class DemoPlayback {
     this.update({ starting: false });
     this.state.media?.pause();
     this.pending?.media.pause();
-    for (const media of this.retired) this.release(media);
   };
   seek = (versionId: string, position: number) => {
     if (this.pending?.source.versionId === versionId)
@@ -307,14 +288,8 @@ export class DemoPlayback {
     if (this.pending) this.pending.media.loop = repeat;
   };
   reconcile = (available: string[]) => {
-    if (
-      [this.state.source, this.standby?.source, this.pending?.source].some(
-        (source) => source && !available.includes(source.key),
-      )
-    )
-      compressedAudioCache.clear();
     if (this.standby && !available.includes(this.standby.source.key)) {
-      this.release(this.standby.media);
+      destroyPlaybackMedia(this.standby.media);
       this.standby = undefined;
     }
     if (this.pending && !available.includes(this.pending.source.key))
@@ -326,12 +301,11 @@ export class DemoPlayback {
     ++this.playAttempt;
     this.wantPlay = false;
     this.cancelPending();
-    if (this.standby) this.release(this.standby.media);
+    if (this.standby) destroyPlaybackMedia(this.standby.media);
     this.standby = undefined;
     this.stopLoop?.();
     this.stopLoop = undefined;
-    if (this.state.media) this.release(this.state.media);
-    for (const media of this.retired) this.release(media);
+    if (this.state.media) destroyPlaybackMedia(this.state.media);
     this.update({
       media: null,
       source: null,

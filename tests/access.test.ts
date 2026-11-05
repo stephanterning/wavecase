@@ -1,7 +1,8 @@
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loader as media } from "../app/routes/media";
+import { hlsMapping } from "../app/server/storage-keys";
 import { eq } from "drizzle-orm";
 import { RouterContextProvider } from "react-router";
 import { test, after } from "node:test";
@@ -202,47 +203,30 @@ test(
         get("&download=1"),
         (e) => e instanceof Response && e.status === 405,
       );
-      const streamRevision = "a".repeat(64);
-      await writeFile(
-        join(directory, "audio.stream-v1.json"),
-        JSON.stringify({
-          revision: streamRevision,
-          frames: 2,
-          sampleRate: 48000,
-          channels: 2,
-          chunkFrames: 96000,
-        }),
-      );
-      await writeFile(join(directory, "audio.stream-v1.pcm"), Buffer.alloc(16));
-      assert.equal((await get("&stream=manifest")).status, 200);
-      assert.equal(
-        (
-          await (
-            await get("&stream=0&revision=" + streamRevision)
-          ).arrayBuffer()
-        ).byteLength,
-        16,
-      );
-      const partial = await get("", { range: "bytes=2-5" });
-      assert.equal(partial.status, 206);
-      assert.equal(await partial.text(), "2345");
-      assert.equal((await get("", { range: "bytes=20-" })).status, 416);
-      const full = await get("");
-      await full.arrayBuffer();
-      const etag = full.headers.get("etag")!;
-      assert.equal((await get("", { "if-none-match": etag })).status, 304);
-      await db.update(links).set({ active: false }).where(eq(links.id, a));
-      for (const query of [
-        "&stream=manifest",
-        "&stream=0&revision=" + streamRevision,
-      ]) {
-        await assert.rejects(
-          get(query),
-          (e) => e instanceof Response && e.status === 404,
-        );
-      }
       await assert.rejects(
-        get("", { "if-none-match": etag }),
+        get("&hls=flac"),
+        (e) => e instanceof Response && e.status === 503,
+        "unprepared audio asks the player to retry",
+      );
+      const token = "a".repeat(64);
+      await mkdir(join(directory, "hls", token), { recursive: true });
+      await writeFile(join(directory, "hls", token, "master.m3u8"), "#EXTM3U");
+      await writeFile(
+        join(directory, hlsMapping("audio")),
+        JSON.stringify({ token }),
+      );
+      const resolved = await get("&hls=flac");
+      assert.equal(resolved.status, 302);
+      assert.equal(resolved.headers.get("location"), `/hls/${token}/flac.m3u8`);
+      assert.equal(resolved.headers.get("cache-control"), "private, no-store");
+      await assert.rejects(
+        get(""),
+        (e) => e instanceof Response && e.status === 400,
+        "original playback files are not served directly",
+      );
+      await db.update(links).set({ active: false }).where(eq(links.id, a));
+      await assert.rejects(
+        get("&hls=flac"),
         (e) => e instanceof Response && e.status === 404,
       );
     } finally {

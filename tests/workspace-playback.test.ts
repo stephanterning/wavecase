@@ -49,7 +49,6 @@ const source = (
   versionName: versionId,
   url: `/media/${versionId}`,
   duration: 60,
-  gainDb: 0,
   peaks: [],
   title: trackId,
   artist: "Test",
@@ -60,8 +59,9 @@ function setup() {
   const workspace = new WorkspacePlayback(
     () =>
       new DemoPlayback(
-        () => {
+        (url) => {
           const next = new Media();
+          next.src = url;
           media.push(next);
           return next as unknown as PlaybackMedia;
         },

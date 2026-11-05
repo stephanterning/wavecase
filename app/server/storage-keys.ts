@@ -54,3 +54,5 @@ export const isExportTemporary = (key: string, name: string) =>
     (output) =>
       name.startsWith(output) && uuidTemporary.test(name.slice(output.length)),
   );
+
+export const hlsMapping = (key: string) => `${key}.hls-v1.json`;

@@ -1,3 +1,4 @@
+import { prepareHls } from "./hls";
 import { encodeMp3 } from "./audio-exports";
 import { removeAudioFiles } from "./audio-files";
 import { and, eq, isNotNull, isNull, notLike, or } from "drizzle-orm";
@@ -93,6 +94,7 @@ export async function upgradeReleasePlayback(trackId: string) {
   if (current.playback.endsWith(".mp3") && current.audioMeasurements) return;
   const playback = await encodeMp3(directory, current.original);
   const audioMeasurements = await measureReleasePlayback(directory, playback);
+  await prepareHls(directory, playback, current.original);
   const upgraded = await db
     .update(releaseTracks)
     .set({ playback, audioMeasurements })

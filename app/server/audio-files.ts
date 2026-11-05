@@ -1,6 +1,12 @@
+import { removeHls } from "./hls";
 import { readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { derivedFiles, isExportTemporary } from "./storage-keys";
+import {
+  derivedFiles,
+  isExportTemporary,
+  playbackWav,
+  mp3,
+} from "./storage-keys";
 
 // Derived names are tied to a unique upload key, never to the version ID.
 export async function removeAudioFiles(
@@ -20,4 +26,8 @@ export async function removeAudioFiles(
   await Promise.all(
     [...files].map((key) => unlink(join(directory, key)).catch(() => {})),
   );
+  for (const key of new Set(
+    roots.flatMap((key) => [key, playbackWav(key), mp3(key)]),
+  ))
+    await removeHls(directory, key);
 }

@@ -5,7 +5,7 @@ let started: Promise<void> | undefined;
 export function queue() {
   return (started ||= (async () => {
     await boss.start();
-    await boss.createQueue("prepare-stream", {
+    await boss.createQueue("prepare-hls", {
       policy: "exclusive",
       retryLimit: 3,
       retryDelay: 10,

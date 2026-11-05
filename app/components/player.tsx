@@ -1,4 +1,3 @@
-import { attachAudioCacheSession } from "./compressed-audio-cache";
 import {
   useCallback,
   useEffect,
@@ -13,8 +12,6 @@ import { observeListening } from "./listening";
 import { IconButton } from "./icon-button";
 import { useMediaSession } from "./media-session";
 import { setRepeatPreference, useRepeatPreference } from "./repeat-preference";
-import { playbackGainDb } from "./playback-audio";
-import { BufferedAudio } from "./buffered-audio";
 import { useWorkspacePlayback } from "./workspace-player";
 import { useSpaceToggle } from "./use-space-toggle";
 import { DemoPlayback } from "./demo-playback";
@@ -40,7 +37,6 @@ export function Player({
   title,
   artist,
   artwork,
-  metadata,
   share,
   versionId,
   playbackRef,
@@ -57,7 +53,6 @@ export function Player({
   title: string;
   artist: string;
   artwork?: string;
-  metadata: Record<string, unknown> | null;
   share?: string;
   versionId: string;
   playbackRef: RefObject<Playback>;
@@ -89,7 +84,6 @@ export function Player({
   const [position, setPosition] = useState(0);
   const [error, setError] = useState("");
   const [seeking, setSeeking] = useState(false);
-  const gainDb = playbackGainDb(metadata);
   const select = () =>
     playback.select({
       key: versionId + revision,
@@ -98,7 +92,6 @@ export function Player({
       versionId,
       url,
       duration,
-      gainDb,
       peaks,
       title,
       artist,
@@ -114,7 +107,6 @@ export function Player({
     versionId,
     revision,
     url,
-    gainDb,
     availableSources,
     title,
     artist,
@@ -128,14 +120,12 @@ export function Player({
     playback.setRepeat(repeat);
   }, [playback, repeat]);
   useEffect(() => {
-    const clearCache = workspace ? undefined : attachAudioCacheSession();
     const revoke = () => playback.dispose();
     window.addEventListener("wavecase-access-revoked", revoke);
     return () => {
       window.removeEventListener("wavecase-access-revoked", revoke);
       if (workspace) workspace.release(playback);
       else playback.dispose();
-      clearCache?.();
     };
   }, [playback, workspace]);
   useMediaSession(
@@ -161,7 +151,7 @@ export function Player({
     const colors = getComputedStyle(element);
     const wave = WaveSurfer.create({
       container: element,
-      ...(media instanceof BufferedAudio ? {} : { media }),
+      media,
       peaks: [source.peaks],
       duration: source.duration,
       waveColor: colors.getPropertyValue("--color-waveform"),
@@ -189,7 +179,6 @@ export function Player({
       ? observeListening(media, source.versionId, source.share, versionChanged)
       : undefined;
     const remember = () => {
-      if (media instanceof BufferedAudio) wave.setTime(media.currentTime);
       playbackRef.current.position = media.currentTime;
       setPosition(media.currentTime);
     };
@@ -268,9 +257,6 @@ export function Player({
             ? "Loading selected version. The previous version is still playing."
             : "Loading audio…"}
         </p>
-      )}
-      {media && !(media instanceof BufferedAudio) && (
-        <p>This browser uses native audio playback.</p>
       )}
       {seeking && <p role="status">Seeking…</p>}
       {loadError && (

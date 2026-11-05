@@ -24,6 +24,7 @@ export default [
   ]),
   route("release-assets/:id/:kind", "routes/release-assets.ts"),
   route("artist-images/:id", "routes/artist-image.ts"),
+  route("hls/:token/:file", "routes/hls.ts"),
   route("health", "routes/health.ts"),
   route("cover/:id", "routes/cover.ts"),
   route("tracks/:id/status", "routes/track-status.ts"),

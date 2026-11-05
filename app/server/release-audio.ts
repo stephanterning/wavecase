@@ -3,48 +3,10 @@ import { promisify } from "node:util";
 import { join } from "node:path";
 import { encodeMp3 } from "./audio-exports";
 import { InvalidAudioError } from "./processing-errors";
+import { measureAudio as measureReleasePlayback } from "./audio-measurements";
+export { measureAudio as measureReleasePlayback } from "./audio-measurements";
+import { prepareHls } from "./hls";
 const exec = promisify(execFile);
-// Analyze decoded playback, not the WAV download. This writes no audio.
-export async function measureReleasePlayback(directory: string, key: string) {
-  const { stderr } = await exec(
-    "ffmpeg",
-    [
-      "-nostdin",
-      "-xerror",
-      "-protocol_whitelist",
-      "file,pipe",
-      "-format_whitelist",
-      "mov,mp3",
-      "-i",
-      join(directory, key),
-      "-map",
-      "0:a:0",
-      "-af",
-      "astats=measure_perchannel=Peak_level:measure_overall=Peak_level,loudnorm=print_format=json",
-      "-f",
-      "null",
-      "-",
-    ],
-    { timeout: 600000, maxBuffer: 4 * 1024 * 1024 },
-  );
-  const metrics = JSON.parse(
-    stderr.slice(stderr.lastIndexOf("{"), stderr.lastIndexOf("}") + 1),
-  );
-  const peaks = [...stderr.matchAll(/Peak level dB: ([^\r\n]+)/g)].map((m) =>
-    m[1].trim() === "-inf" ? -Infinity : Number(m[1]),
-  );
-  if (!peaks.length || peaks.some(Number.isNaN))
-    throw new Error("Missing audio peak measurement");
-  const finite = (value: string | number) =>
-    Number.isFinite(Number(value)) ? Number(value) : null;
-  const peak = finite(Math.max(...peaks));
-  return {
-    lufs: finite(metrics.input_i),
-    // astats prints six decimals; round upward to keep the sample ceiling safe.
-    peak: peak === null ? null : peak + 0.000001,
-    truePeak: finite(metrics.input_tp),
-  };
-}
 export async function processReleaseAudio(directory: string, key: string) {
   const source = join(directory, key);
   const input = [
@@ -84,6 +46,7 @@ export async function processReleaseAudio(directory: string, key: string) {
       "Upload a mono or stereo PCM WAV within the duration limit.",
     );
   const playback = await encodeMp3(directory, key);
+  await prepareHls(directory, playback, key);
   return {
     playback,
     audioMeasurements: await measureReleasePlayback(directory, playback),

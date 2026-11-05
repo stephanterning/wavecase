@@ -52,7 +52,6 @@ const release = (id = "a", countPlays = true): ReleaseQueue => ({
     title: `Track ${n}`,
     artist: "Artist",
     duration: 60,
-    gainDb: -n,
   })),
 });
 
@@ -79,22 +78,33 @@ test("repeat stays on the selected release track and counts loops but not seeks"
   media.playing();
   assert.equal(state().queue?.tracks[state().index].id, "a3");
 });
-function setup(
-  playAudio?: (media: PlaybackMedia, gainDb: number) => Promise<void>,
-) {
+const loadSource = (media: PlaybackMedia, url: string) => {
+  media.src = url;
+};
+function setup(playAudio?: (media: PlaybackMedia) => Promise<void>) {
   const media = new Media();
   const plays: string[] = [];
-  const gains: number[] = [];
+  const started: string[] = [];
   const playback = new ReleasePlayback(
     playAudio ||
-      ((audio, gain) => {
-        gains.push(gain);
+      ((audio) => {
+        started.push(
+          new URL(audio.src, "https://music.test").searchParams.get("track")!,
+        );
         return audio.play();
       }),
     (release, track) => plays.push(`${release}/${track}`),
+    loadSource,
   );
   const detach = playback.attach(media as unknown as PlaybackMedia);
-  return { media, playback, plays, gains, detach, state: playback.getSnapshot };
+  return {
+    media,
+    playback,
+    plays,
+    started,
+    detach,
+    state: playback.getSnapshot,
+  };
 }
 
 test("selected track replaces the queue; pause and resume preserve it and the position", async () => {
@@ -128,13 +138,13 @@ test("selected track replaces the queue; pause and resume preserve it and the po
 });
 
 test("automatic progression keeps the original queue and replay restarts at its first track", async () => {
-  const { media, playback, state, plays, gains } = setup();
+  const { media, playback, state, plays, started } = setup();
   playback.start(release(), "a2");
   media.playing();
   media.finish();
   media.playing();
   assert.equal(state().queue?.tracks[state().index].id, "a3");
-  assert.deepEqual(gains, [-2, -3]);
+  assert.deepEqual(started, ["a2", "a3"]);
   media.finish();
   assert.equal(state().status, "ended");
   assert.equal(state().position, 60);
@@ -271,8 +281,8 @@ test("replaying the same release track retains its prepared beginning", async ()
   assert.deepEqual(plays, ["a/a3", "a/a3"]);
 });
 
-test("remote track navigation retains the queue, normalization and actual-play counting", () => {
-  const { playback, media, state, plays, gains } = setup();
+test("remote track navigation retains the queue and actual-play counting", () => {
+  const { playback, media, state, plays, started } = setup();
   playback.start(release(), "a1");
   media.playing();
   const queue = state().queue;
@@ -307,11 +317,11 @@ test("remote track navigation retains the queue, normalization and actual-play c
   playback.nextTrack();
   assert.equal(state().index, 2, "next never wraps past the final track");
   assert.equal(state().queue, queue);
-  assert.deepEqual(gains, [-1, -2, -1, -2, -3]);
+  assert.deepEqual(started, ["a1", "a2", "a1", "a2", "a3"]);
 });
 
 test("remote navigation while paused does not start or count playback", async () => {
-  const { playback, media, state, plays, gains } = setup();
+  const { playback, media, state, plays, started } = setup();
   playback.start(release(), "a2");
   media.playing();
   media.pause();
@@ -321,7 +331,7 @@ test("remote navigation while paused does not start or count playback", async ()
   assert.equal(state().status, "paused");
   assert.equal(media.paused, true);
   assert.deepEqual(plays, ["a/a2"]);
-  assert.deepEqual(gains, [-2]);
+  assert.deepEqual(started, ["a2"]);
   // Loading a new source resets native currentTime before it can play.
   media.currentTime = 0;
   playback.previousTrack();
@@ -331,5 +341,37 @@ test("remote navigation while paused does not start or count playback", async ()
   await playback.play();
   media.playing();
   assert.deepEqual(plays, ["a/a2", "a/a2"]);
-  assert.deepEqual(gains, [-2, -2]);
+  assert.deepEqual(started, ["a2", "a2"]);
+});
+
+test("an owned element serves the whole queue so iOS keeps its audio session", async (t) => {
+  const created: Media[] = [];
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "Audio");
+  Object.defineProperty(globalThis, "Audio", {
+    configurable: true,
+    value: class extends Media {
+      constructor() {
+        super();
+        created.push(this);
+      }
+    },
+  });
+  t.after(() => {
+    if (previous) Object.defineProperty(globalThis, "Audio", previous);
+    else Reflect.deleteProperty(globalThis, "Audio");
+  });
+  const playback = new ReleasePlayback(
+    (audio) => audio.play(),
+    () => {},
+    loadSource,
+  );
+  const detach = playback.attach();
+  playback.start(release(), "a1");
+  created[0].playing();
+  created[0].finish();
+  playback.nextTrack();
+  assert.equal(created.length, 1);
+  assert.match(created[0].src, /track=a3$/);
+  detach();
+  assert.equal(created[0].src, "");
 });

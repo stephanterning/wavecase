@@ -1,4 +1,4 @@
-import { prepareStream } from "./audio-stream";
+import { prepareHls } from "./hls";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { stat, unlink } from "node:fs/promises";
@@ -7,14 +7,9 @@ import { join } from "node:path";
 import { playbackPlan } from "./audio-policy";
 import { InvalidAudioError } from "./processing-errors";
 import { decodedPlayback, decodedSource, playbackWav } from "./storage-keys";
+import { audioInput } from "./audio-input";
+export { audioInput } from "./audio-input";
 const exec = promisify(execFile);
-const formats = "wav,aiff,flac,mp3,mov,matroska,ogg,aac,asf,ape,wv,au,caf";
-export const audioInput = [
-  "-protocol_whitelist",
-  "file,pipe",
-  "-format_whitelist",
-  formats,
-];
 export async function processAudio(directory: string, key: string) {
   const source = join(directory, key);
   const { stdout } = await exec(
@@ -160,7 +155,7 @@ export async function processAudio(directory: string, key: string) {
     );
     const finite = (v: string) =>
       Number.isFinite(Number(v)) ? Number(v) : null;
-    await prepareStream(directory, playback);
+    await prepareHls(directory, playback);
     return {
       original: key,
       playback,

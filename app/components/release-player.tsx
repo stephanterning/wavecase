@@ -1,4 +1,3 @@
-import { attachAudioCacheSession } from "./compressed-audio-cache";
 import {
   createContext,
   useContext,
@@ -10,7 +9,6 @@ import {
 import { ReleasePlayback } from "./release-playback";
 import { useMediaSession } from "./media-session";
 import { setRepeatPreference, useRepeatPreference } from "./repeat-preference";
-import { BufferedAudio } from "./buffered-audio";
 import { MiniPlayer } from "./mini-player";
 import { useSpaceToggle } from "./use-space-toggle";
 
@@ -47,14 +45,7 @@ function ReleasePlayer() {
   }, [playback, repeat]);
   const track = queue?.tracks[index];
   const active = status === "playing" || status === "loading";
-  useEffect(() => {
-    const clearCache = attachAudioCacheSession();
-    const detach = playback.attach();
-    return () => {
-      detach();
-      clearCache();
-    };
-  }, [playback]);
+  useEffect(() => playback.attach(), [playback]);
   useSpaceToggle({
     ready: () => !!playback.getSnapshot().queue,
     toggle: playback.toggle,
@@ -104,7 +95,6 @@ function ReleasePlayer() {
       {track && (
         <>
           {status === "loading" && <span role="status">Loading audio…</span>}
-          {media && !(media instanceof BufferedAudio) && <span>Streaming</span>}
           {seeking && <span role="status">Seeking…</span>}
         </>
       )}

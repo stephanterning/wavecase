@@ -13,7 +13,6 @@ import { formatDate } from "../domain/format";
 import type { DemoSource } from "./demo-playback";
 import { IconButton } from "./icon-button";
 import { Icon } from "./icons";
-import { playbackGainDb } from "./playback-audio";
 import { useWorkspacePlayback, useWorkspaceSnapshot } from "./workspace-player";
 
 function LibraryPlay({
@@ -157,7 +156,6 @@ export function DemoList({
                     artist: track.artist,
                     url: `/media/${version.id}`,
                     duration: version.duration || 0,
-                    gainDb: playbackGainDb(version.metadata),
                     peaks: [],
                     artwork: track.cover ? `/cover/${track.id}` : undefined,
                   }

@@ -1,4 +1,3 @@
-import { attachAudioCacheSession } from "./compressed-audio-cache";
 import {
   createContext,
   useContext,
@@ -28,12 +27,10 @@ export function WorkspacePlayerProvider({ children }: { children: ReactNode }) {
   const [workspace] = useState(() => new WorkspacePlayback());
   const { playback, trackId } = useWorkspaceSnapshot(workspace);
   useEffect(() => {
-    const clearCache = attachAudioCacheSession();
     window.addEventListener("wavecase-access-revoked", workspace.dispose);
     return () => {
       window.removeEventListener("wavecase-access-revoked", workspace.dispose);
       workspace.dispose();
-      clearCache();
     };
   }, [workspace]);
   return (
