@@ -86,7 +86,8 @@ export async function playMedia(media: PlaybackMedia, silent = false) {
     // Call play synchronously so mobile Safari keeps the user gesture.
     await Promise.race([media.play(), failed]);
   } catch (error) {
-    if (state.attempt === attempt) {
+    // A replaced source's rejected play must not pause its replacement.
+    if (transports.get(media)?.attempt === attempt) {
       // A normal pause can reject an unfinished play without breaking HLS.
       if (!(error instanceof DOMException && error.name === "AbortError"))
         state.failed = true;

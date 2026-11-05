@@ -106,6 +106,7 @@ test("Safari plays native FLAC HLS and version switches cut to the prepared elem
   const first = createPlaybackMedia() as unknown as Audio;
   const next = createPlaybackMedia() as unknown as Audio;
   setPlaybackSource(element(first), "/media/version?share=secret");
+  setPlaybackSource(element(next), "/media/next?share=secret");
   assert.equal(
     first.src,
     "https://music.test/media/version?share=secret&hls=flac",
@@ -127,6 +128,34 @@ test("Safari plays native FLAC HLS and version switches cut to the prepared elem
   assert.equal(next.paused, true);
   destroyPlaybackMedia(element(first));
   assert.equal(first.src, "");
+});
+
+test("an aborted play from a replaced source does not pause the new track", async (t) => {
+  browser(t, "Apple Computer, Inc.");
+  const media = new Audio();
+  let rejectPrevious!: (error: DOMException) => void;
+  const previousPlay = new Promise<void>((_resolve, reject) => {
+    rejectPrevious = reject;
+  });
+  let calls = 0;
+  t.mock.method(media, "play", () => {
+    media.paused = false;
+    return ++calls === 1 ? previousPlay : Promise.resolve();
+  });
+  setPlaybackSource(
+    element(media),
+    "/release-assets/release/audio?track=first",
+  );
+  const previous = assert.rejects(playMedia(element(media)), {
+    name: "AbortError",
+  });
+  setPlaybackSource(element(media), "/release-assets/release/audio?track=next");
+  await playMedia(element(media));
+  assert.equal(media.paused, false);
+  rejectPrevious(new DOMException("Source replaced", "AbortError"));
+  await previous;
+  assert.equal(media.paused, false, "the replacement must keep playing");
+  destroyPlaybackMedia(element(media));
 });
 
 test("other browsers use hls.js when MSE exists, even if they claim native HLS", (t) => {
