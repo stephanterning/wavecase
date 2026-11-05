@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { resumePlayback } from "../app/components/audio-context";
 
-test("normalization resumes its context and requests background playback without a second media element", async (t) => {
+test("worklets request playback while native normalization restores automatic session selection", async (t) => {
   const previous = Object.getOwnPropertyDescriptor(globalThis, "navigator")!;
   const session = { type: "auto" };
   Object.defineProperty(globalThis, "navigator", {
@@ -25,6 +25,23 @@ test("normalization resumes its context and requests background playback without
   context.state = "running";
   await resumePlayback(context as unknown as AudioContext);
   assert.equal(resumes, 1);
+  await resumePlayback(context as unknown as AudioContext, true);
+  assert.equal(
+    session.type,
+    "auto",
+    "native playback clears a previous forced Web Audio session",
+  );
+  assert.equal(
+    resumes,
+    1,
+    "session selection also updates for an already running context",
+  );
+  await resumePlayback(context as unknown as AudioContext);
+  assert.equal(
+    session.type,
+    "playback",
+    "worklet playback still opts into background playback",
+  );
   context.state = "suspended";
   fail = true;
   await assert.rejects(

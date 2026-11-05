@@ -8,10 +8,13 @@ export function playbackContext() {
   return context;
 }
 
-export function resumePlayback(context: AudioContext) {
+export function resumePlayback(context: AudioContext, nativeMedia = false) {
   const session = (navigator as Navigator & { audioSession?: { type: string } })
     .audioSession;
-  if (session) session.type = "playback";
+  // A native file already supplies its own seekable media session. Forcing
+  // playback also makes its normalization context eligible for Now Playing.
+  // Reset auto explicitly when arriving from another page using Web Audio.
+  if (session) session.type = nativeMedia ? "auto" : "playback";
   return context.state === "running" ? Promise.resolve() : context.resume();
 }
 

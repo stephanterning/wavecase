@@ -117,11 +117,28 @@ test("playback applies gain before playing, reuses sources, and resumes the cont
     if (previous) Object.defineProperty(globalThis, "AudioContext", previous);
     else Reflect.deleteProperty(globalThis, "AudioContext");
   });
+  const previousNavigator = Object.getOwnPropertyDescriptor(
+    globalThis,
+    "navigator",
+  )!;
+  const audioSession = { type: "playback" };
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: { audioSession },
+  });
+  t.after(() =>
+    Object.defineProperty(globalThis, "navigator", previousNavigator),
+  );
   let playing = false;
   let rejectPlay = false;
   const media = {
     async play() {
       assert.ok(gains.length > 0, "gain is set before playback starts");
+      assert.equal(
+        audioSession.type,
+        "auto",
+        "native files do not promote the gain context to Now Playing",
+      );
       assert.equal(sources[0].connections.length, 1);
       if (rejectPlay) throw new Error("Playback denied");
       playing = true;

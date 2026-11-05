@@ -84,7 +84,7 @@ export async function playNormalized(
   try {
     // Start both synchronously in the user gesture, including on mobile Safari.
     await Promise.race([
-      Promise.all([resumePlayback(context), media.play()]),
+      Promise.all([resumePlayback(context, true), media.play()]),
       new Promise<never>((_resolve, reject) => {
         timeout = setTimeout(
           () => reject(new Error("Audio startup timed out. Please try again.")),
