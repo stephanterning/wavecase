@@ -11,7 +11,7 @@ import { Link } from "react-router";
 import { WorkspacePlayback } from "./workspace-playback";
 import { type DemoPlayback } from "./demo-playback";
 import { useMediaSession } from "./media-session";
-import { IconButton } from "./icon-button";
+import { MiniPlayer } from "./mini-player";
 import { useSpaceToggle } from "./use-space-toggle";
 
 const WorkspaceAudio = createContext<WorkspacePlayback | null>(null);
@@ -86,54 +86,35 @@ function WorkspacePlayer({
   if (!source && !loading && !starting && !error) return null;
   const href = `/tracks/${trackId}${source ? `?version=${source.versionId}` : ""}`;
   return (
-    <aside className="release-mini demo-mini" aria-label="Demo player">
-      {source && (
-        <>
-          <Link
-            to={href}
-            className="release-mini-artwork"
-            aria-label={`Open ${source.title}`}
-          >
-            {source.artwork ? (
-              <img src={source.artwork} alt="" width={52} height={52} />
-            ) : (
-              <span aria-hidden="true">♫</span>
-            )}
-          </Link>
-          <div className="release-mini-description">
-            <Link to={href}>{source.title}</Link>
-            <span>
-              {[source.artist, source.versionName].filter(Boolean).join(" · ")}
-            </span>
-          </div>
-        </>
-      )}
-      {(source || loading) && (
-        <>
-          <IconButton
-            className="icon-action play-toggle"
-            icon={active ? "pause" : "play"}
-            label={active ? "Pause" : "Play"}
-            tooltip={active ? "Pause (Space)" : "Play (Space)"}
-            aria-keyshortcuts="Space"
-            onClick={toggle}
-          />
-          <IconButton
-            className="icon-action"
-            icon="repeat"
-            label="Repeat demo"
-            tooltip={repeating ? "Repeat demo on" : "Repeat demo off"}
-            aria-pressed={repeating}
-            onClick={() => playback.setRepeat(!repeating)}
-          />
-        </>
-      )}
+    <MiniPlayer
+      label="Demo player"
+      className="demo-mini"
+      track={
+        source
+          ? {
+              title: source.title,
+              details: [source.artist, source.versionName]
+                .filter(Boolean)
+                .join(" · "),
+              href,
+              page: source.title,
+              artwork: source.artwork,
+            }
+          : undefined
+      }
+      controls={!!source || loading}
+      playing={active}
+      onToggle={toggle}
+      repeatLabel="Repeat demo"
+      repeating={repeating}
+      onRepeat={playback.setRepeat}
+    >
       {loading && <span role="status">Loading audio…</span>}
       {error && (
         <p role="alert">
           {error} {!source && <Link to="/library">Choose a demo</Link>}
         </p>
       )}
-    </aside>
+    </MiniPlayer>
   );
 }
