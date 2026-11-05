@@ -78,16 +78,39 @@ export function attachMediaSession(
     seekto: (details: MediaSessionActionDetails) => {
       if (details.seekTime !== undefined) seek(details.seekTime);
     },
-    seekbackward: hasQueue
-      ? null
-      : (details: MediaSessionActionDetails) =>
-          seek(media.currentTime - (details.seekOffset ?? 10)),
+    seekbackward: hasQueue ? null : () => seek(0),
     seekforward: hasQueue
       ? null
       : (details: MediaSessionActionDetails) =>
           seek(media.currentTime + (details.seekOffset ?? 10)),
-    previoustrack: controls.previousTrack ?? null,
+    previoustrack: controls.previousTrack ?? (() => seek(0)),
     nexttrack: controls.nextTrack ?? null,
+  };
+  const seekActions = ["seekto", "seekbackward", "seekforward"] as const;
+  let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+  const refreshSeeking = () => {
+    if (navigator.vendor !== "Apple Computer, Inc.") return;
+    // WebKit 326021: commands registered before Now Playing becomes seekable
+    // can stay disabled. Change the command set across tasks after playback
+    // starts; replacing a handler without removing it does not refresh it.
+    // https://bugs.webkit.org/show_bug.cgi?id=326021
+    clearTimeout(refreshTimer);
+    for (const action of seekActions) {
+      try {
+        session.setActionHandler(action, null);
+      } catch {
+        // Partial Media Session support.
+      }
+    }
+    refreshTimer = setTimeout(() => {
+      for (const action of seekActions) {
+        try {
+          session.setActionHandler(action, handlers[action]);
+        } catch {
+          // Partial Media Session support.
+        }
+      }
+    }, 100);
   };
   for (const action of Object.keys(handlers) as (keyof typeof handlers)[]) {
     try {
@@ -120,6 +143,7 @@ export function attachMediaSession(
     )
       announce();
     else session.playbackState = playing ? "playing" : "paused";
+    if (event?.type === "playing") refreshSeeking();
   };
   const events = [
     "play",
@@ -140,7 +164,9 @@ export function attachMediaSession(
   ] as const;
   for (const event of events) media.addEventListener(event, updateState);
   updateState();
+  if (!media.paused && !media.ended) refreshSeeking();
   const stop = () => {
+    clearTimeout(refreshTimer);
     for (const event of events) media.removeEventListener(event, updateState);
     window.removeEventListener("wavecase-access-revoked", stop);
     session.metadata = null;

@@ -46,7 +46,7 @@ export function playbackDestination(
   }
   if (transport && !followed.has(transport)) {
     followed.add(transport);
-    followOutput(output, transport);
+    followOutput(context, output, transport);
   }
   return output.destination;
 }
@@ -58,7 +58,11 @@ export function playbackDestination(
  * may run late, which delays only the paused state on the lock screen.
  * resumePlayback restarts the element inside the next play gesture.
  */
-function followOutput(output: Output, transport: Transport) {
+function followOutput(
+  context: AudioContext,
+  output: Output,
+  transport: Transport,
+) {
   const update = () => {
     if (transport.paused || transport.ended || transport.error)
       output.playing.delete(transport);
@@ -66,7 +70,12 @@ function followOutput(output: Output, transport: Transport) {
     clearTimeout(output.idle);
     output.idle = undefined;
     if (!output.playing.size)
-      output.idle = setTimeout(() => output.media.pause(), idleDelayMs);
+      output.idle = setTimeout(() => {
+        output.media.pause();
+        // Do not leave an idle WebKit context running across app switches.
+        // It can return reporting "running" with a frozen rendering clock.
+        void context.suspend().catch(() => {});
+      }, idleDelayMs);
   };
   for (const name of ["play", "pause", "ended", "error", "emptied"])
     transport.addEventListener(name, update);
@@ -90,10 +99,32 @@ export function resumePlayback(context: AudioContext) {
     output.idle = undefined;
   }
   // Both starts must happen inside the same gesture, before any await.
-  return Promise.all([
-    context.state === "running" ? Promise.resolve() : context.resume(),
+  const starting = Promise.all([
+    // Always request resume, even if state still says running: an asynchronous
+    // idle suspend may already be queued and must be followed by this resume.
+    output || context.state !== "running"
+      ? context.resume()
+      : Promise.resolve(),
     output?.media.play(),
-  ]).then(() => {});
+  ]);
+  // Interrupted WebKit starts can leave either promise pending indefinitely.
+  // Let the transport's normal error/retry flow take over instead of hanging.
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error("Audio did not resume. Press Play to retry.")),
+      10_000,
+    );
+    void starting.then(
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 export const transitionSeconds = 0.005;

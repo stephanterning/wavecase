@@ -346,6 +346,8 @@ export class BufferedAudio extends EventTarget {
     }
     const attempt = ++this.attempt;
     const resumed = resumePlayback(this.context);
+    const restart = this.ended || this.offset >= this.duration;
+    this.ended = false;
     if (this.paused) {
       this.paused = false;
       this.emit("play");
@@ -353,11 +355,16 @@ export class BufferedAudio extends EventTarget {
     try {
       await Promise.all([resumed, this.initialized]);
       if (attempt !== this.attempt || this.paused) return;
-      await this.seek(
-        this.ended || this.offset >= this.duration ? 0 : this.currentTime,
-      );
+      await this.seek(restart ? 0 : this.currentTime);
     } catch (error) {
-      if (attempt === this.attempt) this.fail(error);
+      if (attempt === this.attempt)
+        this.fail(
+          error instanceof DOMException && error.name === "AbortError"
+            ? new Error("Audio startup was interrupted. Press Play to retry.", {
+                cause: error,
+              })
+            : error,
+        );
       throw error;
     }
   };

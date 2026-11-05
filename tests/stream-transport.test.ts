@@ -65,6 +65,7 @@ function fixture(t: TestContext) {
   });
   const context = {
     state: "running",
+    resume: async () => {},
     currentTime: 0,
     createGain: () => new Node(),
     destination: {},
@@ -106,6 +107,52 @@ test("pause during initial transfer prevents a delayed automatic start", async (
       .filter((message) => message.type === "seek")
       .every((message) => !message.playing),
   );
+});
+
+test("replay clears ended before announcing play to the shared output", async (t) => {
+  const { audio, nodes } = fixture(t);
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL) =>
+    String(input).includes("stream=manifest")
+      ? Response.json(manifest)
+      : new Response(new ArrayBuffer(48_000 * 4)),
+  );
+  audio.src = "/audio";
+  await audio.play();
+  audio.pause();
+  audio.ended = true;
+  audio.addEventListener("play", () => {
+    assert.equal(
+      audio.ended,
+      false,
+      "output must not schedule another idle pause",
+    );
+  });
+  await audio.play();
+  assert.equal(nodes[0].port.commands.at(-1)?.frame, 0);
+  assert.equal(audio.paused, false);
+});
+
+test("an output startup AbortError becomes a retryable error instead of leaving loading pending", async (t) => {
+  const { audio, context } = fixture(t);
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL) =>
+    String(input).includes("stream=manifest")
+      ? Response.json(manifest)
+      : new Response(new ArrayBuffer(48_000 * 4)),
+  );
+  Object.assign(context, {
+    state: "suspended",
+    resume: async () => {
+      throw new DOMException("Output interrupted", "AbortError");
+    },
+  });
+  audio.src = "/audio";
+  await assert.rejects(audio.play(), /Output interrupted/);
+  assert.match(audio.error?.message ?? "", /startup was interrupted/);
+  assert.equal(audio.paused, true);
+  context.resume = async () => {};
+  await audio.play();
+  assert.equal(audio.error, null);
+  assert.equal(audio.paused, false);
 });
 
 test("replacing a pending transfer aborts it and a stale failure cannot poison the new source", async (t) => {

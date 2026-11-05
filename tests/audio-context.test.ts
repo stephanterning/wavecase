@@ -61,6 +61,7 @@ test("Apple WebKit reuses media output and starts it alongside context resume", 
     createMediaStreamDestination: () => destination,
     resume() {
       calls.push("resume");
+      if (this.state === "running") return Promise.resolve();
       return new Promise<void>((resolve) => {
         finishResume = resolve;
       });
@@ -86,7 +87,7 @@ test("Apple WebKit reuses media output and starts it alongside context resume", 
   await assert.rejects(resumePlayback(context), /Output interrupted/);
   assert.deepEqual(
     calls,
-    ["play"],
+    ["resume", "play"],
     "output failures reach the player's retry flow",
   );
   rejectPlay = false;
@@ -94,7 +95,7 @@ test("Apple WebKit reuses media output and starts it alongside context resume", 
   assert.equal(media.length, 1, "retry reuses the same stream");
 });
 
-test("the output element pauses only after every transport stops", (t) => {
+test("the output element pauses only after every transport stops", async (t) => {
   browser(t, { vendor: "Apple Computer, Inc." });
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const events: string[] = [];
@@ -116,10 +117,30 @@ test("the output element pauses only after every transport stops", (t) => {
     if (previous) Object.defineProperty(globalThis, "Audio", previous);
     else Reflect.deleteProperty(globalThis, "Audio");
   });
-  const context = {
+  let finishSuspend!: () => void;
+  let pendingSuspend = Promise.resolve();
+  let resumes = 0;
+  const fakeContext = {
     state: "running",
+    resume() {
+      resumes++;
+      return pendingSuspend.then(() => {
+        this.state = "running";
+      });
+    },
+    suspend() {
+      events.push("suspend");
+      pendingSuspend = new Promise<void>((resolve) => {
+        finishSuspend = () => {
+          this.state = "suspended";
+          resolve();
+        };
+      });
+      return pendingSuspend;
+    },
     createMediaStreamDestination: () => ({ stream: {} }),
-  } as unknown as AudioContext;
+  };
+  const context = fakeContext as unknown as AudioContext;
   class Transport extends EventTarget {
     paused = true;
     ended = false;
@@ -146,17 +167,56 @@ test("the output element pauses only after every transport stops", (t) => {
   t.mock.timers.tick(99);
   assert.deepEqual(events, ["play"], "the fade tail stays audible");
   t.mock.timers.tick(1);
-  assert.deepEqual(events, ["play", "pause"], "Now Playing can show Play");
+  assert.deepEqual(
+    events,
+    ["play", "pause", "suspend"],
+    "idle output also suspends its audio clock",
+  );
 
   events.length = 0;
   next.set(false);
   next.set(true);
-  void resumePlayback(context);
+  const resumed = resumePlayback(context);
+  assert.equal(
+    fakeContext.state,
+    "running",
+    "idle suspend has not settled yet",
+  );
+  assert.equal(
+    resumes,
+    2,
+    "resume must be queued even while state still reports running",
+  );
   next.set(false);
+  finishSuspend();
+  await resumed;
+  assert.equal(
+    fakeContext.state,
+    "running",
+    "the pending suspend cannot strand a new start",
+  );
   t.mock.timers.tick(1000);
   assert.deepEqual(events, ["play"], "a new start cancels the idle pause");
   next.ended = true;
   next.dispatchEvent(new Event("ended"));
   t.mock.timers.tick(100);
-  assert.deepEqual(events, ["play", "pause"], "ending releases the output");
+  assert.deepEqual(
+    events,
+    ["play", "pause", "suspend"],
+    "ending releases the output",
+  );
+});
+
+test("an interrupted startup times out and a later attempt can resume", async (t) => {
+  browser(t, {});
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const context = {
+    state: "interrupted",
+    resume: () => new Promise<void>(() => {}),
+  } as unknown as AudioContext;
+  const starting = assert.rejects(resumePlayback(context), /did not resume/);
+  t.mock.timers.tick(10_000);
+  await starting;
+  context.resume = async () => {};
+  await resumePlayback(context);
 });

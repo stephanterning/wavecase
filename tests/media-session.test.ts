@@ -295,7 +295,7 @@ test("repeats and stalls refresh the lock-screen timeline while playing", async 
   stop();
 });
 
-test("single-track controls seek by ten seconds or the platform offset within the track", (t) => {
+test("single-track back controls restart the demo and forward seeks stay within the track", (t) => {
   const { session, handlers } = browserSession(t);
   const media = new Media();
   media.currentTime = 23;
@@ -305,10 +305,10 @@ test("single-track controls seek by ten seconds or the platform offset within th
     () => {},
   );
   handlers.get("seekbackward")!({ action: "seekbackward" });
-  assert.equal(media.currentTime, 13);
-  assert.equal(session.position?.position, 13);
+  assert.equal(media.currentTime, 0);
+  assert.equal(session.position?.position, 0);
   handlers.get("seekforward")!({ action: "seekforward", seekOffset: 20 });
-  assert.equal(media.currentTime, 33);
+  assert.equal(media.currentTime, 20);
   handlers.get("seekbackward")!({ action: "seekbackward", seekOffset: 50 });
   assert.equal(media.currentTime, 0);
   handlers.get("seekforward")!({ action: "seekforward", seekOffset: 100 });
@@ -317,13 +317,70 @@ test("single-track controls seek by ten seconds or the platform offset within th
   assert.equal(media.currentTime, 17);
   handlers.get("seekto")!({ action: "seekto", seekTime: NaN });
   assert.equal(media.currentTime, 17);
+  handlers.get("previoustrack")!({ action: "previoustrack" });
+  assert.equal(media.currentTime, 0, "Previous restarts the current demo");
+  assert.equal(session.position?.position, 0);
   media.duration = NaN;
   handlers.get("seekforward")!({ action: "seekforward" });
-  assert.equal(media.currentTime, 17, "wait for a seekable duration");
+  assert.equal(media.currentTime, 0, "wait for a seekable duration");
   assert.equal(media.paused, true, "seeking does not start playback");
-  assert.equal(handlers.get("previoustrack"), null);
+  assert.ok(handlers.get("previoustrack"));
   assert.equal(handlers.get("nexttrack"), null);
   stop();
+});
+
+test("WebKit seeking is re-enabled after Now Playing becomes seekable, including after resume", async (t) => {
+  const { session, handlers, browser } = browserSession(t);
+  Object.assign(browser, { vendor: "Apple Computer, Inc." });
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let seekable = false;
+  let enabled = false;
+  let previousCommands = "";
+  let update: ReturnType<typeof setTimeout>;
+  // Model WebKit 326021: the native command list is cached by action names,
+  // ignoring the later transition from non-seekable to seekable output.
+  session.setActionHandler = (action, handler) => {
+    handlers.set(action, handler);
+    clearTimeout(update);
+    update = setTimeout(() => {
+      const commands = [...handlers]
+        .filter(([, handler]) => handler)
+        .map(([action]) => action)
+        .join(",");
+      if (commands === previousCommands) return;
+      previousCommands = commands;
+      enabled = seekable && !!handlers.get("seekto");
+    }, 1);
+  };
+  const media = new Media();
+  const stop = attachMediaSession(
+    media as unknown as HTMLAudioElement,
+    { title: "Demo" },
+    () => {},
+  );
+  t.mock.timers.tick(1);
+  assert.equal(enabled, false);
+  seekable = true;
+  await media.play();
+  media.dispatchEvent(new Event("playing"));
+  t.mock.timers.tick(1);
+  t.mock.timers.tick(100);
+  t.mock.timers.tick(1);
+  assert.equal(enabled, true);
+  handlers.get("seekto")!({ action: "seekto", seekTime: 42 });
+  assert.equal(media.currentTime, 42);
+  media.pause();
+  handlers.get("seekto")!({ action: "seekto", seekTime: 12 });
+  assert.equal(media.currentTime, 12, "paused seeking remains available");
+  await media.play();
+  media.dispatchEvent(new Event("playing"));
+  stop();
+  t.mock.timers.tick(1000);
+  assert.equal(enabled, false);
+  assert.ok(
+    [...handlers.values()].every((handler) => handler === null),
+    "leaving the player cancels delayed command registration",
+  );
 });
 
 test("queue controls use the shared player and disable next at the queue boundary", (t) => {
