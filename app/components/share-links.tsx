@@ -2,6 +2,7 @@ import { useState } from "react";
 import { linkVersionScope } from "../domain/share-links";
 import { CopyButton } from "./copy-button";
 import { EditForm, PreviewLink } from "./editing";
+import { IconButton } from "./icon-button";
 import { Icon } from "./icons";
 
 type ShareLink = {
@@ -203,31 +204,26 @@ export function ShareLinks({
                 <td className="share-link-actions">
                   <CopyButton
                     className="icon-button"
-                    title={`Copy link: ${link.label}`}
-                    aria-label={`Copy link: ${link.label}`}
+                    label={`Copy link: ${link.label}`}
                     url={`/s/${link.id}`}
                     copiedMessage={`Link copied: ${link.label}`}
                     onResult={setNotice}
                   />
                   {link.active ? (
-                    <PreviewLink iconOnly href={`/s/${link.id}?preview=1`}>
-                      <span title={`Preview as listener: ${link.label}`}>
-                        <Icon name="eye" />
-                        <span className="sr-only">
-                          Preview as listener: {link.label}
-                        </span>
-                      </span>
-                    </PreviewLink>
-                  ) : (
-                    <button
-                      type="button"
-                      className="icon-button"
-                      disabled
-                      title="Enable this link to preview it"
-                      aria-label={`Preview unavailable: ${link.label} is disabled`}
+                    <PreviewLink
+                      href={`/s/${link.id}?preview=1`}
+                      label={`Preview as listener: ${link.label}`}
                     >
                       <Icon name="eye" />
-                    </button>
+                    </PreviewLink>
+                  ) : (
+                    <IconButton
+                      className="icon-button"
+                      icon="eye"
+                      disabled
+                      label={`Preview unavailable: ${link.label} is disabled`}
+                      tooltip="Enable this link to preview it"
+                    />
                   )}
                   <EditForm
                     label={`Share link: ${link.label}`}
@@ -235,12 +231,8 @@ export function ShareLinks({
                     actions={
                       <button className="button-primary">Save link</button>
                     }
-                    trigger={
-                      <span title={`Edit link: ${link.label}`}>
-                        <Icon name="edit" />
-                        <span className="sr-only">Edit link: {link.label}</span>
-                      </span>
-                    }
+                    trigger={<Icon name="edit" />}
+                    triggerLabel={`Edit link: ${link.label}`}
                   >
                     <input type="hidden" name="intent" value="link" />
                     <input type="hidden" name="link" value={link.id} />
@@ -279,14 +271,8 @@ export function ShareLinks({
                         Delete link permanently
                       </button>
                     }
-                    trigger={
-                      <span title={`Delete link: ${link.label}`}>
-                        <Icon name="trash" />
-                        <span className="sr-only">
-                          Delete link: {link.label}
-                        </span>
-                      </span>
-                    }
+                    trigger={<Icon name="trash" />}
+                    triggerLabel={`Delete link: ${link.label}`}
                   >
                     <input type="hidden" name="intent" value="delete-link" />
                     <input type="hidden" name="link" value={link.id} />

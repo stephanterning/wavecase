@@ -36,6 +36,7 @@ function DeleteComment({
   return (
     <ConfirmButton
       className="secondary"
+      aria-label={`Delete comment by ${comment.name}`}
       confirmTitle="Delete comment?"
       confirmMessage={
         <>
@@ -272,6 +273,7 @@ export function Feedback({
             {c.start !== null && (
               <button
                 className="secondary"
+                aria-label={`Listen here to ${c.name}’s comment at ${formatClock(c.start)}`}
                 disabled={
                   versions.find((v) => v.id === c.versionId)?.state !== "ready"
                 }
@@ -304,6 +306,7 @@ export function Feedback({
               ))}
             <button
               className="secondary"
+              aria-label={`Reply in this thread to ${c.name}`}
               onClick={() => {
                 setError("");
                 onDraftChange({

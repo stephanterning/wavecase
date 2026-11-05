@@ -11,7 +11,7 @@ import { Link } from "react-router";
 import { WorkspacePlayback } from "./workspace-playback";
 import { type DemoPlayback } from "./demo-playback";
 import { useMediaSession } from "./media-session";
-import { Icon } from "./icons";
+import { IconButton } from "./icon-button";
 
 const WorkspaceAudio = createContext<WorkspacePlayback | null>(null);
 export const useWorkspacePlayback = () => useContext(WorkspaceAudio);
@@ -133,24 +133,22 @@ function WorkspacePlayer({
       )}
       {(source || loading) && (
         <>
-          <button
-            type="button"
+          <IconButton
             className="icon-action play-toggle"
-            aria-label={active ? "Pause" : "Play"}
+            icon={active ? "pause" : "play"}
+            label={active ? "Pause" : "Play"}
+            tooltip={active ? "Pause (Space)" : "Play (Space)"}
             aria-keyshortcuts="Space"
             onClick={toggle}
-          >
-            <Icon name={active ? "pause" : "play"} />
-          </button>
-          <button
-            type="button"
+          />
+          <IconButton
             className="icon-action"
-            aria-label="Repeat demo"
+            icon="repeat"
+            label="Repeat demo"
+            tooltip={repeating ? "Repeat demo on" : "Repeat demo off"}
             aria-pressed={repeating}
             onClick={() => playback.setRepeat(!repeating)}
-          >
-            <Icon name="repeat" />
-          </button>
+          />
         </>
       )}
       {loading && <span role="status">Loading audio…</span>}

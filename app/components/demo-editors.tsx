@@ -153,16 +153,8 @@ export function DemoIdentity({
           {data.owner ? (
             <EditForm
               label="Cover image"
-              trigger={
-                artwork ? (
-                  <span title="Change cover image">
-                    <img src={artwork} alt="Track cover" />
-                    <span className="sr-only">Change cover image</span>
-                  </span>
-                ) : (
-                  "＋ Add cover"
-                )
-              }
+              trigger={artwork ? <img src={artwork} alt="" /> : "＋ Add cover"}
+              triggerLabel={artwork ? "Change cover image" : undefined}
               encType="multipart/form-data"
               action={action}
               actions={
@@ -361,15 +353,16 @@ export function ReplaceAudio({
           </>
         }
         trigger={
-          <span title={missing ? "Restore audio" : "Replace audio"}>
+          missing ? (
+            <span>
+              <Icon name="upload" />
+              Restore audio
+            </span>
+          ) : (
             <Icon name="upload" />
-            {missing ? (
-              "Restore audio"
-            ) : (
-              <span className="sr-only">Replace audio</span>
-            )}
-          </span>
+          )
         }
+        triggerLabel={missing ? undefined : "Replace audio"}
       >
         <input type="hidden" name="version" value={version.id} />
         <p>

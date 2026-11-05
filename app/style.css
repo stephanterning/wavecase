@@ -152,7 +152,8 @@ button {
   font: inherit;
   cursor: pointer;
 }
-button:disabled {
+button:disabled,
+button[aria-disabled="true"] {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -424,8 +425,10 @@ button:hover:not(:disabled),
   position: relative;
   display: inline-flex;
 }
+/* Hidden with display so tooltips near an edge don't widen the page. */
 .tooltip::after {
   content: attr(data-tooltip);
+  display: none;
   pointer-events: none;
   position: absolute;
   bottom: calc(100% + 8px);
@@ -439,14 +442,13 @@ button:hover:not(:disabled),
   padding: 5px 9px;
   border-radius: 6px;
   font-size: 12px;
-  opacity: 0;
-  visibility: hidden;
+  white-space: normal;
   z-index: 10;
 }
 .tooltip:hover::after,
-.tooltip:focus-within::after {
-  opacity: 1;
-  visibility: visible;
+.tooltip:focus-visible::after,
+.tooltip:has(:focus-visible)::after {
+  display: block;
 }
 .modal {
   width: min(560px, calc(100% - 32px));
@@ -1826,7 +1828,8 @@ button:has(svg) {
   color: var(--color-text-subtle);
 }
 .artist-icon-action,
-.artist-section-heading > .editor-trigger {
+.artist-section-heading > .editor-trigger,
+.coowner-actions .editor-trigger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1841,7 +1844,8 @@ button:has(svg) {
   color: var(--color-text-subtle);
 }
 .artist-icon-action:hover,
-.artist-section-heading > .editor-trigger:hover {
+.artist-section-heading > .editor-trigger:hover,
+.coowner-actions .editor-trigger:hover {
   background: var(--color-surface-accent);
   color: var(--color-accent);
 }
@@ -1870,22 +1874,11 @@ button:has(svg) {
   align-items: center;
   flex-shrink: 0;
 }
-.coowner-actions .editor-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  margin: 0;
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  color: var(--color-text-subtle);
-}
-.coowner-actions .editor-trigger:hover {
-  background: var(--color-surface-accent);
-  color: var(--color-accent);
+.artist-section-heading .tooltip::after,
+.coowner-actions .tooltip::after {
+  left: auto;
+  right: 0;
+  transform: none;
 }
 .coowners-leave .editor-trigger {
   margin-top: 12px;
@@ -1957,4 +1950,9 @@ button:has(svg) {
   z-index: 1;
   margin: 0;
   flex-shrink: 0;
+}
+/* The table scrolls horizontally, which clips tooltips centered near its start. */
+.library-table .tooltip::after {
+  left: 0;
+  transform: none;
 }

@@ -10,7 +10,7 @@ import {
 } from "react";
 import WaveSurfer from "wavesurfer.js";
 import { observeListening } from "./listening";
-import { Icon } from "./icons";
+import { IconButton } from "./icon-button";
 import { useMediaSession } from "./media-session";
 import { playbackGainDb } from "./playback-audio";
 import { BufferedAudio } from "./buffered-audio";
@@ -313,44 +313,32 @@ export function Player({
         role="group"
         aria-label="Playback controls"
       >
-        <span
-          className="tooltip"
-          data-tooltip={active ? "Pause (Space)" : "Play (Space)"}
-        >
-          <button
-            type="button"
-            className="icon-action play-toggle"
-            aria-label={active ? "Pause" : "Play"}
-            onClick={() => {
-              if (!active)
-                void startPlayback().catch(() =>
-                  setError("Audio could not play. Please try again."),
-                );
-              else playback.pause();
-            }}
-          >
-            <Icon name={active ? "pause" : "play"} />
-          </button>
-        </span>
+        <IconButton
+          className="icon-action play-toggle"
+          icon={active ? "pause" : "play"}
+          label={active ? "Pause" : "Play"}
+          tooltip={active ? "Pause (Space)" : "Play (Space)"}
+          onClick={() => {
+            if (!active)
+              void startPlayback().catch(() =>
+                setError("Audio could not play. Please try again."),
+              );
+            else playback.pause();
+          }}
+        />
         <output className="playback-time" aria-label="Playback time">
           {formatClock(position)} / {formatClock(source?.duration ?? duration)}
         </output>
-        <span
-          className="tooltip"
-          data-tooltip={repeat ? "Repeat on" : "Repeat off"}
-        >
-          <button
-            type="button"
-            className="icon-action"
-            aria-label="Repeat"
-            aria-pressed={repeat}
-            onClick={() =>
-              workspace ? playback.setRepeat(!repeat) : onRepeatChange(!repeat)
-            }
-          >
-            <Icon name="repeat" />
-          </button>
-        </span>
+        <IconButton
+          className="icon-action"
+          icon="repeat"
+          label="Repeat"
+          tooltip={repeat ? "Repeat on" : "Repeat off"}
+          aria-pressed={repeat}
+          onClick={() =>
+            workspace ? playback.setRepeat(!repeat) : onRepeatChange(!repeat)
+          }
+        />
       </div>
       {error && <p role="alert">{error}</p>}
     </>

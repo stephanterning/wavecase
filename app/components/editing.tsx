@@ -8,6 +8,7 @@ import {
 } from "react";
 import { useBlocker, useFetcher, type FormProps } from "react-router";
 import { ConfirmDialog } from "./confirm-dialog";
+import { IconButton } from "./icon-button";
 import { Modal } from "./modal";
 
 const DialogActions = createContext<{
@@ -228,14 +229,15 @@ function FormContents({
   );
 }
 
+/** With `label`, `children` is an icon and `label` names and tooltips it. */
 export function PreviewLink({
   href,
   children,
-  iconOnly = false,
+  label,
 }: {
   href: string;
   children: ReactNode;
-  iconOnly?: boolean;
+  label?: string;
 }) {
   const editors = useContext(Editing);
   const trigger = useRef<HTMLAnchorElement>(null);
@@ -253,6 +255,11 @@ export function PreviewLink({
         href={href}
         target="_blank"
         rel="noopener noreferrer"
+        {...(label && {
+          className: "tooltip",
+          "data-tooltip": label,
+          "aria-label": `${label} (opens in a new tab)`,
+        })}
         onClick={(event) => {
           const dirty = [...(editors?.values() || [])].filter((editor) =>
             editor.dirty(),
@@ -263,8 +270,14 @@ export function PreviewLink({
           setError("");
         }}
       >
-        {children} {!iconOnly && <span aria-hidden="true">↗</span>}
-        <span className="sr-only"> (opens in a new tab)</span>
+        {label ? (
+          children
+        ) : (
+          <>
+            {children} <span aria-hidden="true">↗</span>
+            <span className="sr-only"> (opens in a new tab)</span>
+          </>
+        )}
       </a>
       <Modal
         open={!!labels}
@@ -354,19 +367,25 @@ export function EditorDialog({
     if (dirty) setDiscarding(true);
     else complete();
   };
+  const triggerProps = {
+    className: "editor-trigger",
+    id,
+    ref: button,
+    onClick: () => setOpen(true),
+  };
   return (
     <>
-      <button
-        type="button"
-        className="editor-trigger"
-        aria-label={triggerLabel}
-        title={triggerLabel}
-        id={id}
-        ref={button}
-        onClick={() => setOpen(true)}
-      >
-        {trigger}
-      </button>
+      {triggerLabel ? (
+        <IconButton
+          {...triggerProps}
+          icon={<>{trigger}</>}
+          label={triggerLabel}
+        />
+      ) : (
+        <button type="button" {...triggerProps}>
+          {trigger}
+        </button>
+      )}
       {open && (
         <Modal
           open
