@@ -19,6 +19,9 @@ class Media extends EventTarget {
   }
 }
 
+const frozen = (state?: MediaPositionState) =>
+  (state?.playbackRate ?? 1) < 0.001;
+
 function browserSession(t: TestContext) {
   const previous = new Map(
     ["navigator", "window", "MediaMetadata"].map((key) => [
@@ -198,20 +201,26 @@ test("media sessions report duration, position and rate through the playback lif
   assert.equal(position(), undefined, "metadata may not be loaded yet");
   media.duration = 120;
   media.dispatchEvent(new Event("loadedmetadata"));
-  assert.deepEqual(position(), { duration: 120, position: 0, playbackRate: 1 });
+  assert.equal(position()?.duration, 120);
+  assert.equal(position()?.position, 0);
+  assert.ok(frozen(position()), "a paused timeline is frozen");
   await media.play();
+  assert.equal(position()?.playbackRate, 1);
   media.currentTime = 32;
   media.dispatchEvent(new Event("timeupdate"));
   assert.equal(position()?.position, 32);
   media.pause();
   assert.equal(position()?.position, 32);
+  assert.ok(frozen(position()));
   assert.equal(session.playbackState, "paused");
   media.currentTime = 50;
   media.dispatchEvent(new Event("seeked"));
   assert.equal(position()?.position, 50);
+  await media.play();
   media.playbackRate = 1.5;
   media.dispatchEvent(new Event("ratechange"));
   assert.equal(position()?.playbackRate, 1.5);
+  media.playbackRate = 1;
   media.duration = 90;
   media.dispatchEvent(new Event("durationchange"));
   assert.equal(position()?.duration, 90);
@@ -232,6 +241,58 @@ test("media sessions report duration, position and rate through the playback lif
   assert.equal(position(), undefined);
   media.dispatchEvent(new Event("timeupdate"));
   assert.equal(position(), undefined, "cleanup removes timeline listeners");
+});
+
+test("repeats and stalls refresh the lock-screen timeline while playing", async (t) => {
+  const { session } = browserSession(t);
+  const states: string[] = [];
+  let state = session.playbackState;
+  Object.defineProperty(session, "playbackState", {
+    get: () => state,
+    set: (value: string) => {
+      // Browsers ignore assignments of the current state.
+      if (value !== state)
+        states.push(`${value}@${session.position?.position}`);
+      state = value;
+    },
+  });
+  const media = new Media();
+  const stop = attachMediaSession(
+    media as unknown as HTMLAudioElement,
+    { title: "Track" },
+    () => {},
+  );
+  await media.play();
+  media.currentTime = 59.9;
+  media.dispatchEvent(new Event("timeupdate"));
+  states.length = 0;
+  media.currentTime = 0.1;
+  media.dispatchEvent(new Event("wavecase-loop"));
+  assert.deepEqual(
+    states,
+    ["paused@0.1", "playing@0.1"],
+    "the wrapped position is reported before the state change",
+  );
+  assert.equal(session.position?.playbackRate, 1);
+
+  states.length = 0;
+  media.dispatchEvent(new Event("waiting"));
+  assert.ok(frozen(session.position), "a stall freezes");
+  assert.deepEqual(states, ["paused@0.1", "playing@0.1"]);
+  media.dispatchEvent(new Event("timeupdate"));
+  assert.equal(states.length, 2, "position updates alone do not re-announce");
+  media.currentTime = 0.2;
+  media.dispatchEvent(new Event("playing"));
+  assert.equal(session.position?.playbackRate, 1);
+  assert.deepEqual(states.slice(2), ["paused@0.2", "playing@0.2"]);
+
+  states.length = 0;
+  media.pause();
+  assert.deepEqual(states, ["paused@0.2"]);
+  assert.ok(frozen(session.position));
+  media.dispatchEvent(new Event("wavecase-loop"));
+  assert.deepEqual(states, ["paused@0.2"], "paused loops are not announced");
+  stop();
 });
 
 test("single-track controls seek by ten seconds or the platform offset within the track", (t) => {

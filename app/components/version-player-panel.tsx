@@ -21,8 +21,6 @@ export function VersionPlayerPanel({
   artwork,
   seekRequest,
   playbackRef,
-  repeat,
-  onRepeatChange,
   onSelect,
   onComment,
 }: {
@@ -31,8 +29,6 @@ export function VersionPlayerPanel({
   artwork?: string;
   seekRequest: { versionId: string; position: number } | null;
   playbackRef: RefObject<Playback>;
-  repeat: boolean;
-  onRepeatChange: (repeat: boolean) => void;
   onSelect: (versionId: string) => void;
   onComment: (draft: CommentDraft) => void;
 }) {
@@ -107,8 +103,6 @@ export function VersionPlayerPanel({
             artist={data.track.artist}
             artwork={artwork}
             playbackRef={playbackRef}
-            repeat={repeat}
-            onRepeatChange={onRepeatChange}
             onComment={(selection) =>
               onComment({ versionId: version.id, ...selection })
             }

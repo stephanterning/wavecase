@@ -11,6 +11,7 @@ import { Link } from "react-router";
 import { WorkspacePlayback } from "./workspace-playback";
 import { type DemoPlayback } from "./demo-playback";
 import { useMediaSession } from "./media-session";
+import { setRepeatPreference, useRepeatPreference } from "./repeat-preference";
 import { MiniPlayer } from "./mini-player";
 import { useSpaceToggle } from "./use-space-toggle";
 
@@ -51,12 +52,16 @@ function WorkspacePlayer({
   playback: DemoPlayback;
   trackId: string;
 }) {
-  const { source, media, playing, starting, loading, error, repeating } =
+  const { source, media, playing, starting, loading, error } =
     useSyncExternalStore(
       playback.subscribe,
       playback.getSnapshot,
       playback.getSnapshot,
     );
+  const repeat = useRepeatPreference();
+  useEffect(() => {
+    playback.setRepeat(repeat);
+  }, [playback, repeat]);
   const active = playing || starting;
   const toggle = () => {
     const state = playback.getSnapshot();
@@ -106,8 +111,8 @@ function WorkspacePlayer({
       playing={active}
       onToggle={toggle}
       repeatLabel="Repeat demo"
-      repeating={repeating}
-      onRepeat={playback.setRepeat}
+      repeating={repeat}
+      onRepeat={setRepeatPreference}
     >
       {loading && <span role="status">Loading audio…</span>}
       {error && (

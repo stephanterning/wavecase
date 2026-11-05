@@ -12,6 +12,7 @@ import WaveSurfer from "wavesurfer.js";
 import { observeListening } from "./listening";
 import { IconButton } from "./icon-button";
 import { useMediaSession } from "./media-session";
+import { setRepeatPreference, useRepeatPreference } from "./repeat-preference";
 import { playbackGainDb } from "./playback-audio";
 import { BufferedAudio } from "./buffered-audio";
 import { useWorkspacePlayback } from "./workspace-player";
@@ -43,8 +44,6 @@ export function Player({
   share,
   versionId,
   playbackRef,
-  repeat: localRepeat,
-  onRepeatChange,
   onComment,
 }: {
   trackId?: string;
@@ -62,8 +61,6 @@ export function Player({
   share?: string;
   versionId: string;
   playbackRef: RefObject<Playback>;
-  repeat: boolean;
-  onRepeatChange: (repeat: boolean) => void;
   onComment?: (selection: CommentSelection) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
@@ -76,14 +73,13 @@ export function Player({
     source,
     loading,
     starting,
-    repeating,
     error: loadError,
   } = useSyncExternalStore(
     playback.subscribe,
     playback.getSnapshot,
     playback.getSnapshot,
   );
-  const repeat = workspace ? repeating : localRepeat;
+  const repeat = useRepeatPreference();
   const startPlayback = useCallback(() => {
     if (workspace && trackId) workspace.activate(playback, trackId);
     return playback.play();
@@ -129,8 +125,8 @@ export function Player({
     if (seekRequest) playback.seek(seekRequest.versionId, seekRequest.position);
   }, [playback, seekRequest]);
   useEffect(() => {
-    if (!workspace) playback.setRepeat(localRepeat);
-  }, [playback, localRepeat, workspace]);
+    playback.setRepeat(repeat);
+  }, [playback, repeat]);
   useEffect(() => {
     const clearCache = workspace ? undefined : attachAudioCacheSession();
     const revoke = () => playback.dispose();
@@ -312,9 +308,7 @@ export function Player({
           label="Repeat"
           tooltip={repeat ? "Repeat on" : "Repeat off"}
           aria-pressed={repeat}
-          onClick={() =>
-            workspace ? playback.setRepeat(!repeat) : onRepeatChange(!repeat)
-          }
+          onClick={() => setRepeatPreference(!repeat)}
         />
       </div>
       {error && <p role="alert">{error}</p>}
