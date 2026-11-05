@@ -1,12 +1,7 @@
 import { hlsRedirect } from "../server/hls-access";
-import { streamResponse } from "../server/audio-stream";
 import { demoWavAvailable } from "../server/download";
 import { downloadDetails } from "../server/download-details";
 import { rejectPreviewMutation } from "../server/preview";
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
-import { join } from "node:path";
-import { Readable } from "node:stream";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { downloadDemo } from "../server/demo-download";
 import { sameOrigin } from "../server/security";
@@ -47,60 +42,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const file = version.playback;
   if (!file || version.state !== "ready")
     throw new Response("Audio file missing", { status: 404 });
-  const directory = dataDir();
-  const hls = await hlsRedirect(request, directory, file);
-  if (hls) return hls;
-  const streamed = await streamResponse(request, directory, file);
-  if (streamed) return streamed;
-  const path = join(directory, file);
-  const { size } = await stat(path);
-  const headers = new Headers({
-    "Content-Type": String(version.metadata?.mime || "audio/wav"),
-    "Accept-Ranges": "bytes",
-    "Cache-Control": "private, no-cache",
-    "X-Content-Type-Options": "nosniff",
-  });
-  const etag = '"' + version.original + ":playback:" + size + '"';
-  headers.set("ETag", etag);
-  // Authorization runs before conditional responses so cached bytes never bypass a revoked link.
-  if (
-    !request.headers.has("range") &&
-    request.headers.get("if-none-match") === etag
-  )
-    return new Response(null, { status: 304, headers });
-  let start = 0,
-    end = size - 1,
-    status = 200;
-  const range = request.headers.get("range");
-  if (range) {
-    const match = /^bytes=(\d*)-(\d*)$/.exec(range);
-    if (!match || (!match[1] && !match[2]))
-      return new Response(null, {
-        status: 416,
-        headers: { "Content-Range": `bytes */${size}` },
-      });
-    if (!match[1]) start = Math.max(0, size - Number(match[2]));
-    else {
-      start = Number(match[1]);
-      if (match[2]) end = Math.min(end, Number(match[2]));
-    }
-    if (start > end || start >= size)
-      return new Response(null, {
-        status: 416,
-        headers: { "Content-Range": `bytes */${size}` },
-      });
-    status = 206;
-    headers.set("Content-Range", `bytes ${start}-${end}/${size}`);
-  }
-  headers.set("Content-Length", String(end - start + 1));
-  return new Response(
-    request.method === "HEAD"
-      ? null
-      : (Readable.toWeb(
-          createReadStream(path, { start, end }),
-        ) as ReadableStream),
-    { status, headers },
-  );
+  return hlsRedirect(request, dataDir(), file);
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {

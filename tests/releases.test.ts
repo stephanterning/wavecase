@@ -414,24 +414,15 @@ test(
         .update(releases)
         .set({ audioEnabled: true })
         .where(eq(releases.id, release));
-      const ranged = new Request(
-        `${origin}/release-assets/${release}/audio?track=${track}`,
-        { headers: { range: "bytes=0-9" } },
+      const playbackRequest = new Request(
+        `${origin}/release-assets/${release}/audio?track=${track}&hls=flac`,
       );
-      const streamRequest = new Request(ranged.url + "&stream=manifest");
-      const manifest = await (
-        await assetLoader(args(streamRequest, "audio"))
-      ).json();
-      const streamPart = new Request(
-        ranged.url + "&stream=0&revision=" + manifest.revision,
+      const audio = await assetLoader(args(playbackRequest, "audio"));
+      assert.equal(audio.status, 302);
+      assert.match(
+        audio.headers.get("location")!,
+        /^\/hls\/[a-f0-9]{64}\/flac\.m3u8$/,
       );
-      assert.ok(
-        (await (await assetLoader(args(streamPart, "audio"))).arrayBuffer())
-          .byteLength > 0,
-      );
-      const audio = await assetLoader(args(ranged, "audio"));
-      assert.equal(audio.status, 206);
-      assert.equal((await audio.arrayBuffer()).byteLength, 10);
       await assert.rejects(
         assetAction(args(post({ email: "invalid" }), "download")),
         denied(400),
@@ -660,8 +651,10 @@ test(
       } finally {
         await encoder.release();
       }
-      for (const request of [streamRequest, streamPart])
-        await assert.rejects(assetLoader(args(request, "audio")), denied(404));
+      await assert.rejects(
+        assetLoader(args(playbackRequest, "audio")),
+        denied(404),
+      );
       const revoked = await waiting;
       assert.ok(revoked instanceof Response && revoked.status === 403);
       await db
@@ -691,7 +684,10 @@ test(
         url: new URL(origin),
         pattern: "/",
       });
-      await assert.rejects(assetLoader(args(ranged, "audio")), denied(404));
+      await assert.rejects(
+        assetLoader(args(playbackRequest, "audio")),
+        denied(404),
+      );
       await assert.rejects(
         assetLoader(args(request(), "artwork.jpg")),
         denied(404),

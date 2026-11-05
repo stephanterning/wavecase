@@ -1,12 +1,11 @@
-import { compressedAudioCache } from "./compressed-audio-cache";
 import {
   cancelPlaybackSeek,
   createPlaybackMedia,
   setPlaybackSource,
   type PlaybackMedia,
-  disconnectPlaybackAudio,
+  destroyPlaybackMedia,
   observePlaybackLoop,
-  playNormalized,
+  playMedia,
   seekPlayback,
 } from "./playback-audio";
 
@@ -21,7 +20,6 @@ export type ReleaseQueue = {
     title: string;
     artist: string;
     duration: number;
-    gainDb: number;
   }[];
 };
 export type ReleasePlaybackState = {
@@ -70,8 +68,9 @@ export class ReleasePlayback {
   private detachMedia?: () => void;
 
   constructor(
-    private playAudio = playNormalized,
+    private playAudio = playMedia,
     private onPlay = recordPlay,
+    private loadSource = setPlaybackSource,
   ) {}
 
   getSnapshot = () => this.state;
@@ -158,10 +157,7 @@ export class ReleasePlayback {
       ++this.attempt;
       for (const [event, listener] of Object.entries(listeners))
         media.removeEventListener(event, listener);
-      media.pause();
-      disconnectPlaybackAudio(media);
-      media.removeAttribute("src");
-      media.load();
+      destroyPlaybackMedia(media);
       this.media = null;
       this.update({ media: null });
     };
@@ -189,10 +185,10 @@ export class ReleasePlayback {
     const { queue } = this.state;
     if (!queue) return Promise.resolve();
     const track = queue.tracks[index];
-    if (this.ownsMedia) {
-      this.detachMedia?.();
-      this.detachMedia = this.bind(createPlaybackMedia(track.duration));
-    }
+    // One element serves the whole queue, so iOS keeps its audio session
+    // and Now Playing entry when the next track starts in the background.
+    if (this.ownsMedia && !this.media)
+      this.detachMedia = this.bind(createPlaybackMedia());
     if (!this.media) return Promise.resolve();
     ++this.attempt;
     cancelPlaybackSeek(this.media);
@@ -206,7 +202,7 @@ export class ReleasePlayback {
       error: "",
       seeking: false,
     });
-    setPlaybackSource(
+    this.loadSource(
       this.media,
       `/release-assets/${queue.releaseId}/audio?track=${track.id}`,
     );
@@ -220,14 +216,13 @@ export class ReleasePlayback {
     if (status === "ended") {
       const next = this.state.repeat ? index : 0;
       if (next !== index) return this.load(next);
-      // Keep the beginning already held by the current transport for Replay.
+      // Replay restarts the loaded track instead of reloading it.
       this.counted = false;
     }
-    if (media.error) media.load();
     const attempt = ++this.attempt;
     this.update({ status: "loading", error: "" });
     try {
-      await this.playAudio(media, queue.tracks[index].gainDb);
+      await this.playAudio(media);
     } catch (error) {
       if (attempt !== this.attempt) return;
       if (
@@ -297,12 +292,10 @@ export class ReleasePlayback {
     if (queue?.releaseId !== releaseId) return;
     // A fresh page response can revoke access to buffered audio as well.
     if (queue.tracks.some((track) => !playableIds.includes(track.id))) {
-      compressedAudioCache.clear();
       this.fail(
         "This release's audio availability has changed. Choose a track to continue.",
       );
-      this.media?.removeAttribute("src");
-      this.media?.load();
+      if (this.media) destroyPlaybackMedia(this.media);
       this.update({ queue: null, index: 0, position: 0, duration: 0 });
     }
   };

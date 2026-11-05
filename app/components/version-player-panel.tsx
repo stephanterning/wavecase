@@ -116,7 +116,6 @@ export function VersionPlayerPanel({
             }
             peaks={version.peaks || []}
             duration={version.duration || 0}
-            metadata={version.metadata}
           />
         ) : (
           <div className="audio-unavailable" role="status">

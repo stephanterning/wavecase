@@ -1,9 +1,8 @@
-import { stat } from "node:fs/promises";
+import { rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { eq, and, sql, isNotNull } from "drizzle-orm";
 import { removeAudioFiles } from "./audio-files";
 import { db } from "./db";
-import { prepareStream } from "./audio-stream";
 import { prepareHls, hlsToken } from "./hls";
 import { versions, comments, releaseTracks } from "./schema";
 import { boss, queue } from "./queue";
@@ -13,18 +12,10 @@ import { InvalidAudioError, retryProcessing } from "./processing-errors";
 import { startReleaseWorker, reconcileReleases } from "./release-worker";
 import { deleteExpiredTokens } from "./security";
 import { dataDir } from "./config";
+import { flacPart, streamFile } from "./storage-keys";
 const directory = dataDir();
 await queue();
 await startReleaseWorker();
-await boss.work<{ key: string }>("prepare-stream", async (jobs) => {
-  for (const job of jobs) {
-    try {
-      await prepareStream(directory, job.data.key);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    }
-  }
-});
 await boss.work<{ key: string; source: string }>(
   "prepare-hls",
   async (jobs) => {
@@ -115,6 +106,14 @@ await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
     }
   }
 });
+// Earlier deployments served playback as prepared parts. Remove those
+// derivatives, including large PCM fallbacks, once per worker start.
+let legacyStreamsRemoved = false;
+async function removeLegacyStreams(key: string) {
+  for (const kind of ["json", "pcm", "flac"] as const)
+    await rm(join(directory, streamFile(key, kind)), { force: true });
+  await rm(join(directory, flacPart(key)), { force: true });
+}
 // Reconcile pending uploads so a crash between storing a file and queueing it is recoverable.
 async function reconcile() {
   await deleteExpiredTokens();
@@ -128,7 +127,9 @@ async function reconcile() {
     .from(releaseTracks)
     .where(isNotNull(releaseTracks.playback));
   for (const { key, source } of [...sources, ...releases]) {
-    if (!key || !source || (await hlsToken(directory, key))) continue;
+    if (!key || !source) continue;
+    if (!legacyStreamsRemoved) await removeLegacyStreams(key);
+    if (await hlsToken(directory, key)) continue;
     try {
       await stat(join(directory, key));
     } catch (error) {
@@ -141,6 +142,7 @@ async function reconcile() {
       { singletonKey: key, retryLimit: 3, retryDelay: 10 },
     );
   }
+  legacyStreamsRemoved = true;
   const pending = await db
     .select({ id: versions.id })
     .from(versions)

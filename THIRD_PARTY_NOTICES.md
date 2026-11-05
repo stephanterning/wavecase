@@ -6,7 +6,6 @@ Generated with `npm run notices`.
 
 | Package | Version | License |
 | --- | --- | --- |
-| @eshaz/web-worker | 1.2.2 | Apache-2.0 |
 | @hexagon/base64 | 1.1.28 | MIT |
 | @levischuck/tiny-cbor | 0.2.11 | MIT |
 | @opentelemetry/api | 1.10.0 | Apache-2.0 |
@@ -30,7 +29,6 @@ Generated with `npm run notices`.
 | @simplewebauthn/server | 14.0.3 | MIT |
 | @types/node | 24.19.2 | MIT |
 | @types/pg | 8.23.1 | MIT |
-| @wasm-audio-decoders/common | 9.0.7 | MIT |
 | asn1js | 3.1.0 | BSD-3-Clause |
 | buffer-crc32 | 1.0.0 | MIT |
 | busboy | 1.6.0 | MIT |
@@ -47,7 +45,6 @@ Generated with `npm run notices`.
 | luxon | 3.7.2 | MIT |
 | maxmind | 5.0.7 | MIT |
 | mmdb-lib | 3.0.3 | MIT |
-| mpg123-decoder | 1.0.3 | MIT |
 | ms | 2.1.3 | MIT |
 | non-error | 0.1.0 | MIT |
 | pg | 8.23.1 | MIT |
@@ -63,7 +60,6 @@ Generated with `npm run notices`.
 | rrule-temporal | 2.2.8 | MIT |
 | scheduler | 0.28.0 | MIT |
 | serialize-error | 13.0.2 | MIT |
-| simple-yenc | 1.0.4 | MIT |
 | streamsearch | 1.1.0 | MIT |
 | tagged-tag | 1.0.0 | MIT |
 | temporal-spec | 1.0.1 | Apache-2.0 |

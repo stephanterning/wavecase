@@ -41,21 +41,14 @@ export function attachMediaSession(
         session.setPositionState({
           duration,
           position: Math.max(0, Math.min(currentTime, duration)),
-          // WebKit Now Playing extrapolates with this rate while its session
-          // plays: the output element during a stall, or a direct AudioContext
-          // even when paused. Zero is rejected, so a negligible rate freezes it.
+          // Now Playing extrapolates with this rate while the element still
+          // counts as playing during a stall. Zero is rejected, so a
+          // negligible rate freezes the timeline.
           playbackRate: advancing ? playbackRate : frozenRate,
         });
     } catch {
       // Position reporting is optional in browsers with partial API support.
     }
-  };
-  // WebKit refreshes a direct AudioContext's Now Playing only on a playback-state
-  // change or a timer of several seconds; the media-element output refreshes on
-  // position changes, where this is redundant but harmless.
-  const announce = () => {
-    session.playbackState = "paused";
-    session.playbackState = "playing";
   };
   const seek = (position: number) => {
     if (
@@ -88,13 +81,16 @@ export function attachMediaSession(
   };
   const seekActions = ["seekto", "seekbackward", "seekforward"] as const;
   let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+  let refreshed = false;
   const refreshSeeking = () => {
-    if (navigator.vendor !== "Apple Computer, Inc.") return;
+    if (refreshed || navigator.vendor !== "Apple Computer, Inc.") return;
+    refreshed = true;
     // WebKit 326021: commands registered before Now Playing becomes seekable
-    // can stay disabled. Change the command set across tasks after playback
+    // can stay disabled. Change the command set across tasks once playback
     // starts; replacing a handler without removing it does not refresh it.
+    // Only the first start needs this, and repeating it after lock-screen
+    // seeks would briefly remove the controls while page timers are throttled.
     // https://bugs.webkit.org/show_bug.cgi?id=326021
-    clearTimeout(refreshTimer);
     for (const action of seekActions) {
       try {
         session.setActionHandler(action, null);
@@ -132,17 +128,10 @@ export function attachMediaSession(
     }
     if (session.metadata !== description) session.metadata = description;
     const playing = !media.paused && !media.ended;
-    const wasAdvancing = advancing;
     advancing = playing && !stalled;
     // Report the position first; WebKit samples it on the state change.
     updatePosition();
-    if (
-      playing &&
-      session.playbackState === "playing" &&
-      (advancing !== wasAdvancing || event?.type === "wavecase-loop")
-    )
-      announce();
-    else session.playbackState = playing ? "playing" : "paused";
+    session.playbackState = playing ? "playing" : "paused";
     if (event?.type === "playing") refreshSeeking();
   };
   const events = [

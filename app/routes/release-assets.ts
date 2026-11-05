@@ -1,12 +1,8 @@
 import { hlsRedirect } from "../server/hls-access";
-import { releaseMp3Response } from "../server/release-mp3-stream";
-import { streamResponse } from "../server/audio-stream";
 import { downloadDetails } from "../server/download-details";
 import { rejectPreviewMutation } from "../server/preview";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { readFile, stat } from "node:fs/promises";
-import { createReadStream } from "node:fs";
-import { Readable } from "node:stream";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { db } from "../server/db";
@@ -99,53 +95,5 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   );
   if (!track?.playback)
     throw new Response("Audio unavailable", { status: 404 });
-  const hls = await hlsRedirect(request, directory(), track.playback);
-  if (hls) return hls;
-  const streamed = await (
-    track.playback.endsWith(".mp3") ? releaseMp3Response : streamResponse
-  )(request, directory(), track.playback);
-  if (streamed) return streamed;
-  const path = join(directory(), track.playback);
-  const { size } = await stat(path);
-  let start = 0,
-    end = size - 1,
-    status = 200;
-  const headers = new Headers({
-    "Content-Type": track.playback.endsWith(".mp3")
-      ? "audio/mpeg"
-      : "audio/mp4",
-    "Accept-Ranges": "bytes",
-    "Cache-Control": "private, no-store",
-    "X-Content-Type-Options": "nosniff",
-  });
-  const range = request.headers.get("range");
-  if (range) {
-    const m = /^bytes=(\d*)-(\d*)$/.exec(range);
-    if (!m || (!m[1] && !m[2]))
-      return new Response(null, {
-        status: 416,
-        headers: { "Content-Range": `bytes */${size}` },
-      });
-    if (!m[1]) start = Math.max(0, size - Number(m[2]));
-    else {
-      start = Number(m[1]);
-      if (m[2]) end = Math.min(end, Number(m[2]));
-    }
-    if (start > end || start >= size)
-      return new Response(null, {
-        status: 416,
-        headers: { "Content-Range": `bytes */${size}` },
-      });
-    status = 206;
-    headers.set("Content-Range", `bytes ${start}-${end}/${size}`);
-  }
-  headers.set("Content-Length", String(end - start + 1));
-  return new Response(
-    request.method === "HEAD"
-      ? null
-      : (Readable.toWeb(
-          createReadStream(path, { start, end }),
-        ) as ReadableStream),
-    { status, headers },
-  );
+  return hlsRedirect(request, directory(), track.playback);
 }

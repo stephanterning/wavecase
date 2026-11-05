@@ -10,7 +10,6 @@ import { getReleaseServiceIcon } from "../domain/release-services";
 import { SongwriterCredits } from "../components/songwriter-credits";
 import { useReleasePlayer } from "../components/release-player";
 import { ReleaseSeek } from "../components/release-seek";
-import { playbackGainDb } from "../components/playback-audio";
 import { usePolling } from "../components/use-polling";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
@@ -155,7 +154,6 @@ export default function ReleasePage() {
           title: track.title,
           artist: track.metadata.artist || d.artist.name,
           duration: track.duration || 0,
-          gainDb: playbackGainDb(track.audioMeasurements),
         })),
       },
       id,

@@ -1,14 +1,14 @@
 import { hlsToken } from "./hls";
 
-// Called only after the normal demo/release access checks. Subsequent media
-// requests use the unguessable capability, without sessions or DB queries.
+// Playback endpoints call this only after their normal access checks.
+// Subsequent media requests use the unguessable capability, without sessions
+// or DB queries.
 export async function hlsRedirect(
   request: Request,
   directory: string,
   key: string,
 ) {
-  const format = new URL(request.url).searchParams.get("hls");
-  if (!format) return null;
+  const format = new URL(request.url).searchParams.get("hls") ?? "";
   if (!["flac", "aac", "master"].includes(format))
     throw new Response("Invalid format", { status: 400 });
   const token = await hlsToken(directory, key);

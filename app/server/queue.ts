@@ -10,11 +10,6 @@ export function queue() {
       retryLimit: 3,
       retryDelay: 10,
     });
-    await boss.createQueue("prepare-stream", {
-      policy: "exclusive",
-      retryLimit: 3,
-      retryDelay: 10,
-    });
     await boss.createQueue("process-release", {
       policy: "exclusive",
       retryLimit: 3,

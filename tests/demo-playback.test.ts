@@ -9,7 +9,7 @@ class Media extends EventTarget {
   loop = false;
   paused = true;
   currentTime = 0;
-  duration = 60;
+  duration = NaN;
   readyState = 0;
   seeking = false;
   error: Error | null = null;
@@ -30,12 +30,11 @@ class Media extends EventTarget {
     this.dispatchEvent(new Event("canplay"));
   }
 }
-const source = (id: string): DemoSource => ({
+const source = (id: string, duration = 60): DemoSource => ({
   key: id,
   versionId: id,
   url: `/media/${id}`,
-  duration: 60,
-  gainDb: -3,
+  duration,
   peaks: [0, 1, 0],
   title: "Demo",
   artist: "Artist",
@@ -45,12 +44,13 @@ function setup() {
   const plays: { media: PlaybackMedia; silent: boolean }[] = [];
   const fades: [PlaybackMedia | null, PlaybackMedia][] = [];
   const playback = new DemoPlayback(
-    () => {
+    (url) => {
       const next = new Media();
+      next.src = url;
       media.push(next);
       return next as unknown as PlaybackMedia;
     },
-    async (audio, _gain, silent = false) => {
+    async (audio, silent = false) => {
       plays.push({ media: audio, silent });
       await audio.play();
     },
@@ -91,8 +91,7 @@ test("paused changes stay paused and shorter versions start at zero", async () =
   media[0].ready();
   await first;
   media[0].currentTime = 50;
-  const next = playback.select(source("short"));
-  media[1].duration = 30;
+  const next = playback.select(source("short", 30));
   media[1].ready(1);
   await next;
   assert.equal(state().source?.versionId, "short");
@@ -170,8 +169,9 @@ test("a rejected old play cannot cancel a later resume or version change", async
   });
   let calls = 0;
   const playback = new DemoPlayback(
-    () => {
+    (url) => {
       const audio = new Media();
+      audio.src = url;
       media.push(audio);
       return audio as unknown as PlaybackMedia;
     },
@@ -191,5 +191,62 @@ test("a rejected old play cannot cancel a later resume or version change", async
   await next;
   assert.equal(media[1].paused, false);
   assert.equal(playback.getSnapshot().error, "");
+  playback.dispose();
+});
+
+test("paused selection does not wait for metadata that iOS may not load", async () => {
+  const { playback, media, state } = setup();
+  await playback.select(source("first"));
+  assert.equal(state().loading, false);
+  assert.equal(state().media, media[0] as unknown as PlaybackMedia);
+  playback.seek("first", 12);
+  media[0].ready(1);
+  assert.equal(media[0].currentTime, 12);
+  playback.dispose();
+});
+
+test("version alignment gives up after a bounded number of HLS seeks", async () => {
+  const { playback, media, state } = setup();
+  await playback.select(source("first"));
+  await playback.play();
+  let audible = 10;
+  Object.defineProperty(media[0], "currentTime", {
+    get: () => (audible += 1),
+    set: () => {},
+  });
+  const next = playback.select(source("next"));
+  let seeks = 0;
+  let position = 0;
+  Object.defineProperty(media[1], "currentTime", {
+    get: () => position,
+    set: (value: number) => {
+      seeks++;
+      position = value;
+    },
+  });
+  media[1].ready();
+  await next;
+  assert.equal(state().source?.versionId, "next");
+  assert.equal(seeks, 4, "one initial seek and three corrections");
+  playback.dispose();
+});
+
+test("returning to the previous version reuses its paused element", async () => {
+  const { playback, media, state, fades } = setup();
+  await playback.select(source("first"));
+  media[0].ready();
+  await playback.play();
+  const next = playback.select(source("next"));
+  media[1].ready();
+  await next;
+  assert.equal(media[0].paused, true);
+  assert.equal(media[0].src, "/media/first");
+  media[1].currentTime = 20;
+  await playback.select(source("first"));
+  assert.equal(media.length, 2, "no new element or source is created");
+  assert.equal(state().media, media[0] as unknown as PlaybackMedia);
+  assert.equal(media[0].currentTime, 20);
+  assert.equal(media[1].paused, true);
+  assert.equal(fades.length, 2);
   playback.dispose();
 });

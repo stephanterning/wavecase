@@ -168,7 +168,7 @@ test(
           versionAccess(new Request(origin), hidden.id, link.id),
           denied,
         );
-        for (const query of ["", "&download-info=1"]) {
+        for (const query of ["&hls=flac", "&download-info=1"]) {
           await assert.rejects(
             media(
               args(
@@ -190,9 +190,12 @@ test(
         await assert.rejects(
           media(
             args(
-              new Request(`${origin}/media/${hidden.id}?share=${link.id}`, {
-                method: "HEAD",
-              }),
+              new Request(
+                `${origin}/media/${hidden.id}?share=${link.id}&hls=flac`,
+                {
+                  method: "HEAD",
+                },
+              ),
               { id: hidden.id },
             ),
           ),

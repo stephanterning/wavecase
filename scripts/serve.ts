@@ -13,7 +13,10 @@ app.use((request, response, next) => {
   response.setHeader("Referrer-Policy", "same-origin");
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("X-Frame-Options", "DENY");
-  response.setHeader("Cache-Control", "private, no-store");
+  // React Router appends route headers instead of replacing these, so a
+  // default here would also make immutable HLS files uncacheable.
+  if (!request.path.startsWith("/hls/"))
+    response.setHeader("Cache-Control", "private, no-store");
   next();
 });
 app.use(

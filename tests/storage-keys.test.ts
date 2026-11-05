@@ -135,7 +135,7 @@ test("only the storage key module builds derived file names", async () => {
       // its only upload-derived name (the mapping) still lives in storage-keys.
       file !== join("server", "hls.ts"),
   );
-  assert.ok(sources.includes(join("server", "audio-stream.ts")));
+  assert.ok(sources.includes(join("server", "audio.ts")));
   for (const file of sources) {
     const lines = (await readFile(join("app", file), "utf8")).split("\n");
     lines.forEach((line, index) =>

@@ -243,7 +243,7 @@ test("media sessions report duration, position and rate through the playback lif
   assert.equal(position(), undefined, "cleanup removes timeline listeners");
 });
 
-test("repeats and stalls refresh the lock-screen timeline while playing", async (t) => {
+test("repeats and stalls update the element-backed timeline without re-announcing", async (t) => {
   const { session } = browserSession(t);
   const states: string[] = [];
   let state = session.playbackState;
@@ -268,30 +268,17 @@ test("repeats and stalls refresh the lock-screen timeline while playing", async 
   states.length = 0;
   media.currentTime = 0.1;
   media.dispatchEvent(new Event("wavecase-loop"));
-  assert.deepEqual(
-    states,
-    ["paused@0.1", "playing@0.1"],
-    "the wrapped position is reported before the state change",
-  );
+  assert.equal(session.position?.position, 0.1);
   assert.equal(session.position?.playbackRate, 1);
-
-  states.length = 0;
   media.dispatchEvent(new Event("waiting"));
   assert.ok(frozen(session.position), "a stall freezes");
-  assert.deepEqual(states, ["paused@0.1", "playing@0.1"]);
-  media.dispatchEvent(new Event("timeupdate"));
-  assert.equal(states.length, 2, "position updates alone do not re-announce");
   media.currentTime = 0.2;
   media.dispatchEvent(new Event("playing"));
   assert.equal(session.position?.playbackRate, 1);
-  assert.deepEqual(states.slice(2), ["paused@0.2", "playing@0.2"]);
-
-  states.length = 0;
+  assert.deepEqual(states, [], "the element keeps Now Playing in sync");
   media.pause();
   assert.deepEqual(states, ["paused@0.2"]);
   assert.ok(frozen(session.position));
-  media.dispatchEvent(new Event("wavecase-loop"));
-  assert.deepEqual(states, ["paused@0.2"], "paused loops are not announced");
   stop();
 });
 
@@ -329,7 +316,7 @@ test("single-track back controls restart the demo and forward seeks stay within 
   stop();
 });
 
-test("WebKit seeking is re-enabled after Now Playing becomes seekable, including after resume", async (t) => {
+test("WebKit seeking is re-enabled once after Now Playing becomes seekable", async (t) => {
   const { session, handlers, browser } = browserSession(t);
   Object.assign(browser, { vendor: "Apple Computer, Inc." });
   t.mock.timers.enable({ apis: ["setTimeout"] });
@@ -374,6 +361,10 @@ test("WebKit seeking is re-enabled after Now Playing becomes seekable, including
   assert.equal(media.currentTime, 12, "paused seeking remains available");
   await media.play();
   media.dispatchEvent(new Event("playing"));
+  assert.ok(
+    handlers.get("seekto"),
+    "later starts, such as after lock-screen seeks, keep the controls",
+  );
   stop();
   t.mock.timers.tick(1000);
   assert.equal(enabled, false);
