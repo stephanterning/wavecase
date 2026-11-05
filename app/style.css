@@ -147,6 +147,13 @@ p {
   max-width: 620px;
   margin: 8vh auto;
 }
+.welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  margin-top: var(--space-5);
+}
 .panel {
   padding: var(--space-5);
   background: var(--color-surface);
