@@ -188,10 +188,9 @@ export class ReleasePlayback {
     const { queue } = this.state;
     if (!queue) return Promise.resolve();
     const track = queue.tracks[index];
-    if (this.ownsMedia) {
-      this.detachMedia?.();
+    // Native file playback keeps its user-activated element across the queue.
+    if (this.ownsMedia && !this.media)
       this.detachMedia = this.bind(createPlaybackMedia(track.duration));
-    }
     if (!this.media) return Promise.resolve();
     ++this.attempt;
     cancelPlaybackSeek(this.media);

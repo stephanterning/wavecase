@@ -3,7 +3,6 @@
 import { BufferedAudio } from "./buffered-audio";
 import {
   playbackContext,
-  playbackDestination,
   resumePlayback,
   transitionSeconds,
 } from "./audio-context";
@@ -11,6 +10,9 @@ export { transitionSeconds } from "./audio-context";
 export type PlaybackMedia = HTMLAudioElement | BufferedAudio;
 
 export function createPlaybackMedia(duration: number): PlaybackMedia {
+  // A worklet has no native track timeline. Safari uses the existing protected
+  // file endpoint so its audio element can own Now Playing duration and seeking.
+  if (navigator.vendor === "Apple Computer, Inc.") return new Audio();
   const context = playbackContext();
   return duration > 0 && context.sampleRate === 48_000 && !!context.audioWorklet
     ? new BufferedAudio(context)
@@ -57,6 +59,7 @@ export async function playNormalized(
   }
   const attempt = {};
   attempts.set(media, attempt);
+  media.muted = silent;
   context = playbackContext();
   let graph = sources.get(media);
   if (!graph) {
@@ -74,17 +77,48 @@ export async function playNormalized(
   if (!graph.connected) {
     graph.source.connect(graph.gain);
     graph.gain.connect(graph.envelope);
-    graph.envelope.connect(playbackDestination(context));
+    graph.envelope.connect(context.destination);
     graph.connected = true;
   }
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
     // Start both synchronously in the user gesture, including on mobile Safari.
-    await Promise.all([resumePlayback(context), media.play()]);
+    await Promise.race([
+      Promise.all([resumePlayback(context), media.play()]),
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error("Audio startup timed out. Please try again.")),
+          30000,
+        );
+      }),
+    ]);
   } catch (error) {
     // A rejected play from a replaced source must not pause its replacement.
     if (attempts.get(media) === attempt) media.pause();
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
+}
+
+/** Restore a paused native version once Safari loads its metadata. */
+export function startPlaybackAt(media: PlaybackMedia, position: number) {
+  if (media.readyState >= 1) {
+    media.currentTime = position;
+    return;
+  }
+  const controller = new AbortController();
+  const options = { once: true, signal: controller.signal };
+  media.addEventListener(
+    "loadedmetadata",
+    () => {
+      controller.abort();
+      media.currentTime = position;
+    },
+    options,
+  );
+  for (const event of ["wavecase-user-seek", "emptied"])
+    media.addEventListener(event, () => controller.abort(), options);
 }
 
 export function cancelPlaybackSeek(media: PlaybackMedia) {
@@ -120,6 +154,7 @@ export function crossfadePlayback(
       media.setAudible(to === 1, true, now);
       continue;
     }
+    if (to === 1) media.muted = false;
     cancelPlaybackSeek(media);
     const gain = sources.get(media)?.envelope.gain;
     gain?.cancelScheduledValues(now);
