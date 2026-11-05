@@ -12,6 +12,7 @@ import { ReleasePlayback } from "./release-playback";
 import { useMediaSession } from "./media-session";
 import { BufferedAudio } from "./buffered-audio";
 import { IconButton } from "./icon-button";
+import { useSpaceToggle } from "./use-space-toggle";
 
 const PlaybackContext = createContext<ReleasePlayback | null>(null);
 
@@ -50,34 +51,11 @@ function ReleasePlayer() {
       clearCache();
     };
   }, [playback]);
-  useEffect(() => {
-    const keyboard = (event: KeyboardEvent) => {
-      if (
-        !playback.getSnapshot().queue ||
-        (event.code !== "Space" && event.key !== " ") ||
-        event.defaultPrevented ||
-        event.isComposing ||
-        event.altKey ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.shiftKey
-      )
-        return;
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable ||
-          target.closest(
-            "input:not([type='range']), textarea, select, dialog, [role='dialog'], [role='alertdialog'], [role='textbox']",
-          ))
-      )
-        return;
-      event.preventDefault();
-      if (!event.repeat) playback.toggle();
-    };
-    window.addEventListener("keydown", keyboard, true);
-    return () => window.removeEventListener("keydown", keyboard, true);
-  }, [playback]);
+  useSpaceToggle({
+    ready: () => !!playback.getSnapshot().queue,
+    toggle: playback.toggle,
+    slider: true,
+  });
   useMediaSession(
     media,
     {

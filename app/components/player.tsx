@@ -15,6 +15,7 @@ import { useMediaSession } from "./media-session";
 import { playbackGainDb } from "./playback-audio";
 import { BufferedAudio } from "./buffered-audio";
 import { useWorkspacePlayback } from "./workspace-player";
+import { useSpaceToggle } from "./use-space-toggle";
 import { DemoPlayback } from "./demo-playback";
 import {
   attachWaveformGestures,
@@ -211,34 +212,6 @@ export function Player({
     seeked();
     if (media.paused) pause();
     else play();
-    const toggle = () => {
-      if (media.paused)
-        void startPlayback().catch(() =>
-          setError("Audio could not play. Please try again."),
-        );
-      else playback.pause();
-    };
-    const keyboard = (event: KeyboardEvent) => {
-      const shared = workspace?.getSnapshot().playback?.getSnapshot();
-      if (shared?.source || shared?.loading) return;
-      if (event.defaultPrevented || event.isComposing || event.shiftKey) return;
-      if (
-        (event.code !== "Space" && event.key !== " ") ||
-        event.altKey ||
-        event.ctrlKey ||
-        event.metaKey
-      )
-        return;
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable ||
-          target.closest("input, textarea, select, dialog, [role='textbox']"))
-      )
-        return;
-      event.preventDefault();
-      if (!event.repeat) toggle();
-    };
     const fail = () =>
       setError(
         "Audio could not be loaded. Please reload the page or try another version.",
@@ -249,9 +222,7 @@ export function Player({
     media.addEventListener("error", fail);
     media.addEventListener("wavecase-user-seek", seek);
     media.addEventListener("wavecase-user-seeked", seeked);
-    window.addEventListener("keydown", keyboard, true);
     return () => {
-      window.removeEventListener("keydown", keyboard, true);
       media.removeEventListener("timeupdate", remember);
       media.removeEventListener("play", play);
       media.removeEventListener("pause", pause);
@@ -262,15 +233,21 @@ export function Player({
       stop?.();
       wave.destroy();
     };
-  }, [
-    media,
-    source,
-    playback,
-    playbackRef,
-    canComment,
-    workspace,
-    startPlayback,
-  ]);
+  }, [media, source, playback, playbackRef, canComment]);
+  useSpaceToggle({
+    ready: () => {
+      const own = playback.getSnapshot();
+      const shared = workspace?.getSnapshot().playback?.getSnapshot();
+      return !!own.media && !!own.source && !shared?.source && !shared?.loading;
+    },
+    toggle: () => {
+      if (playback.getSnapshot().media?.paused)
+        void startPlayback().catch(() =>
+          setError("Audio could not play. Please try again."),
+        );
+      else playback.pause();
+    },
+  });
   return (
     <>
       <div

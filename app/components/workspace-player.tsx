@@ -12,6 +12,7 @@ import { WorkspacePlayback } from "./workspace-playback";
 import { type DemoPlayback } from "./demo-playback";
 import { useMediaSession } from "./media-session";
 import { IconButton } from "./icon-button";
+import { useSpaceToggle } from "./use-space-toggle";
 
 const WorkspaceAudio = createContext<WorkspacePlayback | null>(null);
 export const useWorkspacePlayback = () => useContext(WorkspaceAudio);
@@ -58,41 +59,17 @@ function WorkspacePlayer({
     );
   const active = playing || starting;
   const toggle = () => {
-    if (active) playback.pause();
+    const state = playback.getSnapshot();
+    if (state.playing || state.starting) playback.pause();
     else void playback.play().catch(() => {});
   };
-  useEffect(() => {
-    const keyboard = (event: KeyboardEvent) => {
-      if (
-        (event.code !== "Space" && event.key !== " ") ||
-        event.defaultPrevented ||
-        event.isComposing ||
-        event.altKey ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.shiftKey
-      )
-        return;
-      const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable ||
-          target.closest(
-            "input, textarea, select, dialog, [role='dialog'], [role='textbox']",
-          ))
-      )
-        return;
+  useSpaceToggle({
+    ready: () => {
       const state = playback.getSnapshot();
-      if (!state.source && !state.loading) return;
-      event.preventDefault();
-      if (!event.repeat) {
-        if (state.playing || state.starting) playback.pause();
-        else void playback.play().catch(() => {});
-      }
-    };
-    window.addEventListener("keydown", keyboard, true);
-    return () => window.removeEventListener("keydown", keyboard, true);
-  }, [playback]);
+      return !!state.source || state.loading;
+    },
+    toggle,
+  });
   useMediaSession(
     media,
     {
