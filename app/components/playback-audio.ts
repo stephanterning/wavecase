@@ -1,3 +1,4 @@
+import { isHlsMedia, playHls, destroyHls } from "./hls-audio";
 // One context per page keeps it unlocked across version changes. Sources belong
 // to media elements and must be reused if an effect reconnects the same element.
 import { BufferedAudio } from "./buffered-audio";
@@ -10,12 +11,11 @@ import {
 export { transitionSeconds } from "./audio-context";
 export type PlaybackMedia = HTMLAudioElement | BufferedAudio;
 
-export function createPlaybackMedia(duration: number): PlaybackMedia {
-  const context = playbackContext();
-  return duration > 0 && context.sampleRate === 48_000 && !!context.audioWorklet
-    ? new BufferedAudio(context)
-    : new Audio();
-}
+export {
+  createHlsMedia as createPlaybackMedia,
+  setPlaybackSource,
+} from "./hls-audio";
+
 let context: AudioContext | undefined;
 const sources = new WeakMap<
   HTMLAudioElement,
@@ -29,27 +29,14 @@ const sources = new WeakMap<
 const attempts = new WeakMap<HTMLAudioElement, object>();
 const seeks = new WeakMap<HTMLAudioElement, AbortController>();
 
-export function playbackGainDb(metadata: Record<string, unknown> | null) {
-  const finite = (value: unknown): value is number =>
-    typeof value === "number" && Number.isFinite(value);
-  const lufs = metadata?.lufs;
-  const peak = metadata?.peak;
-  const truePeak = metadata?.truePeak;
-  const target = finite(lufs) ? -16 - lufs : 0;
-  // Do not boost without both peak measurements. Silence/below-gate audio
-  // has no integrated LUFS target. loudnorm rounds true peak to 0.01 dB.
-  return Math.min(
-    target,
-    finite(peak) ? -peak : 0,
-    finite(truePeak) ? -truePeak - 0.01 : 0,
-  );
-}
+export { playbackGainDb } from "../domain/playback-gain";
 
 export async function playNormalized(
   media: PlaybackMedia,
   gainDb: number,
   silent = false,
 ) {
+  if (isHlsMedia(media)) return playHls(media, silent);
   if (media instanceof BufferedAudio) {
     media.setGain(gainDb);
     media.setAudible(!silent);
@@ -96,6 +83,7 @@ export function cancelPlaybackSeek(media: PlaybackMedia) {
 export function disconnectPlaybackAudio(media: PlaybackMedia) {
   if (media instanceof BufferedAudio) return media.destroy();
   cancelPlaybackSeek(media);
+  destroyHls(media);
   attempts.delete(media);
   const graph = sources.get(media);
   if (!graph) return;
@@ -110,6 +98,11 @@ export function crossfadePlayback(
   previous: PlaybackMedia | null,
   next: PlaybackMedia,
 ) {
+  if (isHlsMedia(next)) {
+    previous?.pause();
+    next.muted = false;
+    return;
+  }
   const now = playbackContext().currentTime;
   for (const [media, from, to] of [
     [previous, 1, 0],

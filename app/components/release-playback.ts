@@ -2,6 +2,7 @@ import { compressedAudioCache } from "./compressed-audio-cache";
 import {
   cancelPlaybackSeek,
   createPlaybackMedia,
+  setPlaybackSource,
   type PlaybackMedia,
   disconnectPlaybackAudio,
   observePlaybackLoop,
@@ -205,7 +206,10 @@ export class ReleasePlayback {
       error: "",
       seeking: false,
     });
-    this.media.src = `/release-assets/${queue.releaseId}/audio?track=${track.id}`;
+    setPlaybackSource(
+      this.media,
+      `/release-assets/${queue.releaseId}/audio?track=${track.id}`,
+    );
     return autoplay ? this.play() : Promise.resolve();
   }
 

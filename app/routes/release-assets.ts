@@ -1,3 +1,4 @@
+import { hlsRedirect } from "../server/hls-access";
 import { releaseMp3Response } from "../server/release-mp3-stream";
 import { streamResponse } from "../server/audio-stream";
 import { downloadDetails } from "../server/download-details";
@@ -98,6 +99,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   );
   if (!track?.playback)
     throw new Response("Audio unavailable", { status: 404 });
+  const hls = await hlsRedirect(request, directory(), track.playback);
+  if (hls) return hls;
   const streamed = await (
     track.playback.endsWith(".mp3") ? releaseMp3Response : streamResponse
   )(request, directory(), track.playback);

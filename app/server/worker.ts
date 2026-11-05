@@ -1,10 +1,10 @@
-import { stat, rm } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { eq, and, sql, isNotNull } from "drizzle-orm";
 import { removeAudioFiles } from "./audio-files";
 import { db } from "./db";
-import { prepareStream, streamManifest } from "./audio-stream";
-import { streamFile } from "./storage-keys";
+import { prepareStream } from "./audio-stream";
+import { prepareHls, hlsToken } from "./hls";
 import { versions, comments, releaseTracks } from "./schema";
 import { boss, queue } from "./queue";
 import { processAudio, sameDuration } from "./audio";
@@ -25,6 +25,18 @@ await boss.work<{ key: string }>("prepare-stream", async (jobs) => {
     }
   }
 });
+await boss.work<{ key: string; source: string }>(
+  "prepare-hls",
+  async (jobs) => {
+    for (const job of jobs) {
+      try {
+        await prepareHls(directory, job.data.key, job.data.source);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+    }
+  },
+);
 await boss.work<{ versionId: string }>("process-audio", async (jobs) => {
   for (const job of jobs) {
     const version = await db.query.versions.findFirst({
@@ -108,33 +120,15 @@ async function reconcile() {
   await deleteExpiredTokens();
   await reconcileReleases();
   const sources = await db
-    .select({ key: versions.playback })
+    .select({ key: versions.playback, source: versions.playback })
     .from(versions)
     .where(and(isNotNull(versions.playback), eq(versions.state, "ready")));
-  const demos = new Set(sources.map((source) => source.key));
   const releases = await db
-    .select({ key: releaseTracks.playback })
+    .select({ key: releaseTracks.playback, source: releaseTracks.original })
     .from(releaseTracks)
     .where(isNotNull(releaseTracks.playback));
-  for (const { key } of releases) {
-    if (!key || demos.has(key)) continue;
-    if (!key.endsWith(".mp3")) {
-      sources.push({ key });
-      continue;
-    }
-    // Old deployments prepared PCM for releases. Only remove the derived pair.
-    await rm(join(directory, streamFile(key, "json")), { force: true });
-    await rm(join(directory, streamFile(key, "pcm")), { force: true });
-  }
-  for (const { key } of sources) {
-    if (!key) continue;
-    const prepared = await streamManifest(directory, key);
-    if (prepared?.flacRate) {
-      // Recover a crash between publishing the FLAC index and retiring the PCM.
-      await rm(join(directory, streamFile(key, "pcm")), { force: true });
-      continue;
-    }
-    if (prepared?.pcmCodecChecked) continue;
+  for (const { key, source } of [...sources, ...releases]) {
+    if (!key || !source || (await hlsToken(directory, key))) continue;
     try {
       await stat(join(directory, key));
     } catch (error) {
@@ -142,8 +136,8 @@ async function reconcile() {
       throw error;
     }
     await boss.send(
-      "prepare-stream",
-      { key },
+      "prepare-hls",
+      { key, source },
       { singletonKey: key, retryLimit: 3, retryDelay: 10 },
     );
   }

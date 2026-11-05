@@ -40,6 +40,7 @@ Generated with `npm run notices`.
 | drizzle-orm | 0.45.4 | Apache-2.0 |
 | express | 5.3.0 | MIT |
 | express-rate-limit | 8.7.2 | MIT |
+| hls.js | 1.7.3 | Apache-2.0 |
 | ip-address | 10.7.5 | MIT |
 | is-standalone-pwa | 0.1.1 | MIT |
 | isbot | 5.2.2 | Unlicense |

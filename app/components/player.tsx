@@ -269,9 +269,6 @@ export function Player({
             : "Loading audio…"}
         </p>
       )}
-      {media && !(media instanceof BufferedAudio) && (
-        <p>This browser uses native audio playback.</p>
-      )}
       {seeking && <p role="status">Seeking…</p>}
       {loadError && (
         <p role="alert">

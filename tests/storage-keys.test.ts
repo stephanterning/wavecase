@@ -123,13 +123,17 @@ test("names already on disk are still removed", () => {
 
 // Artwork and attachment names are not derived from audio keys; rows store them.
 test("only the storage key module builds derived file names", async () => {
-  const suffix = String.raw`\.(?!(?:png|jpg|zip)\b)[\w-]`;
+  const suffix = String.raw`\.(?!(?:png|jpg|zip|m3u8)\b)[\w-]`;
   const derivedName = new RegExp(
     String.raw`(?<!endsWith\()["'\x60]${suffix}|\}${suffix}`,
   );
   const sources = (await readdir("app", { recursive: true })).filter(
     (file) =>
-      file.endsWith(".ts") && file !== join("server", "storage-keys.ts"),
+      file.endsWith(".ts") &&
+      file !== join("server", "storage-keys.ts") &&
+      // HLS uses fixed asset names inside an opaque capability directory;
+      // its only upload-derived name (the mapping) still lives in storage-keys.
+      file !== join("server", "hls.ts"),
   );
   assert.ok(sources.includes(join("server", "audio-stream.ts")));
   for (const file of sources) {

@@ -3,6 +3,7 @@ import { BufferedAudio } from "./buffered-audio";
 import {
   crossfadePlayback,
   createPlaybackMedia,
+  setPlaybackSource,
   type PlaybackMedia,
   disconnectPlaybackAudio,
   observePlaybackLoop,
@@ -43,12 +44,17 @@ function ready(
 ) {
   return new Promise<void>((resolve, reject) => {
     const events = ["loadedmetadata", "canplay", "seeked", "playing", "error"];
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error("Audio loading timed out."));
+    }, 30000);
     const cleanup = () => {
+      clearTimeout(timeout);
       for (const event of events) media.removeEventListener(event, check);
       signal.removeEventListener("abort", check);
     };
-    const check = () => {
-      if (signal.aborted || media.error) {
+    const check = (event?: Event) => {
+      if (signal.aborted || media.error || event?.type === "error") {
         cleanup();
         reject(signal.reason || new Error("Audio could not be loaded."));
       } else if (predicate()) {
@@ -143,7 +149,7 @@ export class DemoPlayback {
     media.preload = this.wantPlay ? "auto" : "metadata";
     media.loop = this.state.repeating;
     if (!cached) {
-      media.src = source.url;
+      setPlaybackSource(media, source.url);
       if (media instanceof BufferedAudio)
         media.currentTime = this.state.media?.currentTime ?? 0;
     }
@@ -198,10 +204,10 @@ export class DemoPlayback {
         this.wantPlay = false;
       };
       media.addEventListener("ended", ended);
-      const sync = () =>
+      const sync = (event: Event) =>
         this.update({
           playing: !media.paused,
-          ...(media.error
+          ...(media.error || event.type === "error"
             ? { error: "Audio is unavailable. Please try again." }
             : {}),
         });

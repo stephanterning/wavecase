@@ -1,3 +1,4 @@
+import { hlsRedirect } from "../server/hls-access";
 import { streamResponse } from "../server/audio-stream";
 import { demoWavAvailable } from "../server/download";
 import { downloadDetails } from "../server/download-details";
@@ -47,6 +48,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   if (!file || version.state !== "ready")
     throw new Response("Audio file missing", { status: 404 });
   const directory = dataDir();
+  const hls = await hlsRedirect(request, directory, file);
+  if (hls) return hls;
   const streamed = await streamResponse(request, directory, file);
   if (streamed) return streamed;
   const path = join(directory, file);
