@@ -161,14 +161,15 @@ export function Player({
   useEffect(() => {
     const element = container.current;
     if (!element || !media || !source) return;
+    const colors = getComputedStyle(element);
     const wave = WaveSurfer.create({
       container: element,
       ...(media instanceof BufferedAudio ? {} : { media }),
       peaks: [source.peaks],
       duration: source.duration,
-      waveColor: "#8b9995",
-      progressColor: "#bcebd6",
-      cursorColor: "#ffffff",
+      waveColor: colors.getPropertyValue("--color-waveform"),
+      progressColor: colors.getPropertyValue("--color-waveform-progress"),
+      cursorColor: colors.getPropertyValue("--color-text-strong"),
       height: 220,
       normalize: true,
       interact: false,
