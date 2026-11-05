@@ -38,7 +38,7 @@ Open the generated link at the configured origin and enroll a replacement passke
 
 ## Storage and upgrades
 
-`data/postgres` contains database metadata, accounts, comments, waveform peaks, analytics, and queued jobs. `data/audio` contains demo masters/legacy files, MP3 exports, release masters/AAC playback, artwork, and pending uploads. Web and worker must share this directory. Never serve it as a public static directory.
+`data/postgres` contains database metadata, accounts, comments, waveform peaks, analytics, and queued jobs. `data/audio` contains demo masters/legacy files, MP3 exports, release masters/AAC playback, prepared HLS playback copies under `hls/`, artwork, and pending uploads. Web and worker must share this directory. Never serve it as a public static directory.
 
 Before upgrading, take a consistent database-and-file backup and retain `.env` securely. Stop web and worker during the backup if necessary to avoid mismatched files and metadata. Do not copy a running PostgreSQL data directory as if it were an ordinary file backup; use PostgreSQL backup tooling or stop the database for a filesystem copy.
 
