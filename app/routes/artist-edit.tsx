@@ -231,10 +231,10 @@ export default function ArtistEdit() {
                 Releases <span className="section-count">{rows.length}</span>
               </h2>
               <Link
-                className="artist-icon-action"
+                className="artist-icon-action tooltip"
                 to={`/releases?create=1&artist=${a.id}`}
                 aria-label={`Add release for ${a.name}`}
-                title={`Add release for ${a.name}`}
+                data-tooltip={`Add release for ${a.name}`}
               >
                 <Icon name="plus" />
               </Link>

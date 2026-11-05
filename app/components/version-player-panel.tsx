@@ -3,7 +3,7 @@ import type { loader } from "../routes/track";
 import type { CommentDraft } from "./comment-dialog";
 import { ReplaceAudio, VersionEditor } from "./demo-editors";
 import { Download } from "./download";
-import { Icon } from "./icons";
+import { IconButton } from "./icon-button";
 import { Player, type Playback } from "./player";
 
 type Data = Awaited<ReturnType<typeof loader>>;
@@ -152,32 +152,28 @@ export function VersionPlayerPanel({
         >
           {data.owner ? "Add internal comment" : "Add comment"}
         </button>
-        <span
-          className="tooltip"
-          data-tooltip={
-            version.canDownload ? "Download audio" : "Download unavailable"
-          }
-        >
-          {version.canDownload ? (
-            <Download
-              key={version.id + version.revision}
-              versionId={version.id}
-              versionName={version.name}
-              share={data.share}
-              owner={data.owner}
-              wav={version.wavDownload}
-              preview={data.preview}
-            />
-          ) : (
-            <button
-              className="icon-action"
-              disabled
-              aria-label="Download unavailable"
-            >
-              <Icon name="download" />
-            </button>
-          )}
-        </span>
+        {version.canDownload ? (
+          <Download
+            key={version.id + version.revision}
+            versionId={version.id}
+            versionName={version.name}
+            share={data.share}
+            owner={data.owner}
+            wav={version.wavDownload}
+            preview={data.preview}
+          />
+        ) : (
+          <IconButton
+            className="icon-action"
+            icon="download"
+            aria-disabled="true"
+            label={
+              version.state === "ready"
+                ? "Downloads aren’t allowed for this version"
+                : "Download unavailable: this version has no audio"
+            }
+          />
+        )}
       </div>
     </section>
   );

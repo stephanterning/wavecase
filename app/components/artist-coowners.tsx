@@ -3,6 +3,7 @@ import { useFetcher } from "react-router";
 import type { loader } from "../routes/artist-edit";
 import { CopyButton } from "./copy-button";
 import { EditForm } from "./editing";
+import { IconButton } from "./icon-button";
 import { Icon } from "./icons";
 
 type Data = Awaited<ReturnType<typeof loader>>;
@@ -142,24 +143,20 @@ export function ArtistCoOwners({ data }: { data: Data }) {
                 </span>
               </span>
               <div className="coowner-actions">
-                <span
-                  className="tooltip"
-                  data-tooltip={
+                <CopyButton
+                  className="artist-icon-action"
+                  label={`Copy invitation for ${invitation.label}`}
+                  tooltip={
                     copyNotice?.id === invitation.id
                       ? copyNotice.message
                       : "Copy invitation link"
                   }
-                >
-                  <CopyButton
-                    className="artist-icon-action"
-                    aria-label={`Copy invitation for ${invitation.label}`}
-                    url={`${invitationOrigin}/artist-invitations/${invitation.id}`}
-                    copiedMessage="Copied"
-                    onResult={(message) =>
-                      setCopyNotice({ id: invitation.id, message })
-                    }
-                  />
-                </span>
+                  url={`${invitationOrigin}/artist-invitations/${invitation.id}`}
+                  copiedMessage="Copied"
+                  onResult={(message) =>
+                    setCopyNotice({ id: invitation.id, message })
+                  }
+                />
                 <revoke.Form method="post">
                   <input type="hidden" name="_inline" value="1" />
                   <input
@@ -172,14 +169,13 @@ export function ArtistCoOwners({ data }: { data: Data }) {
                     name="invitation"
                     value={invitation.id}
                   />
-                  <button
+                  <IconButton
+                    type="submit"
                     className="artist-icon-action"
-                    aria-label={`Delete invitation for ${invitation.label}`}
-                    title={`Delete invitation for ${invitation.label}`}
+                    icon="trash"
+                    label={`Delete invitation for ${invitation.label}`}
                     disabled={revoke.state !== "idle"}
-                  >
-                    <Icon name="trash" />
-                  </button>
+                  />
                 </revoke.Form>
               </div>
             </li>

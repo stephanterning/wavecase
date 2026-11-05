@@ -1,31 +1,30 @@
-export function Icon({
-  name,
-}: {
-  name:
-    | "play"
-    | "pause"
-    | "repeat"
-    | "download"
-    | "close"
-    | "plus"
-    | "trash"
-    | "edit"
-    | "link"
-    | "copy"
-    | "eye"
-    | "heart"
-    | "upload"
-    | "dashboard"
-    | "waveform"
-    | "disc"
-    | "artists"
-    | "image-plus"
-    | "check-circle";
-}) {
+export type IconName =
+  | "play"
+  | "pause"
+  | "repeat"
+  | "download"
+  | "close"
+  | "plus"
+  | "trash"
+  | "edit"
+  | "link"
+  | "copy"
+  | "eye"
+  | "heart"
+  | "upload"
+  | "dashboard"
+  | "waveform"
+  | "disc"
+  | "artists"
+  | "image-plus"
+  | "check-circle"
+  | "settings";
+
+export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   return (
     <svg
-      width="22"
-      height="22"
+      width={size}
+      height={size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -100,6 +99,12 @@ export function Icon({
         </>
       )}
       {name === "close" && <path d="m6 6 12 12M18 6 6 18" />}
+      {name === "settings" && (
+        <>
+          <path d="m9 3-1 3-3 1-2 3 2 2-1 3 3 2 3-1 2 3 3-1 1-3 3-1 2-3-2-2 1-3-3-2-3 1-2-3Z" />
+          <circle cx="12" cy="11" r="3" />
+        </>
+      )}
       {name === "heart" && (
         <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" />
       )}

@@ -11,7 +11,7 @@ import { Link } from "react-router";
 import { ReleasePlayback } from "./release-playback";
 import { useMediaSession } from "./media-session";
 import { BufferedAudio } from "./buffered-audio";
-import { Icon } from "./icons";
+import { IconButton } from "./icon-button";
 
 const PlaybackContext = createContext<ReleasePlayback | null>(null);
 
@@ -119,26 +119,22 @@ function ReleasePlayer() {
                 <Link to={queue.url}>{track.title}</Link>
                 <span>{track.artist}</span>
               </div>
-              <button
-                type="button"
+              <IconButton
                 className="icon-action play-toggle"
-                aria-label={active ? "Pause" : "Play"}
+                icon={active ? "pause" : "play"}
+                label={active ? "Pause" : "Play"}
+                tooltip={active ? "Pause (Space)" : "Play (Space)"}
                 aria-keyshortcuts="Space"
-                data-tooltip={active ? "Pause (Space)" : "Play (Space)"}
                 onClick={playback.toggle}
-              >
-                <Icon name={active ? "pause" : "play"} />
-              </button>
-              <button
-                type="button"
+              />
+              <IconButton
                 className="icon-action"
-                aria-label="Repeat track"
+                icon="repeat"
+                label="Repeat track"
+                tooltip={repeat ? "Repeat track on" : "Repeat track off"}
                 aria-pressed={repeat}
-                data-tooltip={repeat ? "Repeat track on" : "Repeat track off"}
                 onClick={() => playback.setRepeat(!repeat)}
-              >
-                <Icon name="repeat" />
-              </button>
+              />
               {status === "loading" && (
                 <span role="status">Loading audio…</span>
               )}

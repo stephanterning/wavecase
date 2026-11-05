@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Icon } from "./icons";
+import { IconButton } from "./icon-button";
 import { listenerIdentity } from "./telemetry";
 import {
   DownloadDialog,
@@ -25,14 +25,12 @@ export function Download({
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button
-        type="button"
+      <IconButton
         className="icon-action"
-        aria-label="Download audio"
+        icon="download"
+        label="Download audio"
         onClick={() => setOpen(true)}
-      >
-        <Icon name="download" />
-      </button>
+      />
       {open && (
         <DownloadDialog
           title={versionName}

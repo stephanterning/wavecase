@@ -13,6 +13,7 @@ import {
   isRouteErrorResponse,
   useRouteError,
 } from "react-router";
+import { Icon } from "./components/icons";
 import "./style.css";
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await viewer(request);
@@ -52,18 +53,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 aria-label="Installation settings"
                 title="Installation settings"
               >
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  aria-hidden="true"
-                >
-                  <path d="m9 3-1 3-3 1-2 3 2 2-1 3 3 2 3-1 2 3 3-1 1-3 3-1 2-3-2-2 1-3-3-2-3 1-2-3Z" />
-                  <circle cx="12" cy="11" r="3" />
-                </svg>
+                <Icon name="settings" size={24} />
               </Link>
             )}
           </div>

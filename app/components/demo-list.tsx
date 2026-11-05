@@ -11,6 +11,7 @@ import type { action as libraryAction } from "../routes/library";
 import { compareLibraryTracks, type LibrarySort } from "../domain/library";
 import { formatDate } from "../domain/format";
 import type { DemoSource } from "./demo-playback";
+import { IconButton } from "./icon-button";
 import { Icon } from "./icons";
 import { playbackGainDb } from "./playback-audio";
 import { useWorkspacePlayback, useWorkspaceSnapshot } from "./workspace-player";
@@ -33,11 +34,11 @@ function LibraryPlay({
       (!state?.source && trackId === source?.trackId)) &&
     (state?.playing || state?.starting);
   return (
-    <button
-      type="button"
+    <IconButton
       className="icon-action library-play"
+      icon={active ? "pause" : "play"}
       disabled={!source}
-      aria-label={
+      label={
         source
           ? `${active ? "Pause" : "Play"} ${source.title}`
           : "No playable version"
@@ -45,9 +46,7 @@ function LibraryPlay({
       onClick={() => {
         if (source) workspace.start(source);
       }}
-    >
-      <Icon name={active ? "pause" : "play"} />
-    </button>
+    />
   );
 }
 export function DemoList({
@@ -241,16 +240,14 @@ function FavoriteButton({
         <input type="hidden" name="intent" value="favorite" />
         <input type="hidden" name="trackId" value={track.id} />
         <input type="hidden" name="favorite" value={favorite ? "0" : "1"} />
-        <button
+        <IconButton
           className="library-favorite"
           type="submit"
-          aria-label={label}
-          title={label}
+          icon="heart"
+          label={label}
           aria-pressed={favorite}
           disabled={fetcher.state !== "idle"}
-        >
-          <Icon name="heart" />
-        </button>
+        />
       </fetcher.Form>
       {fetcher.data?.error && <small role="alert">{fetcher.data.error}</small>}
     </>

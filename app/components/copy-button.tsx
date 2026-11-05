@@ -1,23 +1,20 @@
-import type { ButtonHTMLAttributes } from "react";
-import { Icon } from "./icons";
+import type { ComponentProps } from "react";
+import { IconButton } from "./icon-button";
 
 export function CopyButton({
   url,
   copiedMessage,
   onResult,
   ...props
-}: Omit<
-  ButtonHTMLAttributes<HTMLButtonElement>,
-  "children" | "onClick" | "type"
-> & {
+}: Omit<ComponentProps<typeof IconButton>, "icon" | "onClick" | "type"> & {
   url: string;
   copiedMessage: string;
   onResult: (message: string) => void;
 }) {
   return (
-    <button
+    <IconButton
       {...props}
-      type="button"
+      icon="copy"
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(
@@ -28,8 +25,6 @@ export function CopyButton({
           onResult("Could not copy the link. Please try again.");
         }
       }}
-    >
-      <Icon name="copy" />
-    </button>
+    />
   );
 }
