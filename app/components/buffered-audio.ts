@@ -70,7 +70,7 @@ export class BufferedAudio extends EventTarget {
     this.normalization = context.createGain();
     this.envelope = context.createGain();
     this.normalization.connect(this.envelope);
-    this.envelope.connect(playbackDestination(context));
+    this.envelope.connect(playbackDestination(context, this));
   }
   private emit(name: string) {
     this.dispatchEvent(new Event(name));

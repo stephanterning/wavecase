@@ -74,7 +74,7 @@ export async function playNormalized(
   if (!graph.connected) {
     graph.source.connect(graph.gain);
     graph.gain.connect(graph.envelope);
-    graph.envelope.connect(playbackDestination(context));
+    graph.envelope.connect(playbackDestination(context, media));
     graph.connected = true;
   }
   try {

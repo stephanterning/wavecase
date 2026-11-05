@@ -41,17 +41,18 @@ export function attachMediaSession(
         session.setPositionState({
           duration,
           position: Math.max(0, Math.min(currentTime, duration)),
-          // iOS Now Playing for Web Audio extrapolates with this rate whenever
-          // the AudioContext runs, ignoring a paused playbackState. Zero is
-          // rejected, so a negligible rate freezes a paused or stalled timeline.
+          // WebKit Now Playing extrapolates with this rate while its session
+          // plays: the output element during a stall, or a direct AudioContext
+          // even when paused. Zero is rejected, so a negligible rate freezes it.
           playbackRate: advancing ? playbackRate : frozenRate,
         });
     } catch {
       // Position reporting is optional in browsers with partial API support.
     }
   };
-  // WebKit refreshes Web Audio Now Playing only on a playback-state change or a
-  // timer of several seconds, so repeats and stalls would otherwise show late.
+  // WebKit refreshes a direct AudioContext's Now Playing only on a playback-state
+  // change or a timer of several seconds; the media-element output refreshes on
+  // position changes, where this is redundant but harmless.
   const announce = () => {
     session.playbackState = "paused";
     session.playbackState = "playing";

@@ -16,29 +16,17 @@ function browser(t: TestContext, value: object) {
   });
 }
 
-test("other browsers and mobile Safari retain their device destination", (t) => {
-  const client = {
-    vendor: "Google Inc.",
-    userAgent: "Macintosh",
-    maxTouchPoints: 0,
-  };
-  browser(t, client);
+test("other browsers retain their device destination", (t) => {
+  browser(t, { vendor: "Google Inc.", userAgent: "Macintosh" });
   const context = { destination: {} } as AudioContext;
-  assert.equal(playbackDestination(context), context.destination);
-  client.vendor = "Apple Computer, Inc.";
-  client.userAgent = "iPhone";
-  client.maxTouchPoints = 5;
-  assert.equal(playbackDestination(context), context.destination);
-  client.userAgent = "Macintosh"; // iPad's desktop website identity.
   assert.equal(playbackDestination(context), context.destination);
 });
 
-test("Mac Safari reuses media output and starts it alongside context resume", async (t) => {
+test("Apple WebKit reuses media output and starts it alongside context resume", async (t) => {
   const session = { type: "auto" };
   browser(t, {
     vendor: "Apple Computer, Inc.",
-    userAgent: "Macintosh",
-    maxTouchPoints: 0,
+    userAgent: "iPhone",
     audioSession: session,
   });
   const calls: string[] = [];
@@ -104,4 +92,71 @@ test("Mac Safari reuses media output and starts it alongside context resume", as
   rejectPlay = false;
   await resumePlayback(context);
   assert.equal(media.length, 1, "retry reuses the same stream");
+});
+
+test("the output element pauses only after every transport stops", (t) => {
+  browser(t, { vendor: "Apple Computer, Inc." });
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const events: string[] = [];
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "Audio");
+  Object.defineProperty(globalThis, "Audio", {
+    configurable: true,
+    value: class {
+      srcObject: unknown;
+      play() {
+        events.push("play");
+        return Promise.resolve();
+      }
+      pause() {
+        events.push("pause");
+      }
+    },
+  });
+  t.after(() => {
+    if (previous) Object.defineProperty(globalThis, "Audio", previous);
+    else Reflect.deleteProperty(globalThis, "Audio");
+  });
+  const context = {
+    state: "running",
+    createMediaStreamDestination: () => ({ stream: {} }),
+  } as unknown as AudioContext;
+  class Transport extends EventTarget {
+    paused = true;
+    ended = false;
+    error = null;
+    set(paused: boolean) {
+      this.paused = paused;
+      this.dispatchEvent(new Event(paused ? "pause" : "play"));
+    }
+  }
+  const current = new Transport();
+  const next = new Transport();
+  playbackDestination(context, current);
+  playbackDestination(context, current);
+  playbackDestination(context, next);
+
+  void resumePlayback(context);
+  current.set(false);
+  next.set(false);
+  current.set(true);
+  t.mock.timers.tick(1000);
+  assert.deepEqual(events, ["play"], "a version handover keeps the output");
+
+  next.set(true);
+  t.mock.timers.tick(99);
+  assert.deepEqual(events, ["play"], "the fade tail stays audible");
+  t.mock.timers.tick(1);
+  assert.deepEqual(events, ["play", "pause"], "Now Playing can show Play");
+
+  events.length = 0;
+  next.set(false);
+  next.set(true);
+  void resumePlayback(context);
+  next.set(false);
+  t.mock.timers.tick(1000);
+  assert.deepEqual(events, ["play"], "a new start cancels the idle pause");
+  next.ended = true;
+  next.dispatchEvent(new Event("ended"));
+  t.mock.timers.tick(100);
+  assert.deepEqual(events, ["play", "pause"], "ending releases the output");
 });
