@@ -53,3 +53,78 @@ export function activityTimeline<T extends Activity>(events: T[]): T[] {
   }
   return result;
 }
+
+export type ActivityRow = {
+  event: Activity & { linkId: string; session: string };
+};
+function groupBy<T, K>(items: T[], key: (item: T) => K) {
+  const groups = new Map<K, T[]>();
+  for (const item of items) {
+    const group = groups.get(key(item));
+    if (group) group.push(item);
+    else groups.set(key(item), [item]);
+  }
+  return groups;
+}
+const listenerName = (rows: ActivityRow[]) =>
+  rows.find((r) => r.event.name)?.event.name || null;
+
+// Unknown link or browser filters fall back to all, and a browser filter only
+// applies to browsers seen through the selected link. Groups keep row order.
+export function activityReport<R extends ActivityRow>(
+  rows: R[],
+  linkIds: string[],
+  filter: { link: string; browser: string },
+) {
+  const link = linkIds.includes(filter.link) ? filter.link : "";
+  const linkRows = link ? rows.filter((r) => r.event.linkId === link) : rows;
+  const listeners = [...groupBy(linkRows, (r) => r.event.browser)].map(
+    ([id, rows]) => ({ id, name: listenerName(rows), rows }),
+  );
+  const browser = listeners.some((l) => l.id === filter.browser)
+    ? filter.browser
+    : "";
+  const selected = browser
+    ? linkRows.filter((r) => r.event.browser === browser)
+    : linkRows;
+  const sessions = groupBy(selected, (r) =>
+    JSON.stringify([r.event.linkId, r.event.browser, r.event.session]),
+  );
+  return {
+    link,
+    browser,
+    listeners,
+    rows: selected,
+    byLink: groupBy(selected, (r) => r.event.linkId),
+    byVersion: groupBy(selected, (r) => r.event.versionId),
+    sessions: [...sessions].map(([key, rows]) => ({
+      key,
+      browser: rows[0].event.browser,
+      name: listenerName(rows),
+      rows,
+      timeline: activityTimeline(rows.map((r): R["event"] => r.event)),
+    })),
+    downloads: selected.filter((r) => r.event.kind === "download-started"),
+  };
+}
+
+// Position and width in percent of the version duration, with a minimum width
+// so markers and sub-second events stay visible.
+export function timelineBar(event: Activity, duration: number) {
+  const start = event.position || 0,
+    end = event.end ?? start;
+  const left = Math.min(100, (Math.min(start, end) / duration) * 100);
+  const width = Math.max(
+    0.5,
+    Math.min(100 - left, (Math.abs(end - start) / duration) * 100),
+  );
+  const kind =
+    event.kind === "interval"
+      ? "played"
+      : event.kind === "seek"
+        ? end >= start
+          ? "skipped"
+          : "backward"
+        : "marker";
+  return { left, width, kind };
+}
