@@ -73,7 +73,7 @@ export default function SongwriterPage() {
   const data = useLoaderData<typeof loader>();
   return (
     <section className="artist-page">
-      <p className="eyebrow">SONGWRITER</p>
+      <p className="eyebrow">Songwriter</p>
       <h1>{data.name}</h1>
       <h2>Releases</h2>
       <div className="catalog-grid">

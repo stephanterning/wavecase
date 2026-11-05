@@ -100,7 +100,7 @@ export default function Home() {
   if (account)
     return (
       <section className="welcome">
-        <p className="eyebrow">ACCOUNT RECOVERY</p>
+        <p className="eyebrow">Account recovery</p>
         <h1>Recover your account.</h1>
         <form onSubmit={submit} className="panel">
           <p>
@@ -132,7 +132,7 @@ export default function Home() {
           : "";
   return (
     <section className="welcome">
-      <p className="eyebrow">PRIVATE MUSIC SHARING</p>
+      <p className="eyebrow">Private music sharing</p>
       <h1>
         {data.setup
           ? "Make room for your music."

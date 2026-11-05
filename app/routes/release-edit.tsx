@@ -94,8 +94,10 @@ export default function ReleaseEditor() {
         )}
         <div>
           <p className="eyebrow">
-            {d.release.published ? "PUBLISHED" : "PRIVATE DRAFT"} ·{" "}
-            <Link to={`/artist-profiles/${d.artist.id}`}>{d.artist.name}</Link>
+            {d.release.published ? "Published" : "Private draft"} ·{" "}
+            <Link className="keep-case" to={`/artist-profiles/${d.artist.id}`}>
+              {d.artist.name}
+            </Link>
           </p>
           <h1>{d.release.title}</h1>
           <p>

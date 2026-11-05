@@ -110,7 +110,11 @@ p {
 .eyebrow {
   font-size: var(--text-xs);
   letter-spacing: 0.16em;
+  text-transform: uppercase;
   color: var(--color-accent);
+}
+.keep-case {
+  text-transform: none;
 }
 .demo-heading {
   display: flex;

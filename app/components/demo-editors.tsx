@@ -54,7 +54,7 @@ export function DemoIdentity({
         <div className="demo-title-row">
           <h1>{data.track.title}</h1>
           {data.track.artist && (
-            <p className="eyebrow">
+            <p className="eyebrow keep-case">
               {data.artistUrl ? (
                 <PublicLink
                   className="demo-artist"

@@ -83,7 +83,7 @@ export function Modal({
     >
       <div className="dialog-heading">
         <div>
-          {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+          {eyebrow && <p className="eyebrow keep-case">{eyebrow}</p>}
           <h2 id={heading}>{title}</h2>
         </div>
         <button

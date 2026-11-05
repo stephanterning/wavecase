@@ -256,7 +256,7 @@ export function Feedback({
         .map((c) => (
           <article className="panel" key={c.id}>
             {owner && (
-              <p className="eyebrow">
+              <p className="eyebrow keep-case">
                 {versions.find((v) => v.id === c.versionId)?.name} ·{" "}
                 {c.linkId === null
                   ? "Internal · owners only"

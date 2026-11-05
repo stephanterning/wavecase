@@ -72,7 +72,7 @@ export default function ArtistPage() {
           />
         )}
         <div>
-          <p className="eyebrow">ARTIST</p>
+          <p className="eyebrow">Artist</p>
           <h1>{d.artist.name}</h1>
           <p className="preserve-lines">{d.artist.bio}</p>
         </div>
