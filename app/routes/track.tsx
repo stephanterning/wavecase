@@ -162,7 +162,6 @@ function TrackContents() {
     position: number;
   } | null>(null);
   const [draft, setDraft] = useState<CommentDraft | null>(null);
-  const [repeat, setRepeat] = useState(false);
   const current =
     data.versions.find((v) => v.id === selection) ||
     data.versions.find((v) => v.state === "ready") ||
@@ -244,8 +243,6 @@ function TrackContents() {
           artwork={artwork}
           seekRequest={seekRequest}
           playbackRef={cursor}
-          repeat={repeat}
-          onRepeatChange={setRepeat}
           onSelect={(id) => {
             setSelection(id);
             setDraft(null);

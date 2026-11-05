@@ -9,6 +9,7 @@ import {
 } from "react";
 import { ReleasePlayback } from "./release-playback";
 import { useMediaSession } from "./media-session";
+import { setRepeatPreference, useRepeatPreference } from "./repeat-preference";
 import { BufferedAudio } from "./buffered-audio";
 import { MiniPlayer } from "./mini-player";
 import { useSpaceToggle } from "./use-space-toggle";
@@ -38,8 +39,12 @@ export function ReleasePlayerProvider({ children }: { children: ReactNode }) {
 }
 
 function ReleasePlayer() {
-  const { playback, queue, index, status, error, repeat, seeking, media } =
+  const { playback, queue, index, status, error, seeking, media } =
     useReleasePlayer();
+  const repeat = useRepeatPreference();
+  useEffect(() => {
+    playback.setRepeat(repeat);
+  }, [playback, repeat]);
   const track = queue?.tracks[index];
   const active = status === "playing" || status === "loading";
   useEffect(() => {
@@ -94,7 +99,7 @@ function ReleasePlayer() {
       onToggle={playback.toggle}
       repeatLabel="Repeat track"
       repeating={repeat}
-      onRepeat={playback.setRepeat}
+      onRepeat={setRepeatPreference}
     >
       {track && (
         <>
