@@ -9,7 +9,6 @@ import {
   playNormalized,
   seekPlayback,
   transitionSeconds,
-  startPlaybackAt,
 } from "./playback-audio";
 
 export type DemoSource = {
@@ -44,17 +43,12 @@ function ready(
 ) {
   return new Promise<void>((resolve, reject) => {
     const events = ["loadedmetadata", "canplay", "seeked", "playing", "error"];
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error("Audio loading timed out."));
-    }, 30000);
     const cleanup = () => {
-      clearTimeout(timeout);
       for (const event of events) media.removeEventListener(event, check);
       signal.removeEventListener("abort", check);
     };
-    const check = (event?: Event) => {
-      if (signal.aborted || media.error || event?.type === "error") {
+    const check = () => {
+      if (signal.aborted || media.error) {
         cleanup();
         reject(signal.reason || new Error("Audio could not be loaded."));
       } else if (predicate()) {
@@ -164,17 +158,13 @@ export class DemoPlayback {
         )
       : null;
     try {
-      if (this.wantPlay || media instanceof BufferedAudio)
-        await ready(media, () => media.readyState >= 1, signal);
+      await ready(media, () => media.readyState >= 1, signal);
       const previous = this.state.media;
       const position = () => {
         const time = pending.seekTo ?? previous?.currentTime ?? 0;
-        const duration = Number.isFinite(media.duration)
-          ? media.duration
-          : source.duration;
-        return time < duration ? time : 0;
+        return time < media.duration ? time : 0;
       };
-      if (media.readyState >= 1) media.currentTime = position();
+      media.currentTime = position();
       if (this.wantPlay) {
         try {
           if (earlyPlay) {
@@ -186,20 +176,13 @@ export class DemoPlayback {
         }
         // Loading can take seconds. Align against the advancing old version,
         // not the position captured when the user selected the new version.
-        let corrections = 0;
         do {
           await ready(
             media,
             () => media.readyState >= 3 && !media.seeking,
             signal,
           );
-          const buffered = media instanceof BufferedAudio;
-          if (
-            !previous ||
-            Math.abs(media.currentTime - position()) <=
-              (buffered ? 0.05 : 0.25) ||
-            (!buffered && corrections++ >= 3)
-          )
+          if (!previous || Math.abs(media.currentTime - position()) <= 0.05)
             break;
           media.currentTime = position();
         } while (this.wantPlay);
@@ -207,7 +190,7 @@ export class DemoPlayback {
       signal.throwIfAborted();
       if (!this.wantPlay) {
         media.pause();
-        startPlaybackAt(media, position());
+        media.currentTime = position();
       }
       this.stopLoop?.();
       const stopLoop = observePlaybackLoop(media);
@@ -215,16 +198,13 @@ export class DemoPlayback {
         this.wantPlay = false;
       };
       media.addEventListener("ended", ended);
-      const sync = () => {
-        // The OS can pause a native element without invoking our controls.
-        this.wantPlay = !media.paused && !media.ended && !media.error;
+      const sync = () =>
         this.update({
-          playing: this.wantPlay,
+          playing: !media.paused,
           ...(media.error
             ? { error: "Audio is unavailable. Please try again." }
             : {}),
         });
-      };
       const events = ["play", "pause", "ended", "error"];
       for (const event of events) media.addEventListener(event, sync);
       this.stopLoop = () => {

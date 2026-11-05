@@ -2,6 +2,7 @@ import { compressedAudioCache } from "./compressed-audio-cache";
 import { createOutput } from "./stream-output.client";
 import {
   playbackContext,
+  playbackDestination,
   resumePlayback,
   transitionSeconds,
 } from "./audio-context";
@@ -69,7 +70,7 @@ export class BufferedAudio extends EventTarget {
     this.normalization = context.createGain();
     this.envelope = context.createGain();
     this.normalization.connect(this.envelope);
-    this.envelope.connect(context.destination);
+    this.envelope.connect(playbackDestination(context));
   }
   private emit(name: string) {
     this.dispatchEvent(new Event(name));

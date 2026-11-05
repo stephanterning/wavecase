@@ -9,7 +9,7 @@ class Media extends EventTarget {
   loop = false;
   paused = true;
   currentTime = 0;
-  duration = NaN;
+  duration = 60;
   readyState = 0;
   seeking = false;
   error: Error | null = null;
@@ -25,17 +25,16 @@ class Media extends EventTarget {
   }
   load() {}
   ready(state = 3) {
-    if (!Number.isFinite(this.duration)) this.duration = 60;
     this.readyState = state;
     this.dispatchEvent(new Event("loadedmetadata"));
     this.dispatchEvent(new Event("canplay"));
   }
 }
-const source = (id: string, duration = 60): DemoSource => ({
+const source = (id: string): DemoSource => ({
   key: id,
   versionId: id,
   url: `/media/${id}`,
-  duration,
+  duration: 60,
   gainDb: -3,
   peaks: [0, 1, 0],
   title: "Demo",
@@ -92,7 +91,7 @@ test("paused changes stay paused and shorter versions start at zero", async () =
   media[0].ready();
   await first;
   media[0].currentTime = 50;
-  const next = playback.select(source("short", 30));
+  const next = playback.select(source("short"));
   media[1].duration = 30;
   media[1].ready(1);
   await next;
@@ -192,118 +191,5 @@ test("a rejected old play cannot cancel a later resume or version change", async
   await next;
   assert.equal(media[1].paused, false);
   assert.equal(playback.getSnapshot().error, "");
-  playback.dispose();
-});
-
-test("paused native selection publishes before metadata and restores its start position", async () => {
-  const { playback, media, state, plays } = setup();
-  await playback.select(source("first"));
-  media[0].ready();
-  media[0].currentTime = 24;
-  await playback.select(source("next"));
-  assert.equal(state().source?.versionId, "next");
-  assert.equal(state().media, media[1] as unknown as PlaybackMedia);
-  assert.equal(state().loading, false);
-  assert.equal(media[1].readyState, 0);
-  assert.equal(media[1].currentTime, 0, "wait for the new element's timeline");
-  assert.equal(media[1].paused, true);
-  assert.equal(plays.length, 0, "selection must not need a playback gesture");
-  media[1].ready(1);
-  assert.equal(media[1].currentTime, 24);
-  await playback.play();
-  assert.equal(plays.at(-1)?.media, media[1] as unknown as PlaybackMedia);
-  assert.equal(
-    media[1].paused,
-    false,
-    "Play targets the newly selected version",
-  );
-  playback.dispose();
-});
-
-test("native version alignment stops after three corrective seeks", async () => {
-  const { playback, media, state } = setup();
-  await playback.select(source("first"));
-  media[0].ready();
-  await playback.play();
-  let audible = 10;
-  Object.defineProperty(media[0], "currentTime", {
-    get: () => (audible += 1),
-    set: () => {},
-  });
-  const next = playback.select(source("next"));
-  let seeks = 0;
-  let position = 0;
-  Object.defineProperty(media[1], "currentTime", {
-    get: () => position,
-    set: (value: number) => {
-      if (++seeks > 4) throw new Error("Version alignment did not stop");
-      position = value;
-    },
-  });
-  media[1].ready();
-  await next;
-  assert.equal(state().source?.versionId, "next");
-  assert.equal(state().loading, false);
-  assert.equal(seeks, 4, "one initial seek and at most three corrections");
-  playback.dispose();
-});
-
-test("native version alignment accepts a quarter-second offset", async () => {
-  const { playback, media, state } = setup();
-  await playback.select(source("first"));
-  media[0].ready();
-  await playback.play();
-  media[0].currentTime = 10;
-  const next = playback.select(source("next"));
-  let seeks = 0;
-  let position = 0;
-  Object.defineProperty(media[1], "currentTime", {
-    get: () => position,
-    set: (value: number) => {
-      if (++seeks > 1)
-        throw new Error("A tolerable offset caused another seek");
-      position = value - 0.2;
-    },
-  });
-  media[1].ready();
-  await next;
-  assert.equal(state().source?.versionId, "next");
-  assert.equal(seeks, 1);
-  playback.dispose();
-});
-
-test("a native replacement that never loads reaches retry after thirty seconds", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  const { playback, media, state } = setup();
-  await playback.select(source("first"));
-  media[0].ready();
-  await playback.play();
-  const next = playback.select(source("next"));
-  t.mock.timers.tick(29_999);
-  assert.equal(state().loading, true);
-  t.mock.timers.tick(1);
-  await next;
-  assert.equal(state().loading, false);
-  assert.equal(state().source?.versionId, "first");
-  assert.equal(media[0].paused, false, "the available version stays audible");
-  assert.equal(media[1].src, "");
-  assert.match(state().error, /could not be loaded/);
-  playback.dispose();
-});
-
-test("a native pause outside the controller keeps the next version paused", async () => {
-  const { playback, media, state, plays } = setup();
-  await playback.select(source("first"));
-  media[0].ready();
-  await playback.play();
-  // The system can interrupt the native element without calling our handler.
-  media[0].pause();
-  media[0].dispatchEvent(new Event("pause"));
-  const next = playback.select(source("next"));
-  media[1].ready();
-  await next;
-  assert.equal(state().source?.versionId, "next");
-  assert.equal(media[1].paused, true);
-  assert.equal(plays.length, 1, "selection does not restart interrupted audio");
   playback.dispose();
 });

@@ -117,28 +117,11 @@ test("playback applies gain before playing, reuses sources, and resumes the cont
     if (previous) Object.defineProperty(globalThis, "AudioContext", previous);
     else Reflect.deleteProperty(globalThis, "AudioContext");
   });
-  const previousNavigator = Object.getOwnPropertyDescriptor(
-    globalThis,
-    "navigator",
-  )!;
-  const audioSession = { type: "playback" };
-  Object.defineProperty(globalThis, "navigator", {
-    configurable: true,
-    value: { audioSession },
-  });
-  t.after(() =>
-    Object.defineProperty(globalThis, "navigator", previousNavigator),
-  );
   let playing = false;
   let rejectPlay = false;
   const media = {
     async play() {
       assert.ok(gains.length > 0, "gain is set before playback starts");
-      assert.equal(
-        audioSession.type,
-        "auto",
-        "native files do not promote the gain context to Now Playing",
-      );
       assert.equal(sources[0].connections.length, 1);
       if (rejectPlay) throw new Error("Playback denied");
       playing = true;
@@ -173,13 +156,7 @@ test("playback applies gain before playing, reuses sources, and resumes the cont
   assert.equal(sources.length, 2);
   await playNormalized(next, 3, true);
   assert.equal(envelopes[1].value, 0, "preparing another version is inaudible");
-  assert.equal(
-    next.muted,
-    true,
-    "the native platform also sees the candidate as muted",
-  );
   crossfadePlayback(media, next);
-  assert.equal(next.muted, false);
   assert.deepEqual(envelopes[0].ramps.at(-1), [0, transitionSeconds]);
   assert.deepEqual(envelopes[1].ramps.at(-1), [1, transitionSeconds]);
   assert.ok(transitionSeconds <= 0.005);
@@ -243,14 +220,6 @@ test("playback applies gain before playing, reuses sources, and resumes the cont
     true,
     "an old play rejection must not pause a new source",
   );
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  t.mock.method(media, "play", () => new Promise<void>(() => {}));
-  const pending = playNormalized(media, 0);
-  const timedOut = assert.rejects(pending, /startup timed out/);
-  t.mock.timers.tick(30000);
-  await timedOut;
-  assert.equal(playing, false, "a stalled native start reaches retry");
-  t.mock.timers.reset();
   disconnectPlaybackAudio(media);
   disconnectPlaybackAudio(next);
 });

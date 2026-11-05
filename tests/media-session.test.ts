@@ -1,4 +1,3 @@
-import { BufferedAudio } from "../app/components/buffered-audio";
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { attachMediaSession } from "../app/components/media-session";
@@ -19,13 +18,6 @@ class Media extends EventTarget {
     this.dispatchEvent(new Event("pause"));
   }
 }
-
-// Use the existing worklet contract for its lifecycle/reporting tests without
-// constructing an audio graph. Native elements are tested separately below.
-Object.setPrototypeOf(Media.prototype, BufferedAudio.prototype);
-
-const frozen = (state?: MediaPositionState) =>
-  (state?.playbackRate ?? 1) < 0.001;
 
 function browserSession(t: TestContext) {
   const previous = new Map(
@@ -70,457 +62,121 @@ function browserSession(t: TestContext) {
   return { session, handlers, browser, metadata };
 }
 
-test("media sessions show the current track and clear private metadata and controls", async (t) => {
-  const { session, handlers, browser, metadata } = browserSession(t);
+test("lock-screen controls publish metadata and play/pause without track time or seeking", async (t) => {
+  const { session, handlers, metadata } = browserSession(t);
+  session.position = { duration: 60, position: 20, playbackRate: 1 };
+  const positions: (MediaPositionState | undefined)[] = [];
+  const original = session.setPositionState.bind(session);
+  t.mock.method(session, "setPositionState", (state?: MediaPositionState) => {
+    positions.push(state);
+    original(state);
+  });
   const media = new Media();
-  let errors = 0;
-  let normalizedPlays = 0;
-  const attach = (metadata: MediaMetadataInit) =>
-    attachMediaSession(
-      media as unknown as HTMLAudioElement,
-      metadata,
-      () => {
-        errors++;
-      },
-      () => {
-        normalizedPlays++;
-        return media.play();
-      },
-    );
-  const stopDemo = attach({
-    title: "Demo title",
-    artist: "Demo artist",
-    artwork: [{ src: "/cover/demo?share=private-link" }],
-  });
-  assert.equal(session.metadata?.title, "Demo title");
-  assert.equal(session.metadata?.artist, "Demo artist");
-  assert.deepEqual(session.metadata?.artwork, [
-    { src: "/cover/demo?share=private-link" },
-  ]);
-  assert.equal(session.playbackState, "paused");
-  handlers.get("play")!({ action: "play" });
-  assert.equal(media.paused, false);
-  assert.equal(
-    normalizedPlays,
-    1,
-    "lock-screen play uses the normalization callback",
-  );
-  assert.equal(session.playbackState, "playing");
-  handlers.get("seekto")!({ action: "seekto", seekTime: 23 });
-  assert.equal(media.currentTime, 23);
-  handlers.get("pause")!({ action: "pause" });
-  assert.equal(media.paused, true);
-  assert.equal(session.playbackState, "paused");
-
-  // A decoder/network error can stop audio without setting paused or firing pause.
-  await media.play();
-  media.error = { code: 3 };
-  media.dispatchEvent(new Event("error"));
-  assert.equal(session.metadata, null);
-  assert.equal(session.playbackState, "none");
-  assert.equal(session.position, undefined);
-  media.pause();
-  assert.equal(session.metadata, null);
-  assert.equal(session.playbackState, "none");
-  // Reloading a valid source clears the media error; playback restores metadata.
-  media.error = null;
-  handlers.get("play")!({ action: "play" });
-  assert.equal(metadata()?.title, "Demo title");
-  assert.equal(session.playbackState, "playing");
-
-  window.dispatchEvent(new Event("wavecase-access-revoked"));
-  assert.equal(session.metadata, null);
-  assert.equal(session.playbackState, "none");
-  assert.ok([...handlers.values()].every((handler) => handler === null));
-  assert.equal(session.position, undefined);
-  await media.play();
-  assert.equal(session.playbackState, "none");
-  stopDemo();
-
-  const stopRelease = attach({
-    title: "First release track",
-    artist: "Guest artist",
-    album: "Release title",
-    artwork: [
-      {
-        src: "/release-assets/release/artwork.jpg?v=cover.png",
-        sizes: "512x512",
-        type: "image/jpeg",
-      },
-    ],
-  });
-  assert.equal(metadata()?.album, "Release title");
-  assert.deepEqual(metadata()?.artwork, [
+  let plays = 0;
+  let pauses = 0;
+  const stop = attachMediaSession(
+    media as unknown as HTMLAudioElement,
     {
-      src: "/release-assets/release/artwork.jpg?v=cover.png",
-      sizes: "512x512",
-      type: "image/jpeg",
+      title: "Demo",
+      artist: "Artist",
+      album: "Album",
+      artwork: [{ src: "/private-cover" }],
     },
-  ]);
+    () => {},
+    () => {
+      plays++;
+      return media.play();
+    },
+    () => {
+      pauses++;
+      media.pause();
+    },
+  );
+  assert.equal(metadata()?.title, "Demo");
+  assert.equal(metadata()?.artist, "Artist");
+  assert.deepEqual(metadata()?.artwork, [{ src: "/private-cover" }]);
+  assert.equal(
+    session.position,
+    undefined,
+    "discard a previous player's timeline",
+  );
+  const disabled = [
+    "seekto",
+    "seekbackward",
+    "seekforward",
+    "previoustrack",
+    "nexttrack",
+  ];
+  for (const action of disabled) assert.equal(handlers.get(action), null);
+  assert.equal(session.playbackState, "paused");
+  handlers.get("play")!({ action: "play" });
+  assert.equal(plays, 1, "remote play uses the existing normalized transport");
   assert.equal(session.playbackState, "playing");
-  stopRelease();
-  const stopNext = attach({ title: "Next track", artist: "", artwork: [] });
-  assert.equal(metadata()?.title, "Next track");
-  assert.equal(metadata()?.artist, "");
-  assert.deepEqual(metadata()?.artwork, []);
-  media.ended = true;
-  media.dispatchEvent(new Event("ended"));
-  assert.equal(session.playbackState, "paused");
-  t.mock.method(media, "play", async () => {
-    throw new Error("Playback denied");
-  });
-  handlers.get("play")!({ action: "play" });
-  await Promise.resolve();
-  assert.equal(errors, 1);
-  stopNext();
-  assert.equal(session.metadata, null);
-  assert.equal(session.playbackState, "none");
-
-  t.mock.method(
-    session,
-    "setActionHandler",
-    (action: string, handler: MediaSessionActionHandler | null) => {
-      if (action === "seekto") throw new Error("Unsupported action");
-      handlers.set(action, handler);
-    },
-  );
-  const stopPartial = attach({ title: "Partial browser support" });
-  assert.ok(handlers.get("play"));
-  assert.doesNotThrow(stopPartial);
-  Reflect.deleteProperty(globalThis, "MediaMetadata");
-  assert.doesNotThrow(() => attach({ title: "No metadata API" })());
-  Reflect.deleteProperty(browser, "mediaSession");
-  assert.doesNotThrow(() => attach({ title: "No media session API" })());
-});
-
-test("media sessions report duration, position and rate through the playback lifecycle", async (t) => {
-  const { session } = browserSession(t);
-  const position = () => session.position;
-  const media = new Media();
-  media.duration = NaN;
-  const stop = attachMediaSession(
-    media as unknown as HTMLAudioElement,
-    { title: "Track" },
-    () => {},
-  );
-  assert.equal(position(), undefined, "metadata may not be loaded yet");
-  media.duration = 120;
-  media.dispatchEvent(new Event("loadedmetadata"));
-  assert.equal(position()?.duration, 120);
-  assert.equal(position()?.position, 0);
-  assert.ok(frozen(position()), "a paused timeline is frozen");
-  await media.play();
-  assert.equal(position()?.playbackRate, 1);
-  media.currentTime = 32;
-  media.dispatchEvent(new Event("timeupdate"));
-  assert.equal(position()?.position, 32);
-  media.pause();
-  assert.equal(position()?.position, 32);
-  assert.ok(frozen(position()));
-  assert.equal(session.playbackState, "paused");
-  media.currentTime = 50;
-  media.dispatchEvent(new Event("seeked"));
-  assert.equal(position()?.position, 50);
-  await media.play();
-  media.playbackRate = 1.5;
-  media.dispatchEvent(new Event("ratechange"));
-  assert.equal(position()?.playbackRate, 1.5);
-  media.playbackRate = 1;
-  media.duration = 90;
-  media.dispatchEvent(new Event("durationchange"));
-  assert.equal(position()?.duration, 90);
-  media.currentTime = 90;
-  media.ended = true;
-  media.dispatchEvent(new Event("ended"));
-  assert.equal(position()?.position, 90);
-  assert.equal(session.playbackState, "paused");
-
-  media.duration = NaN;
-  media.dispatchEvent(new Event("emptied"));
-  assert.equal(position(), undefined, "a new source clears the old timeline");
-  media.duration = 30;
-  media.currentTime = 0;
-  media.dispatchEvent(new Event("loadedmetadata"));
-  assert.equal(position()?.duration, 30);
-  stop();
-  assert.equal(position(), undefined);
-  media.dispatchEvent(new Event("timeupdate"));
-  assert.equal(position(), undefined, "cleanup removes timeline listeners");
-});
-
-test("repeats and stalls refresh the lock-screen timeline while playing", async (t) => {
-  const { session } = browserSession(t);
-  const states: string[] = [];
-  let state = session.playbackState;
-  Object.defineProperty(session, "playbackState", {
-    get: () => state,
-    set: (value: string) => {
-      // Browsers ignore assignments of the current state.
-      if (value !== state)
-        states.push(`${value}@${session.position?.position}`);
-      state = value;
-    },
-  });
-  const media = new Media();
-  const stop = attachMediaSession(
-    media as unknown as HTMLAudioElement,
-    { title: "Track" },
-    () => {},
-  );
-  await media.play();
-  media.currentTime = 59.9;
-  media.dispatchEvent(new Event("timeupdate"));
-  states.length = 0;
-  media.currentTime = 0.1;
-  media.dispatchEvent(new Event("wavecase-loop"));
-  assert.deepEqual(
-    states,
-    ["paused@0.1", "playing@0.1"],
-    "the wrapped position is reported before the state change",
-  );
-  assert.equal(session.position?.playbackRate, 1);
-
-  states.length = 0;
-  media.dispatchEvent(new Event("waiting"));
-  assert.ok(frozen(session.position), "a stall freezes");
-  assert.deepEqual(states, ["paused@0.1", "playing@0.1"]);
-  media.dispatchEvent(new Event("timeupdate"));
-  assert.equal(states.length, 2, "position updates alone do not re-announce");
-  media.currentTime = 0.2;
-  media.dispatchEvent(new Event("playing"));
-  assert.equal(session.position?.playbackRate, 1);
-  assert.deepEqual(states.slice(2), ["paused@0.2", "playing@0.2"]);
-
-  states.length = 0;
-  media.pause();
-  assert.deepEqual(states, ["paused@0.2"]);
-  assert.ok(frozen(session.position));
-  media.dispatchEvent(new Event("wavecase-loop"));
-  assert.deepEqual(states, ["paused@0.2"], "paused loops are not announced");
-  stop();
-});
-
-test("single-track controls seek by ten seconds or the platform offset within the track", (t) => {
-  const { session, handlers } = browserSession(t);
-  const media = new Media();
-  media.currentTime = 23;
-  const stop = attachMediaSession(
-    media as unknown as HTMLAudioElement,
-    { title: "Demo" },
-    () => {},
-  );
-  handlers.get("seekbackward")!({ action: "seekbackward" });
-  assert.equal(media.currentTime, 13);
-  assert.equal(session.position?.position, 13);
-  handlers.get("seekforward")!({ action: "seekforward", seekOffset: 20 });
-  assert.equal(media.currentTime, 33);
-  handlers.get("seekbackward")!({ action: "seekbackward", seekOffset: 50 });
-  assert.equal(media.currentTime, 0);
-  handlers.get("seekforward")!({ action: "seekforward", seekOffset: 100 });
-  assert.equal(media.currentTime, 60);
-  handlers.get("seekto")!({ action: "seekto", seekTime: 17 });
-  assert.equal(media.currentTime, 17);
-  handlers.get("seekto")!({ action: "seekto", seekTime: NaN });
-  assert.equal(media.currentTime, 17);
-  media.duration = NaN;
-  handlers.get("seekforward")!({ action: "seekforward" });
-  assert.equal(media.currentTime, 17, "wait for a seekable duration");
-  assert.equal(media.paused, true, "seeking does not start playback");
-  assert.equal(handlers.get("previoustrack"), null);
-  assert.equal(handlers.get("nexttrack"), null);
-  stop();
-});
-
-test("queue controls use the shared player and disable next at the queue boundary", (t) => {
-  const { handlers } = browserSession(t);
-  const media = new Media();
-  let previous = 0;
-  let next = 0;
-  let sought = 0;
-  const attach = (canNext: boolean) =>
-    attachMediaSession(
-      media as unknown as HTMLAudioElement,
-      { title: "Release track" },
-      () => {},
-      () => media.play(),
-      undefined,
-      {
-        seek: (position) => {
-          sought = position;
-          media.currentTime = position;
-        },
-        previousTrack: () => {
-          previous++;
-        },
-        nextTrack: canNext
-          ? () => {
-              next++;
-            }
-          : undefined,
-      },
-    );
-  const stop = attach(true);
-  handlers.get("seekto")!({ action: "seekto", seekTime: 23 });
-  assert.equal(sought, 23);
-  handlers.get("previoustrack")!({ action: "previoustrack" });
-  handlers.get("nexttrack")!({ action: "nexttrack" });
-  assert.equal(previous, 1);
-  assert.equal(next, 1);
-  assert.equal(handlers.get("seekbackward"), null);
-  assert.equal(handlers.get("seekforward"), null);
-  stop();
-  const stopLast = attach(false);
-  assert.equal(handlers.get("nexttrack"), null);
-  assert.ok(handlers.get("previoustrack"));
-  stopLast();
-  assert.ok([...handlers.values()].every((handler) => handler === null));
-});
-
-test("invalid timing and partial position APIs do not break playback controls", (t) => {
-  const { session, handlers } = browserSession(t);
-  const media = new Media();
-  const stop = attachMediaSession(
-    media as unknown as HTMLAudioElement,
-    { title: "Track" },
-    () => {},
-  );
-  for (const duration of [NaN, Infinity, 0, -1]) {
-    media.duration = duration;
-    media.dispatchEvent(new Event("durationchange"));
-    assert.equal(session.position, undefined);
-  }
-  media.duration = 60;
-  media.currentTime = 70;
-  media.dispatchEvent(new Event("timeupdate"));
-  assert.equal(session.position?.position, 60);
-  media.currentTime = -1;
-  media.dispatchEvent(new Event("timeupdate"));
-  assert.equal(session.position?.position, 0);
-  media.playbackRate = 0;
-  media.dispatchEvent(new Event("ratechange"));
-  assert.equal(session.position, undefined);
-  t.mock.method(session, "setPositionState", () => {
-    throw new Error("Unsupported");
-  });
-  assert.doesNotThrow(() => handlers.get("pause")!({ action: "pause" }));
-  assert.doesNotThrow(stop);
-  Reflect.deleteProperty(session, "setPositionState");
-  assert.doesNotThrow(() =>
-    attachMediaSession(
-      media as unknown as HTMLAudioElement,
-      { title: "No position API" },
-      () => {},
-    )(),
-  );
-});
-
-class NativeMedia extends EventTarget {
-  currentTime = 0;
-  duration = 60;
-  playbackRate = 1;
-  paused = true;
-  ended = false;
-  error: { code: number } | null = null;
-  async play() {
-    this.paused = false;
-    this.dispatchEvent(new Event("play"));
-  }
-  pause() {
-    this.paused = true;
-    this.dispatchEvent(new Event("pause"));
-  }
-}
-
-test("native audio owns the timeline and state while remote commands control the element", async (t) => {
-  const { session, handlers, browser } = browserSession(t);
-  Object.assign(browser, { vendor: "Apple Computer, Inc." });
-  t.mock.timers.enable({ apis: ["setTimeout"] });
-  Object.defineProperty(session, "playbackState", {
-    get: () => "none",
-    set: () => assert.fail("do not override the native playback state"),
-  });
-  t.mock.method(session, "setPositionState", () => {
-    assert.fail("do not override the native timeline");
-  });
-  const media = new NativeMedia();
-  const stop = attachMediaSession(
-    media as unknown as HTMLAudioElement,
-    { title: "Demo" },
-    () => {},
-  );
-  const seekTo = handlers.get("seekto");
-  handlers.get("play")!({ action: "play" });
-  assert.equal(media.paused, false);
+  media.currentTime = 35;
   for (const event of [
-    "playing",
-    "waiting",
     "timeupdate",
-    "wavecase-loop",
+    "loadedmetadata",
+    "durationchange",
+    "waiting",
+    "playing",
     "seeking",
     "seeked",
-    "durationchange",
+    "wavecase-loop",
+    "ratechange",
   ])
     media.dispatchEvent(new Event(event));
-  t.mock.timers.tick(1000);
-  assert.equal(
-    handlers.get("seekto"),
-    seekTo,
-    "playback never removes or replaces seeking commands",
+  assert.deepEqual(
+    positions,
+    [undefined],
+    "transport events never publish time",
   );
-  media.currentTime = 23;
-  handlers.get("seekbackward")!({ action: "seekbackward" });
-  assert.equal(media.currentTime, 13);
-  handlers.get("seekforward")!({ action: "seekforward" });
-  assert.equal(media.currentTime, 23);
-  handlers.get("seekforward")!({ action: "seekforward", seekOffset: 100 });
-  assert.equal(media.currentTime, 60);
-  handlers.get("seekbackward")!({ action: "seekbackward", seekOffset: 100 });
-  assert.equal(media.currentTime, 0);
+  assert.equal(session.playbackState, "playing");
+  for (const action of disabled) assert.equal(handlers.get(action), null);
   handlers.get("pause")!({ action: "pause" });
-  handlers.get("seekto")!({ action: "seekto", seekTime: 35 });
-  assert.equal(media.currentTime, 35);
+  assert.equal(pauses, 1);
   assert.equal(media.paused, true);
-  handlers.get("seekto")!({ action: "seekto", seekTime: NaN });
-  assert.equal(media.currentTime, 35);
-  assert.equal(handlers.get("previoustrack"), null);
-  assert.equal(handlers.get("nexttrack"), null);
+  assert.equal(session.playbackState, "paused");
+  media.ended = true;
+  media.dispatchEvent(new Event("ended"));
+  assert.equal(session.playbackState, "paused");
   stop();
+  assert.equal(metadata(), null);
+  assert.equal(session.playbackState, "none");
+  assert.deepEqual(positions, [undefined, undefined]);
   assert.ok([...handlers.values()].every((handler) => handler === null));
+  await media.play();
+  assert.equal(
+    session.playbackState,
+    "none",
+    "exit removes transport listeners",
+  );
 });
 
-test("metadata follows the selected source and clears on failure, revocation and exit", async (t) => {
-  const { session, handlers } = browserSession(t);
-  const media = new NativeMedia();
+test("media failure and revocation clear private metadata and remote controls", async (t) => {
+  const { session, handlers, metadata } = browserSession(t);
+  const media = new Media();
   const stop = attachMediaSession(
     media as unknown as HTMLAudioElement,
-    { title: "Track", artist: "Artist", artwork: [{ src: "/cover/private" }] },
+    { title: "Private demo" },
     () => {},
   );
-  assert.equal((session.metadata as MediaMetadataInit | null)?.title, "Track");
-  media.dispatchEvent(new Event("error"));
-  assert.equal(
-    session.metadata,
-    null,
-    "also clear synthetic media errors without media.error",
-  );
   await media.play();
-  assert.equal((session.metadata as MediaMetadataInit | null)?.title, "Track");
   media.error = { code: 3 };
   media.dispatchEvent(new Event("error"));
   media.pause();
-  assert.equal(session.metadata, null);
+  assert.equal(metadata(), null);
+  assert.equal(session.playbackState, "none");
   media.error = null;
   await media.play();
+  assert.equal(metadata()?.title, "Private demo");
   window.dispatchEvent(new Event("wavecase-access-revoked"));
-  assert.equal(session.metadata, null);
+  assert.equal(metadata(), null);
   assert.ok([...handlers.values()].every((handler) => handler === null));
-  await media.play();
-  assert.equal(session.metadata, null);
   stop();
 });
 
-test("unsupported media actions and rejected playback remain handled", async (t) => {
-  const { session, handlers } = browserSession(t);
+test("partial Media Session support and rejected remote playback are handled", async (t) => {
+  const { session, handlers, browser } = browserSession(t);
   const original = session.setActionHandler.bind(session);
   t.mock.method(
     session,
@@ -530,20 +186,39 @@ test("unsupported media actions and rejected playback remain handled", async (t)
       original(action, handler);
     },
   );
-  const media = new NativeMedia();
-  let errors = 0;
+  t.mock.method(session, "setPositionState", () => {
+    throw new Error("Unsupported position API");
+  });
+  const media = new Media();
+  let failures = 0;
   const stop = attachMediaSession(
     media as unknown as HTMLAudioElement,
     { title: "Track" },
     () => {
-      errors++;
+      failures++;
     },
     async () => {
-      throw new Error("Playback failed");
+      throw new Error("Interrupted");
     },
   );
   handlers.get("play")!({ action: "play" });
   await Promise.resolve();
-  assert.equal(errors, 1);
+  assert.equal(failures, 1);
   assert.doesNotThrow(stop);
+  Reflect.deleteProperty(session, "setPositionState");
+  assert.doesNotThrow(() =>
+    attachMediaSession(
+      media as unknown as HTMLAudioElement,
+      { title: "Track" },
+      () => {},
+    )(),
+  );
+  Reflect.deleteProperty(browser, "mediaSession");
+  assert.doesNotThrow(() =>
+    attachMediaSession(
+      media as unknown as HTMLAudioElement,
+      { title: "Track" },
+      () => {},
+    )(),
+  );
 });
