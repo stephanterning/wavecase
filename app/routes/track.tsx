@@ -1,24 +1,21 @@
-import {
-  DemoIdentity,
-  VersionEditor,
-  ReplaceAudio,
-} from "../components/demo-editors";
+import { DemoIdentity } from "../components/demo-editors";
 import { ShareLinks } from "../components/share-links";
-import { linkVersionScope } from "../domain/share-links";
-import { EditForm } from "../components/editing";
+import { OwnerTrackActions } from "../components/owner-track-actions";
+import {
+  ReuploadRequests,
+  RequestReupload,
+} from "../components/reupload-requests";
+import { VersionPlayerPanel } from "../components/version-player-panel";
 import { demoWavAvailable } from "../server/download";
 import { artistChoices } from "../server/track-artist";
 import { trackPage } from "../server/track-page";
 import { demoMutation } from "../server/demo-mutations";
 import { dataDir } from "../server/config";
 import { useWorkspacePlayback } from "../components/workspace-player";
-import { Player, type Playback } from "../components/player";
+import type { Playback } from "../components/player";
 import { Feedback } from "../components/feedback";
-import { Download } from "../components/download";
-import { Icon } from "../components/icons";
 import type { CommentDraft } from "../components/comment-dialog";
 import {
-  Form,
   useLoaderData,
   useRevalidator,
   useActionData,
@@ -34,12 +31,6 @@ import {
   inArray,
   sql,
 } from "drizzle-orm";
-import {
-  defaultVersionStatus,
-  nextVersionName,
-  versionNameFromFile,
-  versionStatuses,
-} from "../domain/versions";
 import { recordVisit } from "../components/telemetry";
 import { useEffect, useRef, useState } from "react";
 import { db } from "../server/db";
@@ -189,7 +180,6 @@ function TrackContents() {
     previousVersion.current = current?.id;
   }, [current, data.owner, data.versions]);
   const revalidator = useRevalidator();
-  const nextName = nextVersionName(data.versions.map((v) => v.name));
   const artwork = data.track.cover
     ? `/cover/${data.track.id}?v=${data.track.coverRevision}${data.share ? "&share=" + data.share : ""}${data.preview ? "&preview=1" : ""}`
     : undefined;
@@ -225,61 +215,7 @@ function TrackContents() {
       )}
       <DemoIdentity data={data} artwork={artwork} />
       {data.owner && (
-        <nav className="section-nav" aria-label="Track actions">
-          <EditForm
-            id="upload-new-version"
-            label="New version"
-            trigger="Upload new version"
-            resetOnSave
-            encType="multipart/form-data"
-            onSuccess={(saved) => {
-              if ("version" in saved && typeof saved.version === "string")
-                setSelection(saved.version);
-            }}
-            actions={
-              <button className="button-primary">Upload new version</button>
-            }
-          >
-            <input type="hidden" name="intent" value="upload-version" />
-            <label>
-              Audio file
-              <input
-                type="file"
-                name="audio"
-                required
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  const field = e.target.form?.elements.namedItem("name");
-                  if (file && field instanceof HTMLInputElement)
-                    field.value = versionNameFromFile(file.name) || nextName;
-                }}
-              />
-            </label>
-            <label>
-              Version name
-              <input name="name" required defaultValue={nextName} />
-            </label>
-            <label>
-              Status
-              <select
-                name="status"
-                defaultValue={data.versions[0]?.status ?? defaultVersionStatus}
-              >
-                {versionStatuses.map((status) => (
-                  <option key={status}>{status}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Description
-              <textarea name="description" />
-            </label>
-            <label className="check">
-              <input type="checkbox" name="download" />
-              Allow downloads
-            </label>
-          </EditForm>
-        </nav>
+        <OwnerTrackActions versions={data.versions} onUploaded={setSelection} />
       )}
       {result?.error && <p role="alert">{result.error}</p>}
       {!data.owner && !data.versions.length && (
@@ -288,197 +224,34 @@ function TrackContents() {
       {!data.owner &&
         !!data.versions.length &&
         !data.versions.some((v) => v.state === "ready") && (
-          <Form
-            method="post"
-            onSubmit={(event) => {
-              if (data.preview) {
-                event.preventDefault();
-                alert("Preview only. No reupload request was sent.");
-                return;
-              }
-              const field = event.currentTarget.elements.namedItem("name");
-              if (field instanceof HTMLInputElement)
-                field.value = localStorage.getItem("wavecase.name") || "";
-            }}
-          >
-            <input type="hidden" name="name" />
-            <button>Request reupload</button>
-            {result?.requested && (
-              <p role="status">Your reupload request has been sent.</p>
-            )}
-          </Form>
+          <RequestReupload
+            preview={data.preview}
+            requested={result?.requested}
+          />
         )}
-      {data.owner &&
-        data.requests.map((r) => {
-          const link = data.links.find((l) => l.id === r.linkId);
-          return (
-            <div key={r.linkId} className="panel">
-              Reupload requested via {link?.label}
-              {link && <> · {linkVersionScope(link, data.versions)}</>}
-              {r.name && <> · {r.name}</>}
-              <Form method="post" action={"/tracks/" + data.track.id}>
-                <input type="hidden" name="link" value={r.linkId} />
-                <button name="intent" value="dismiss-request">
-                  Dismiss
-                </button>
-              </Form>
-            </div>
-          );
-        })}
+      {data.owner && (
+        <ReuploadRequests
+          trackId={data.track.id}
+          requests={data.requests}
+          links={data.links}
+          versions={data.versions}
+        />
+      )}
       {current && (
-        <section className="panel player-panel">
-          <div className="version-heading">
-            {data.versions.length > 1 ? (
-              <label className="version-picker">
-                <span className="sr-only">Version</span>
-                <span className="version-select-size">
-                  <span aria-hidden="true">{current.name}</span>
-                  <select
-                    value={current.id}
-                    onChange={(e) => {
-                      setSelection(e.target.value);
-                      setDraft(null);
-                    }}
-                  >
-                    {data.versions.map((v) => (
-                      <option value={v.id} key={v.id}>
-                        {v.name}
-                      </option>
-                    ))}
-                  </select>
-                </span>
-              </label>
-            ) : (
-              <span className="version-name">{current.name}</span>
-            )}
-            {data.owner && (
-              <VersionEditor trackId={data.track.id} version={current} />
-            )}
-          </div>
-          <p>
-            {current.status}
-            {data.owner &&
-              ` · ${current.download ? "Downloads allowed" : "Downloads disabled"}`}
-          </p>
-          {current.description && (
-            <p className="demo-description">{current.description}</p>
-          )}
-          {data.owner &&
-            current.processing &&
-            current.state !== "processing" && (
-              <p role="status">Processing replacement audio…</p>
-            )}
-          {data.owner && current.error && <p role="alert">{current.error}</p>}
-          <div className="metrics">
-            {[
-              ["LUFS", "lufs"],
-              ["Peak (dBFS)", "peak"],
-              ["True peak (dBTP)", "truePeak"],
-              ["LRA (LU)", "lra"],
-            ].map(([label, key]) => (
-              <span key={key}>
-                {label}{" "}
-                <strong>
-                  {current.state === "ready" &&
-                  typeof current.metadata?.[key] === "number"
-                    ? Number(current.metadata[key]).toFixed(1)
-                    : "—"}
-                </strong>
-              </span>
-            ))}
-          </div>
-          <div className="demo-waveform">
-            {data.owner && (
-              <ReplaceAudio trackId={data.track.id} version={current} />
-            )}
-            {current.state === "ready" ? (
-              <Player
-                key={`${data.track.id}:${data.share || ""}:${data.preview}`}
-                trackId={data.track.id}
-                versionName={current.name}
-                revision={current.revision}
-                seekRequest={seekRequest}
-                availableSources={data.versions
-                  .filter((v) => v.state === "ready")
-                  .map((v) => v.id + v.revision)
-                  .join(",")}
-                title={data.track.title}
-                artist={data.track.artist}
-                artwork={artwork}
-                playbackRef={cursor}
-                repeat={repeat}
-                onRepeatChange={setRepeat}
-                onComment={(selection) =>
-                  setDraft({ versionId: current.id, ...selection })
-                }
-                share={data.preview ? undefined : data.share}
-                versionId={current.id}
-                url={
-                  "/media/" +
-                  current.id +
-                  (data.share ? "?share=" + data.share : "") +
-                  (data.preview ? "&preview=1" : "")
-                }
-                peaks={current.peaks || []}
-                duration={current.duration || 0}
-                metadata={current.metadata}
-              />
-            ) : (
-              <div className="audio-unavailable" role="status">
-                <strong>
-                  {current.state === "missing"
-                    ? "Audio unavailable"
-                    : current.state === "failed"
-                      ? "Audio could not be processed"
-                      : "Processing audio…"}
-                </strong>
-                {current.state === "missing" && (
-                  <p>
-                    The audio for this version is currently unavailable. Please
-                    check back later.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="track-actions">
-            <button
-              type="button"
-              className="secondary"
-              onClick={() =>
-                setDraft({ versionId: current.id, start: null, end: null })
-              }
-            >
-              {data.owner ? "Add internal comment" : "Add comment"}
-            </button>
-            <span
-              className="tooltip"
-              data-tooltip={
-                current.canDownload ? "Download audio" : "Download unavailable"
-              }
-            >
-              {current.canDownload ? (
-                <Download
-                  key={current.id + current.revision}
-                  versionId={current.id}
-                  versionName={current.name}
-                  share={data.share}
-                  owner={data.owner}
-                  wav={current.wavDownload}
-                  preview={data.preview}
-                />
-              ) : (
-                <button
-                  className="icon-action"
-                  disabled
-                  aria-label="Download unavailable"
-                >
-                  <Icon name="download" />
-                </button>
-              )}
-            </span>
-          </div>
-        </section>
+        <VersionPlayerPanel
+          data={data}
+          version={current}
+          artwork={artwork}
+          seekRequest={seekRequest}
+          playbackRef={cursor}
+          repeat={repeat}
+          onRepeatChange={setRepeat}
+          onSelect={(id) => {
+            setSelection(id);
+            setDraft(null);
+          }}
+          onComment={setDraft}
+        />
       )}
       {data.owner && (
         <ShareLinks
