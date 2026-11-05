@@ -40,7 +40,9 @@ export function setPlaybackSource(media: PlaybackMedia, source: string) {
     media.src = url.href;
     return;
   }
-  const hls = new Hls({ maxBufferLength: 30, backBufferLength: 30 });
+  // Chrome caps buffered audio near 12 MB, about 40 seconds of dense 24-bit
+  // FLAC. Older segments come back from the HTTP cache when needed.
+  const hls = new Hls({ maxBufferLength: 30, backBufferLength: 10 });
   state.hls = hls;
   hls.on(Hls.Events.ERROR, (_event, error) => {
     if (!error.fatal || transports.get(media) !== state) return;
