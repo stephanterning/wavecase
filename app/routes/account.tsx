@@ -178,6 +178,7 @@ export default function Account() {
               <span className="muted">{passkeyDates(key)}</span>
             </p>
             <ConfirmButton
+              aria-label={`Remove passkey ${i + 1}`}
               disabled={keys.length <= 1}
               confirmTitle={`Remove passkey ${i + 1} · ${key.id.slice(0, 8)}?`}
               confirmMessage={

@@ -124,7 +124,15 @@ export default function Admin() {
             <input type="hidden" name="id" value={invite.id} />
             <p>
               {invite.used ? "Used" : "Expires " + formatDate(invite.expires)}{" "}
-              <button name="intent" value="revoke">
+              <button
+                name="intent"
+                value="revoke"
+                aria-label={
+                  invite.used
+                    ? "Revoke used invitation"
+                    : "Revoke invitation expiring " + formatDate(invite.expires)
+                }
+              >
                 Revoke
               </button>
             </p>
@@ -137,7 +145,11 @@ export default function Admin() {
           <Form method="post" key={user.id}>
             <input type="hidden" name="id" value={user.id} />
             {user.id !== data.user.id && !user.disabled && (
-              <button name="intent" value="recover">
+              <button
+                name="intent"
+                value="recover"
+                aria-label={`Create recovery link for ${user.name}`}
+              >
                 Create recovery link
               </button>
             )}
@@ -149,7 +161,11 @@ export default function Admin() {
             <p>
               {user.name} · {user.email}{" "}
               {user.id !== data.user.id && (
-                <button name="intent" value="disable">
+                <button
+                  name="intent"
+                  value="disable"
+                  aria-label={`${user.disabled ? "Enable" : "Disable"} ${user.name}`}
+                >
                   {user.disabled ? "Enable" : "Disable"}
                 </button>
               )}
