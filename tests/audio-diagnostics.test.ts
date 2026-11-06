@@ -75,17 +75,17 @@ test("diagnostics distinguish a remote play waiting for context resume until for
   let report = JSON.parse(audioDiagnosticsReport());
   assert.ok(
     report.entries.some(
-      (entry: { event: string }) => entry.event === "remote.play.requested",
+      (entry: { event: string }) => entry.event === "remote.play:requested",
     ),
   );
   assert.ok(
     report.entries.some(
-      (entry: { event: string }) => entry.event === "context.resume.requested",
+      (entry: { event: string }) => entry.event === "context.resume:requested",
     ),
   );
   assert.ok(
     !report.entries.some((entry: { event: string }) =>
-      entry.event.endsWith(".resolved"),
+      entry.event.endsWith(":resolved"),
     ),
   );
   doc.visibilityState = "visible";
@@ -97,17 +97,17 @@ test("diagnostics distinguish a remote play waiting for context resume until for
   await new Promise<void>((done) => setImmediate(done));
   report = JSON.parse(audioDiagnosticsReport());
   const requested = report.entries.find(
-    (entry: { event: string }) => entry.event === "context.resume.requested",
+    (entry: { event: string }) => entry.event === "context.resume:requested",
   );
   const resumed = report.entries.find(
-    (entry: { event: string }) => entry.event === "context.resume.resolved",
+    (entry: { event: string }) => entry.event === "context.resume:resolved",
   );
   assert.equal(requested.visibility, "hidden");
   assert.equal(resumed.visibility, "visible");
   assert.equal(requested.attempt, resumed.attempt);
   assert.ok(
     report.entries.some(
-      (entry: { event: string }) => entry.event === "remote.play.resolved",
+      (entry: { event: string }) => entry.event === "remote.play:resolved",
     ),
   );
   await assert.rejects(

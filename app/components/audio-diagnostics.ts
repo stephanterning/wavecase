@@ -43,21 +43,21 @@ export function observeAudioPromise(
 ): Promise<void> {
   if (!audioDiagnosticsEnabled()) return start();
   const attempt = ++sequence;
-  logAudio(`${event}.requested`, { attempt });
+  logAudio(`${event}:requested`, { attempt });
   let result: Promise<void>;
   try {
     result = start(); // Preserve the user gesture: no await before starting.
   } catch (error) {
-    logAudio(`${event}.threw`, {
+    logAudio(`${event}:threw`, {
       attempt,
       error: error instanceof Error ? error.name : "UnknownError",
     });
     throw error;
   }
   void result.then(
-    () => logAudio(`${event}.resolved`, { attempt }),
+    () => logAudio(`${event}:resolved`, { attempt }),
     (error: unknown) =>
-      logAudio(`${event}.rejected`, {
+      logAudio(`${event}:rejected`, {
         attempt,
         error: error instanceof Error ? error.name : "UnknownError",
       }),
