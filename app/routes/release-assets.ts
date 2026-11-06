@@ -1,9 +1,10 @@
+import { webArtwork } from "../server/artwork";
 import { releaseMp3Response } from "../server/release-mp3-stream";
 import { streamResponse } from "../server/audio-stream";
 import { downloadDetails } from "../server/download-details";
 import { rejectPreviewMutation } from "../server/preview";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { Readable } from "node:stream";
 import { join } from "node:path";
@@ -81,10 +82,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const thumbnail = params.kind === "artwork.jpg";
     const body = thumbnail
       ? await mediaArtwork(data.release.cover)
-      : await readFile(join(directory(), data.release.cover));
+      : await webArtwork(directory(), data.release.cover);
     return new Response(request.method === "HEAD" ? null : body, {
       headers: {
-        "Content-Type": thumbnail ? "image/jpeg" : "image/png",
+        "Content-Type": thumbnail ? "image/jpeg" : "image/webp",
         "Content-Length": String(body.length),
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",

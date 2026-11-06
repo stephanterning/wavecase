@@ -391,9 +391,10 @@ test(
         thumbnail,
       );
       const fullCover = await assetLoader(args(request(), "cover"));
-      assert.equal(fullCover.headers.get("content-type"), "image/png");
+      assert.equal(fullCover.headers.get("content-type"), "image/webp");
+      assert.ok((await fullCover.arrayBuffer()).byteLength > 0);
       assert.deepEqual(
-        Buffer.from(await fullCover.arrayBuffer()),
+        await readFile(join(dir, "artwork.png")),
         originalArtwork,
       );
       const head = await assetLoader(

@@ -7,8 +7,7 @@ import { ReleaseCardContent } from "../components/release-card-content";
 import { Icon } from "../components/icons";
 import { EditForm, PreviewLink } from "../components/editing";
 import { LinkFields } from "../components/link-fields";
-import { unlink } from "node:fs/promises";
-import { join } from "node:path";
+import { removeAudioFiles } from "../server/audio-files";
 import {
   redirect,
   useActionData,
@@ -129,8 +128,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         .update(artists)
         .set({ image: key })
         .where(eq(artists.id, artist.id));
-      if (artist.image)
-        await unlink(join(directory(), artist.image)).catch(() => {});
+      if (artist.image) await removeAudioFiles(directory(), [artist.image]);
     } else throw new Response("Unknown action", { status: 400 });
     if (f.has("_inline")) return { saved: true, error: undefined };
     return redirect(`/artist-profiles/${params.id}`);

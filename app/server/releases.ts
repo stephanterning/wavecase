@@ -10,6 +10,8 @@ import { artists, releases, releaseTracks } from "./schema";
 import { requireUser, viewer } from "./security";
 import { dataDir } from "./config";
 import { storeUpload, type Upload } from "./request";
+import { webArtwork } from "./artwork";
+import { removeAudioFiles } from "./audio-files";
 export const directory = dataDir;
 export async function ownedArtist(request: Request, id: string) {
   const user = await requireUser(request);
@@ -67,9 +69,10 @@ export async function storeArtwork(file: Upload) {
       ],
       { timeout: 30000 },
     );
+    await webArtwork(directory(), key + ".png");
     return key + ".png";
   } catch {
-    await unlink(join(directory(), key + ".png")).catch(() => {});
+    await removeAudioFiles(directory(), [key + ".png"]);
     throw new Response("Choose a valid PNG, JPG, or WebP image.", {
       status: 400,
     });
@@ -78,43 +81,9 @@ export async function storeArtwork(file: Upload) {
   }
 }
 
-// Keep full-resolution covers for pages/downloads, but send small, square
-// artwork to native media controls. Generate from the current authorized cover
-// so existing releases work without re-uploading or retaining another file.
+// Native controls use their own fitted square derivative.
 export async function mediaArtwork(cover: string) {
-  const { stdout } = await promisify(execFile)(
-    "ffmpeg",
-    [
-      "-nostdin",
-      "-v",
-      "error",
-      "-threads",
-      "1",
-      "-protocol_whitelist",
-      "file",
-      "-format_whitelist",
-      "png_pipe",
-      "-i",
-      join(directory(), cover),
-      "-frames:v",
-      "1",
-      "-vf",
-      "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2,setsar=1",
-      "-c:v",
-      "mjpeg",
-      "-pix_fmt",
-      "yuvj420p",
-      "-q:v",
-      "3",
-      "-threads",
-      "1",
-      "-f",
-      "image2pipe",
-      "pipe:1",
-    ],
-    { encoding: "buffer", timeout: 10000, maxBuffer: 1024 * 1024 },
-  );
-  return stdout;
+  return webArtwork(directory(), cover, "media");
 }
 export function publicRelease(data: Awaited<ReturnType<typeof releaseAccess>>) {
   return {

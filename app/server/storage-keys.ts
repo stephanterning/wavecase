@@ -17,6 +17,8 @@ export const streamFile = (key: string, kind: "json" | "pcm" | "flac") =>
   `${streamBase(key)}.${kind}`;
 export const flacPart = (key: string) => streamBase(key) + ".part.tmp";
 export const temporary = (file: string) => file + ".tmp";
+export const artworkFile = (key: string, kind: "web" | "media") =>
+  `${key}.${kind}-v1.${kind === "web" ? "webp" : "jpg"}`;
 
 const exports = (key: string) => [
   mp3(key),
@@ -30,6 +32,7 @@ export function derivedFiles(key: string) {
     ...exports(key),
     decodedSource(key),
     decodedPlayback(key),
+    ...(["web", "media"] as const).map((kind) => artworkFile(key, kind)),
     // Release MP3 playback had prepared PCM in older deployments.
     ...[key, playbackWav(key), mp3(key)].flatMap((base) => [
       ...(["json", "pcm", "flac"] as const).flatMap((kind) => [
@@ -50,7 +53,7 @@ const uuidTemporary =
 
 // An interrupted export leaves a temporary file that only a listing can find.
 export const isExportTemporary = (key: string, name: string) =>
-  exports(key).some(
+  [...exports(key), artworkFile(key, "web"), artworkFile(key, "media")].some(
     (output) =>
       name.startsWith(output) && uuidTemporary.test(name.slice(output.length)),
   );
