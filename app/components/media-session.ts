@@ -1,3 +1,4 @@
+import { experimentalPlaybackOutput } from "./audio-context";
 import { logAudio, observeAudioPromise } from "./audio-diagnostics";
 import type { PlaybackMedia } from "./playback-audio";
 import { useEffect, useEffectEvent } from "react";
@@ -50,6 +51,39 @@ export function attachMediaSession(
   clearPosition();
   setHandlers();
   logAudio("mediaSession.attached");
+  const output = experimentalPlaybackOutput();
+  let attached = true;
+  const outputError = (error: unknown) => {
+    if (
+      attached &&
+      !(error instanceof DOMException && error.name === "AbortError")
+    )
+      onError();
+  };
+  const outputPlay = () => {
+    if (output && !output.paused && media.paused)
+      void observeAudioPromise("output.transportPlay", onPlay).catch(
+        outputError,
+      );
+  };
+  const outputPause = () => {
+    if (output?.paused && !media.paused) onPause();
+  };
+  output?.addEventListener("play", outputPlay);
+  output?.addEventListener("pause", outputPause);
+  output?.addEventListener("error", outputError);
+  const resumeOutput = () => {
+    if (output?.paused && !media.paused)
+      void observeAudioPromise("output.syncPlay", () => output.play()).catch(
+        outputError,
+      );
+  };
+  media.addEventListener("play", resumeOutput);
+  const pauseOutput = () => {
+    if (media.paused || media.ended || media.error) output?.pause();
+  };
+  const outputStops = ["pause", "ended", "error"] as const;
+  for (const event of outputStops) media.addEventListener(event, pauseOutput);
   const updateState = () => {
     session.metadata = media.error ? null : description;
     session.playbackState = media.error
@@ -77,7 +111,14 @@ export function attachMediaSession(
     });
   for (const event of diagnosticEvents) media.addEventListener(event, record);
   const stop = () => {
+    attached = false;
     logAudio("mediaSession.detached");
+    media.removeEventListener("play", resumeOutput);
+    for (const event of outputStops)
+      media.removeEventListener(event, pauseOutput);
+    output?.removeEventListener("play", outputPlay);
+    output?.removeEventListener("pause", outputPause);
+    output?.removeEventListener("error", outputError);
     for (const event of diagnosticEvents)
       media.removeEventListener(event, record);
     for (const event of events) media.removeEventListener(event, updateState);

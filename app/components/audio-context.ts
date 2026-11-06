@@ -1,4 +1,6 @@
 import {
+  audioOutputMode,
+  observeAudioOutput,
   logAudio,
   observeAudioContext,
   observeAudioPromise,
@@ -13,10 +15,13 @@ export function playbackDestination(context: AudioContext): AudioNode {
   // macOS Safari can queue about a second at the device destination even when
   // outputLatency reports milliseconds. Keep the gain/worklet graph, but let
   // a media element handle device output. Exclude iPads using desktop identity.
+  const mode = audioOutputMode();
   if (
-    navigator.vendor !== "Apple Computer, Inc." ||
-    !navigator.userAgent.includes("Macintosh") ||
-    navigator.maxTouchPoints > 0
+    mode === "direct" ||
+    (mode !== "element" &&
+      (navigator.vendor !== "Apple Computer, Inc." ||
+        !navigator.userAgent.includes("Macintosh") ||
+        navigator.maxTouchPoints > 0))
   )
     return context.destination;
   let output = outputs.get(context);
@@ -26,8 +31,16 @@ export function playbackDestination(context: AudioContext): AudioNode {
     media.srcObject = destination.stream;
     output = { destination, media };
     outputs.set(context, output);
+    observeAudioOutput(media);
   }
   return output.destination;
+}
+
+// Only the opt-in experiment couples native output controls to the transport.
+export function experimentalPlaybackOutput() {
+  return audioOutputMode() === "element" && context
+    ? outputs.get(context)?.media
+    : undefined;
 }
 
 export function playbackContext() {
@@ -48,7 +61,11 @@ export function resumePlayback(context: AudioContext) {
     context.state === "running"
       ? (logAudio("context.resume.skipped-running"), Promise.resolve())
       : observeAudioPromise("context.resume", () => context.resume()),
-    outputs.get(context)?.media.play(),
+    outputs.has(context)
+      ? observeAudioPromise("output.play", () =>
+          outputs.get(context)!.media.play(),
+        )
+      : undefined,
   ]).then(() => {});
 }
 

@@ -3,6 +3,7 @@ import {
   attachAudioDiagnostics,
   audioDiagnosticsEnabled,
   audioDiagnosticsReport,
+  audioOutputMode,
 } from "./audio-diagnostics";
 
 const subscribe = () => () => {};
@@ -21,6 +22,7 @@ export function AudioDiagnosticsPanel() {
   return (
     <details className="panel" style={{ margin: "1rem" }}>
       <summary>Audio diagnostics</summary>
+      <p>Output mode: {audioOutputMode()}</p>
       <p>
         Recording in this tab only. After reproducing the problem, copy the log
         before reloading. No audio, titles or links are recorded or uploaded.

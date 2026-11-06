@@ -1,5 +1,26 @@
 // Opt-in, memory-only diagnostics. Never record URLs, titles, tokens or audio.
 let enabled: boolean | undefined;
+let outputMode: "element" | "direct" | "default" | undefined;
+let output: HTMLAudioElement | undefined;
+
+export function audioOutputMode() {
+  if (typeof window === "undefined" || !window.location) return "default";
+  if (!outputMode) {
+    const value = new URLSearchParams(window.location.search).get(
+      "audioOutput",
+    );
+    outputMode = value === "element" || value === "direct" ? value : "default";
+  }
+  return outputMode;
+}
+
+export function observeAudioOutput(media: HTMLAudioElement) {
+  if (!audioDiagnosticsEnabled()) return;
+  output = media;
+  logAudio("output.created");
+  for (const name of ["play", "playing", "pause", "waiting", "ended", "error"])
+    media.addEventListener(name, () => logAudio(`output:${name}`));
+}
 let sequence = 0;
 const entries: object[] = [];
 let context: AudioContext | undefined;
@@ -22,6 +43,9 @@ export function logAudio(event: string, details: Record<string, unknown> = {}) {
       time: new Date().toISOString(),
       elapsedMs: Math.round(performance.now()),
       event,
+      outputMode: audioOutputMode(),
+      outputPaused: output?.paused,
+      outputReadyState: output?.readyState,
       visibility: document.visibilityState,
       playbackState: navigator.mediaSession?.playbackState,
       contextState: context?.state,

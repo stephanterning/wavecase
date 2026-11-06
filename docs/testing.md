@@ -129,3 +129,19 @@ a new play. An explicit in-page pause during an interruption must remain paused
 when the context recovers. Include initial context startup, a seek during
 suspension, repeated interruptions, and disposal. Diagnostic media pause/play
 events should now accompany context state changes even without remote callbacks.
+
+### Optional media-element output comparison
+
+Use `audioDebug=1&audioOutput=direct` for direct AudioContext output, or
+`audioDebug=1&audioOutput=element` to deliver the existing worklet/gain graph
+through a MediaStream-backed audio element. The mode is fixed for the document;
+fully reload when switching. The diagnostic panel and log identify the selected
+mode. Without an override, the existing macOS Safari output policy is retained.
+
+The element experiment couples native play/pause to the active player's controls
+and pauses/resumes output with the transport. It does not change file delivery,
+worklet looping or normalization. Compare long lock-screen pauses, AirPods,
+app switching, repeat, seeks, A/B switches and output latency on iPhone. Inspect
+`output` events and play promises alongside context/transport events. A native
+stream may expose browser-owned controls or buffering; this is an opt-in stage
+experiment, not a verified fix for iPhone background resumption.
