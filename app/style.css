@@ -379,8 +379,7 @@ button:hover:not(:disabled),
 }
 .waveform {
   position: relative;
-  margin-top: var(--space-5);
-  min-height: 220px;
+  height: 220px;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -396,7 +395,7 @@ button:hover:not(:disabled),
 .waveform-selection {
   position: absolute;
   top: 0;
-  height: 220px;
+  height: 100%;
   background: #bcebd633;
   border: 1px solid var(--color-waveform-progress);
   pointer-events: none;
@@ -1753,13 +1752,13 @@ button:has(svg) {
 }
 .demo-waveform {
   position: relative;
-  padding-top: 52px;
+  margin-top: var(--space-5);
 }
 .replace-audio-control > .editor-trigger {
   position: absolute;
   top: 4px;
   right: 4px;
-  z-index: 2;
+  z-index: 3;
   padding: var(--space-2);
   min-height: 44px;
 }
@@ -1793,6 +1792,9 @@ button:has(svg) {
   color: var(--color-text-faint);
 }
 @media (max-width: 600px) {
+  .waveform {
+    height: 110px;
+  }
   .demo-identity {
     flex-direction: column;
   }

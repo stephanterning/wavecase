@@ -167,7 +167,7 @@ export function Player({
       waveColor: colors.getPropertyValue("--color-waveform"),
       progressColor: colors.getPropertyValue("--color-waveform-progress"),
       cursorColor: colors.getPropertyValue("--color-text-strong"),
-      height: 220,
+      height: "auto",
       normalize: true,
       interact: false,
       dragToSeek: false,
