@@ -175,7 +175,7 @@ Owners can permanently delete a draft from its editor after confirmation. Publis
 
 Release metadata includes title, type, primary artist, description, artwork, release date, label, catalog number, UPC/EAN, genre, credits, and copyright/phonographic notices. Track fields include title, order, artist, guests, version designation, ISRC, songwriters, producers, credits, explicit marking, and measured duration/format. A single-track heading keeps the linked primary artist first, appends distinct additional artists as plain text, and uses `featuring` for guests; multi-track releases keep track credits in their track context.
 
-Public releases use a blurred, darkened artwork background, prominent cover/title/artist, player/track list, service links, and expandable credits. Desktop places cover and content side by side; mobile stacks them. Keep demo feedback/version management out of these pages.
+Release and artist images use cached WebP derivatives bounded to 1000 pixels without upscaling; retain the full stored artwork for ZIP downloads. Existing images gain derivatives on first use. Public releases use a blurred, darkened artwork background, prominent cover/title/artist, player/track list, service links, and expandable credits. Desktop places cover and content side by side; mobile stacks them. Keep demo feedback/version management out of these pages.
 
 Owner-supplied HTTP(S) service/shop links show their labels. Release links to Spotify, Deezer, SoundCloud, Amazon Music, Qobuz, YouTube, Apple Music, Tidal, and TikTok use local service icons determined by hostname; Amazon storefronts require a `/music/player/` path. Other destinations remain text links.
 
