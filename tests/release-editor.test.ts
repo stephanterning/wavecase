@@ -122,5 +122,17 @@ test(
     assert.deepEqual(await edit({ intent: "rename", track: opening.id }), {
       error: "Unknown action",
     });
+
+    const deleted = await edit({ intent: "delete" });
+    assert.ok(deleted instanceof Response);
+    assert.equal(deleted.headers.get("Location"), "/releases");
+    assert.equal(
+      await db.query.releases.findFirst({ where: eq(releases.id, release) }),
+      undefined,
+    );
+    assert.deepEqual(await tracks(), []);
+    assert.ok(
+      await db.query.artists.findFirst({ where: eq(artists.id, artist) }),
+    );
   },
 );

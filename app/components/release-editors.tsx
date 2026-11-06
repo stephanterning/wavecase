@@ -159,9 +159,7 @@ export function ReleaseDetailsEditor({
         <Form method="post">
           {release.published ? (
             <ConfirmButton
-              className="icon-button tooltip"
               aria-label="Unpublish release"
-              data-tooltip="Unpublish release"
               name="intent"
               value="unpublish"
               confirmTitle={`Unpublish “${release.title}”?`}
@@ -173,39 +171,37 @@ export function ReleaseDetailsEditor({
               }
               confirmLabel="Unpublish"
             >
-              <Icon name="eye-off" />
+              Unpublish
             </ConfirmButton>
           ) : (
-            <>
-              <button
-                className="icon-button tooltip"
-                aria-label="Publish release"
-                data-tooltip="Publish release"
-                name="intent"
-                value="publish"
-                disabled={!release.cover || !hasTracks}
-              >
-                <Icon name="eye" />
-              </button>
-              <ConfirmButton
-                className="icon-button button-danger tooltip"
-                aria-label="Delete draft"
-                data-tooltip="Delete draft"
-                name="intent"
-                value="delete"
-                confirmTitle={`Delete “${release.title}”?`}
-                confirmMessage={
-                  <p>
-                    This permanently deletes the draft and all its tracks,
-                    artwork, audio and activity. This cannot be undone.
-                  </p>
-                }
-                confirmLabel="Delete draft"
-              >
-                <Icon name="trash" />
-              </ConfirmButton>
-            </>
+            <button
+              aria-label="Publish release"
+              name="intent"
+              value="publish"
+              disabled={!release.cover || !hasTracks}
+            >
+              Publish
+            </button>
           )}
+          <ConfirmButton
+            className="icon-button button-danger tooltip"
+            aria-label="Delete release"
+            data-tooltip="Delete release"
+            name="intent"
+            value="delete"
+            confirmTitle={`Delete “${release.title}”?`}
+            confirmMessage={
+              <p>
+                This permanently deletes the release and all its tracks,
+                artwork, audio and activity. This cannot be undone.
+                {release.published &&
+                  " Its public page and downloads will become unavailable immediately."}
+              </p>
+            }
+            confirmLabel="Delete release"
+          >
+            <Icon name="trash" />
+          </ConfirmButton>
         </Form>
       </div>
     </>
@@ -393,22 +389,24 @@ export function TrackListEditor({
           )}
         </details>
       ))}
-      <EditForm
-        label="New track"
-        trigger="＋ Add track"
-        resetOnSave
-        actions={<button className="button-primary">Add track</button>}
-      >
-        <input type="hidden" name="intent" value="add-track" />
-        <label>
-          New track title
-          <input name="title" required maxLength={200} />
-        </label>
-        <p>
-          Audio is optional. Add all tracks, including those without
-          downloadable audio.
-        </p>
-      </EditForm>
+      <div className="release-add-track">
+        <EditForm
+          label="New track"
+          trigger="＋ Add track"
+          resetOnSave
+          actions={<button className="button-primary">Add track</button>}
+        >
+          <input type="hidden" name="intent" value="add-track" />
+          <label>
+            New track title
+            <input name="title" required maxLength={200} />
+          </label>
+          <p>
+            Audio is optional. Add all tracks, including those without
+            downloadable audio.
+          </p>
+        </EditForm>
+      </div>
     </>
   );
 }
