@@ -61,31 +61,33 @@ export default function ArtistProfiles() {
   const [slug, setSlug] = useState("");
   return (
     <>
-      <p className="eyebrow">Your artists</p>
-      <h1>Artists</h1>
-      {result?.error && <p role="alert">{result.error}</p>}
-      <CreateDialog
-        title="Add artist"
-        error={result?.error}
-        submit={<button className="button-primary">Create artist</button>}
-      >
-        <label>
-          Artist name
-          <input
-            name="name"
-            required
-            maxLength={200}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        <AddressField
-          name={name}
-          prefix="/artists"
-          value={slug}
-          onChange={setSlug}
-        />
-      </CreateDialog>
+      <div className="list-heading">
+        <div className="list-heading-title">
+          <h1>Artists</h1>
+          <CreateDialog
+            title="Add artist"
+            error={result?.error}
+            submit={<button className="button-primary">Create artist</button>}
+          >
+            <label>
+              Artist name
+              <input
+                name="name"
+                required
+                maxLength={200}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </label>
+            <AddressField
+              name={name}
+              prefix="/artists"
+              value={slug}
+              onChange={setSlug}
+            />
+          </CreateDialog>
+        </div>
+      </div>
       <div className="catalog-grid">
         {data.artists.map((a) => (
           <Link

@@ -1,4 +1,4 @@
-import { Icon } from "./icons";
+import { IconButton } from "./icon-button";
 import { Modal } from "./modal";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Form, useSearchParams, type FormProps } from "react-router";
@@ -28,9 +28,14 @@ export function CreateDialog({
   }, [search, setSearch]);
   return (
     <>
-      <button ref={trigger} onClick={() => setOpen(true)}>
-        <Icon name="plus" /> {title}
-      </button>
+      <IconButton
+        ref={trigger}
+        className="icon-action"
+        icon="plus"
+        label={title}
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+      />
       <Modal
         open={open}
         onClose={() => setOpen(false)}

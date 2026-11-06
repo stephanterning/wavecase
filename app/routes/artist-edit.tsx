@@ -187,7 +187,6 @@ export default function ArtistEdit() {
           </EditForm>
         </div>
         <div>
-          <p className="eyebrow">Artist</p>
           <h1>{a.name}</h1>
           <p className="artist-biography">
             {a.bio || "Add a biography to introduce your music."}
@@ -225,17 +224,19 @@ export default function ArtistEdit() {
         <div>
           <section>
             <div className="artist-section-heading">
-              <h2>
-                Releases <span className="section-count">{rows.length}</span>
-              </h2>
-              <Link
-                className="artist-icon-action tooltip"
-                to={`/releases?create=1&artist=${a.id}`}
-                aria-label={`Add release for ${a.name}`}
-                data-tooltip={`Add release for ${a.name}`}
-              >
-                <Icon name="plus" />
-              </Link>
+              <div className="list-heading-title">
+                <h2>
+                  Releases <span className="section-count">{rows.length}</span>
+                </h2>
+                <Link
+                  className="artist-icon-action tooltip"
+                  to={`/releases?create=1&artist=${a.id}`}
+                  aria-label={`Add release for ${a.name}`}
+                  data-tooltip={`Add release for ${a.name}`}
+                >
+                  <Icon name="plus" />
+                </Link>
+              </div>
             </div>
             <div className="catalog-grid">
               {rows.map((release) => (

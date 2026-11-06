@@ -76,20 +76,17 @@ export function DemoList({
     .sort((a, b) => compareLibraryTracks(a, b, sort, ascending));
   return (
     <>
-      <div className="library-toolbar">
+      <div className="list-heading">
         {children}
-        <div className="library-filter">
-          <div className="library-filter-input">
-            <input
-              aria-label="Search your music"
-              id={filterId}
-              type="search"
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-              placeholder="Search your music…"
-            />
-          </div>
-        </div>
+        <input
+          className="list-search"
+          aria-label="Search your music"
+          id={filterId}
+          type="search"
+          value={filter}
+          onChange={(event) => setFilter(event.target.value)}
+          placeholder="Search your music…"
+        />
       </div>
       <div
         className="library-scroll"
