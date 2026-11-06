@@ -475,10 +475,12 @@ button:hover:not(:disabled),
   white-space: normal;
   z-index: 10;
 }
-.tooltip:hover::after,
-.tooltip:focus-visible::after,
-.tooltip:has(:focus-visible)::after {
-  display: block;
+@media (hover: hover) and (pointer: fine) {
+  .tooltip:hover::after,
+  .tooltip:focus-visible::after,
+  .tooltip:has(:focus-visible)::after {
+    display: block;
+  }
 }
 .modal {
   width: min(560px, calc(100% - 32px));
