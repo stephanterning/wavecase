@@ -1,3 +1,8 @@
+import {
+  logAudio,
+  observeAudioContext,
+  observeAudioPromise,
+} from "./audio-diagnostics";
 let context: AudioContext | undefined;
 const outputs = new WeakMap<
   AudioContext,
@@ -30,6 +35,7 @@ export function playbackContext() {
     latencyHint: "interactive",
     sampleRate: 48_000,
   });
+  observeAudioContext(context);
   return context;
 }
 
@@ -39,7 +45,9 @@ export function resumePlayback(context: AudioContext) {
   if (session) session.type = "playback";
   // Both starts must happen inside the same gesture, before any await.
   return Promise.all([
-    context.state === "running" ? Promise.resolve() : context.resume(),
+    context.state === "running"
+      ? (logAudio("context.resume.skipped-running"), Promise.resolve())
+      : observeAudioPromise("context.resume", () => context.resume()),
     outputs.get(context)?.media.play(),
   ]).then(() => {});
 }

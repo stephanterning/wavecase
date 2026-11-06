@@ -1,3 +1,4 @@
+import { logAudio, observeAudioPromise } from "./audio-diagnostics";
 import type { PlaybackMedia } from "./playback-audio";
 import { useEffect, useEffectEvent } from "react";
 
@@ -22,8 +23,11 @@ export function attachMediaSession(
   const handlers: Partial<
     Record<MediaSessionAction, MediaSessionActionHandler | null>
   > = {
-    play: () => void onPlay().catch(onError),
-    pause: onPause,
+    play: () => void observeAudioPromise("remote.play", onPlay).catch(onError),
+    pause: () => {
+      logAudio("remote.pause");
+      onPause();
+    },
     seekto: null,
     seekbackward: null,
     seekforward: null,
@@ -45,6 +49,7 @@ export function attachMediaSession(
   // Discard any timeline left by an earlier player; never publish track time.
   clearPosition();
   setHandlers();
+  logAudio("mediaSession.attached");
   const updateState = () => {
     session.metadata = media.error ? null : description;
     session.playbackState = media.error
@@ -56,7 +61,25 @@ export function attachMediaSession(
   const events = ["play", "pause", "ended", "error", "loadedmetadata"] as const;
   for (const event of events) media.addEventListener(event, updateState);
   updateState();
+  const diagnosticEvents = [
+    "play",
+    "playing",
+    "pause",
+    "waiting",
+    "ended",
+    "error",
+  ] as const;
+  const record = (event: Event) =>
+    logAudio(`media.${event.type}`, {
+      paused: media.paused,
+      ended: media.ended,
+      seeking: media.seeking,
+    });
+  for (const event of diagnosticEvents) media.addEventListener(event, record);
   const stop = () => {
+    logAudio("mediaSession.detached");
+    for (const event of diagnosticEvents)
+      media.removeEventListener(event, record);
     for (const event of events) media.removeEventListener(event, updateState);
     window.removeEventListener("wavecase-access-revoked", stop);
     session.metadata = null;

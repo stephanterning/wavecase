@@ -13,6 +13,7 @@ import {
   isRouteErrorResponse,
   useRouteError,
 } from "react-router";
+import { AudioDiagnosticsPanel } from "./components/audio-diagnostics-panel";
 import { Icon } from "./components/icons";
 import "./style.css";
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -95,6 +96,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             Source code · AGPL-3.0
           </a>
         </footer>
+        <AudioDiagnosticsPanel />
         <ScrollRestoration />
         <Scripts />
       </body>

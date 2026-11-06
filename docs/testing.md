@@ -101,3 +101,24 @@ On artist management, check the shared Work in progress list below Releases: onl
 For compressed caching, compare audio GET payloads on the first complete pass and a repeated pass. The repeated pass should reuse FLAC/MP3 bytes while HEAD requests still verify access and revision. Repeat the check across A/B/A and another track, and distinguish decoded-window hits from compressed-cache hits. Exercise revoked links, replaced sources, canceled transfers, source errors, logout and leaving the player scope. Verify that a shared 96 MB byte limit evicts least-recently-used parts across all transports and that PCM fallback is excluded. On a physical iPhone, check several six-minute versions and repeated loops for memory pressure, interruptions and unchanged audible transitions.
 
 For the shared demo list, check column order, numeric version counts, sorting in both directions, full-timestamp Updated/Created ordering, empty demos, and horizontal scrolling on mobile in both Work in progress and artist management. Toggle hearts with pointer and keyboard, reload, and verify personal favorites stay independent for co-owners without opening the row. Check playback from the Name cell and uninterrupted navigation. Successful new uploads, replacements, and restorations update Updated; failed uploads, metadata, feedback, and audio removal do not.
+
+## iPhone lock-screen resume diagnostics
+
+Open a player URL with `?audioDebug=1` (or append `&audioDebug=1` when it already
+has a query), then start playback. Diagnostics remain enabled during navigation
+in that document. Pause from the lock screen, wait, and try Play there or on
+AirPods. If playback does not resume, open Safari without reloading or pressing
+Play again. Expand **Audio diagnostics** below the footer and use **Copy audio
+log**. If clipboard access fails, select and copy the displayed text. Capture the
+log before reloading: the latest 500 entries live only in this document's memory.
+Reload a URL without the flag to disable diagnostics.
+
+The log records remote play/pause callbacks, correlated resume requests and
+promise settlement, AudioContext state changes, transport events, and page
+visibility/focus/lifecycle events with timestamps. It contains no URLs, track
+metadata, audio or error messages and is never automatically uploaded. A remote
+Play request followed by a pending context resume that resolves after the page
+becomes visible supports a background-resume blockage. No remote callback until
+foreground suggests command delivery was deferred, but JavaScript logging cannot
+observe the precise time an OS command was issued while the page was suspended.
+There are no polling timers, keep-alive sounds or automatic resume attempts.
