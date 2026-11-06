@@ -1,37 +1,17 @@
-import { useSyncExternalStore } from "react";
+import { createLocalPreference, useLocalPreference } from "./local-preference";
 
-const key = "wavecase.repeat";
-const listeners = new Set<() => void>();
-let repeat: boolean | undefined;
+const preference = createLocalPreference(
+  "wavecase.repeat",
+  false,
+  (stored) => stored === "on",
+  (value) => (value ? "on" : "off"),
+);
 
-export function repeatPreference() {
-  if (repeat === undefined)
-    try {
-      repeat = sessionStorage.getItem(key) === "on";
-    } catch {
-      repeat = false;
-    }
-  return repeat;
-}
+export const repeatPreference = preference.getSnapshot;
 
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-/** One repeat choice for demo and release players for the tab's session. */
+/** One browser-local repeat choice for demo and release players across sessions. */
 export function useRepeatPreference() {
-  return useSyncExternalStore(subscribe, repeatPreference, () => false);
+  return useLocalPreference(preference);
 }
 
-export function setRepeatPreference(value: boolean) {
-  repeat = value;
-  try {
-    sessionStorage.setItem(key, value ? "on" : "off");
-  } catch {
-    // Without storage the choice still lasts until the page is reloaded.
-  }
-  for (const listener of listeners) listener();
-}
+export const setRepeatPreference = preference.set;
