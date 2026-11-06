@@ -1,3 +1,4 @@
+import { ArtworkBackdrop } from "../components/artwork-backdrop";
 import { isPreview } from "../server/preview";
 import { PublicLink } from "../components/public-links";
 import {
@@ -12,7 +13,7 @@ import { useReleasePlayer } from "../components/release-player";
 import { ReleaseSeek } from "../components/release-seek";
 import { playbackGainDb } from "../components/playback-audio";
 import { usePolling } from "../components/use-polling";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useLoaderData,
   type LoaderFunctionArgs,
@@ -162,15 +163,8 @@ export default function ReleasePage() {
     );
   }
   return (
-    <article
-      className="release-public"
-      style={
-        {
-          "--release-art": d.image ? `url("${d.image}")` : "none",
-        } as CSSProperties
-      }
-    >
-      <div className="release-backdrop" aria-hidden="true" />
+    <article className="release-public">
+      <ArtworkBackdrop src={d.image} />
       {d.owner && !d.preview && (
         <p className="release-owner">
           <PublicLink to={`/releases/${d.release.id}`}>

@@ -1,3 +1,4 @@
+import { ArtworkBackdrop } from "../components/artwork-backdrop";
 import {
   Link,
   useActionData,
@@ -7,9 +8,9 @@ import {
   type LoaderFunctionArgs,
 } from "react-router";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { PreviewLink } from "../components/editing";
 import { ReleaseActivity } from "../components/release-activity";
 import {
+  ReleaseArtworkEditor,
   ReleaseDetailsEditor,
   TrackListEditor,
 } from "../components/release-editors";
@@ -77,21 +78,11 @@ export default function ReleaseEditor() {
   );
   return (
     <>
-      <div className="editor-heading-actions">
-        <PreviewLink href={releasePath(d.artist, d.release) + "?preview=1"}>
-          {d.release.published ? "View public page" : "Preview draft"}
-        </PreviewLink>
-      </div>
+      <ArtworkBackdrop
+        src={d.release.cover ? `/release-assets/${d.release.id}/cover` : null}
+      />
       <header className="music-editor-hero">
-        {d.release.cover ? (
-          <img
-            className="editor-cover"
-            src={`/release-assets/${d.release.id}/cover`}
-            alt="Release artwork"
-          />
-        ) : (
-          <div className="editor-cover artwork-placeholder">Add artwork</div>
-        )}
+        <ReleaseArtworkEditor release={d.release} />
         <div>
           <p className="eyebrow">
             {d.release.published ? "Published" : "Private draft"} ·{" "}
@@ -127,6 +118,7 @@ export default function ReleaseEditor() {
           <ReleaseDetailsEditor
             release={d.release}
             hasTracks={d.tracks.length > 0}
+            previewHref={releasePath(d.artist, d.release) + "?preview=1"}
           />
           <TrackListEditor tracks={d.tracks} published={d.release.published} />
         </>
