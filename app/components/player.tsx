@@ -179,6 +179,11 @@ export function Player({
       wave,
       media,
       source.duration,
+      () => {
+        void startPlayback().catch(() =>
+          setError("Audio could not play. Please try again."),
+        );
+      },
       canComment ? (selection) => comment(selection) : undefined,
     );
     const versionChanged =
@@ -229,7 +234,7 @@ export function Player({
       stop?.();
       wave.destroy();
     };
-  }, [media, source, playback, playbackRef, canComment]);
+  }, [media, source, playback, playbackRef, canComment, startPlayback]);
   useSpaceToggle({
     ready: () => {
       const own = playback.getSnapshot();

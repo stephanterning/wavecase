@@ -123,7 +123,7 @@ Library rows have a separate play/pause button at the far left. Play chooses the
 Background and lock-screen playback are required acceptance checks on the owner's iOS 27 device. Audio timing and refill notifications do not depend on page timers, but desktop WebKit checks do not establish iPhone background/network behavior.
 
 
-The 220-pixel waveform may normalize visual amplitude. Click/tap seeks, wheel zooms around the pointer, repeated pinches zoom around the touch midpoint, and dragging pans a zoomed waveform. With waveform focus, arrows seek and plus/minus zoom. Comment gestures are:
+The 220-pixel waveform may normalize visual amplitude. Click/tap seeks and, if paused, starts playback from that position with the same playback and play-counting behavior as Play. Wheel zooms around the pointer, repeated pinches zoom around the touch midpoint, and dragging pans a zoomed waveform. With waveform focus, arrows seek and plus/minus zoom. Comment gestures are:
 
 - Add comment: whole-version modal without time inputs.
 - Right-click or touch hold: point comment; right-button drag or hold-then-drag: range, ordered in either direction.

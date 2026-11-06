@@ -80,10 +80,18 @@ test("visits and seeks do not count as plays; resume and repeat follow the agree
   const plays = () => events.filter((e) => e.kind === "play").length;
   try {
     assert.equal(plays(), 0);
+    media.seeking = true;
+    media.currentTime = 45;
+    emit("seeking");
+    media.seeking = false;
+    emit("seeked");
+    assert.equal(plays(), 0);
     media.paused = false;
     emit("playing");
-    move(1);
-    move(2);
+    assert.equal(plays(), 1);
+    assert.equal(events.find((e) => e.kind === "play")?.position, 45);
+    move(46);
+    move(47);
     t.mock.timers.tick(2000);
     assert.equal(plays(), 1);
     media.paused = true;
@@ -105,11 +113,11 @@ test("visits and seeks do not count as plays; resume and repeat follow the agree
     assert.equal(plays(), 2);
     assert.ok(
       events.some(
-        (e) => e.kind === "interval" && e.position === 0 && e.end === 2,
+        (e) => e.kind === "interval" && e.position === 45 && e.end === 47,
       ),
     );
     assert.ok(
-      events.some((e) => e.kind === "seek" && e.position === 2 && e.end === 0),
+      events.some((e) => e.kind === "seek" && e.position === 47 && e.end === 0),
     );
   } finally {
     stop();
