@@ -14,6 +14,7 @@ import {
   useRouteError,
 } from "react-router";
 import { Icon } from "./components/icons";
+import { WorkspaceMenu } from "./components/workspace-navigation";
 import "./style.css";
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await viewer(request);
@@ -25,6 +26,7 @@ export const links = () => [
 ];
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root");
+  const workspace = useRouteLoaderData("routes/workspace");
   const { pathname } = useLocation();
   const publicPage = /^\/(artists|songwriter|s)(\/|$)/.test(pathname);
   return (
@@ -39,6 +41,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <body>
         <header>
           <div className="brand-controls">
+            {workspace && <WorkspaceMenu />}
             {publicPage ? (
               <span className="brand">▥ wavecase</span>
             ) : (

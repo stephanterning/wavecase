@@ -67,6 +67,7 @@ header {
   padding: var(--space-4) var(--page-gutter);
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: var(--space-4);
   border-bottom: 1px solid var(--color-border-subtle);
 }
@@ -78,6 +79,7 @@ header span,
   font-size: var(--text-xl);
   text-decoration: none;
   font-weight: 600;
+  white-space: nowrap;
 }
 main {
   flex: 1;
@@ -910,11 +912,11 @@ body:has(.release-mini) {
   border-right: 1px solid var(--color-border-subtle);
   padding-right: var(--space-5);
 }
-.workspace nav[aria-label="Workspace"] {
+.workspace-navigation {
   display: grid;
   gap: var(--space-2);
 }
-.workspace nav[aria-label="Workspace"] a {
+.workspace-navigation a {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -923,26 +925,43 @@ body:has(.release-mini) {
   text-decoration: none;
   border-radius: 8px;
 }
-.workspace nav[aria-label="Workspace"] a svg {
+.workspace-navigation a svg {
   flex-shrink: 0;
 }
-.workspace nav[aria-label="Workspace"] a[aria-current] {
+.workspace-navigation a[aria-current] {
   background: var(--color-surface-accent);
   color: var(--color-accent);
   font-weight: 600;
 }
 .workspace-menu {
   display: none;
+  padding: var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+}
+.workspace-menu::after {
+  top: calc(100% + 8px);
+  bottom: auto;
+  left: 0;
+  transform: none;
 }
 .workspace-drawer {
   margin: 0;
   height: 100dvh;
   max-height: 100dvh;
-  width: min(320px, 90vw);
+  width: min(320px, calc(100vw - 48px));
+  max-width: none;
   background: var(--color-surface);
   color: inherit;
-  border: 1px solid var(--color-border);
-  padding: var(--space-5);
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  padding: max(var(--space-4), env(safe-area-inset-top)) var(--space-4)
+    max(var(--space-4), env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
+}
+body:has(.workspace-drawer[open]) {
+  overflow: hidden;
 }
 .workspace-drawer::backdrop {
   background: #000a;
@@ -1012,10 +1031,16 @@ body:has(.release-mini) {
     display: none;
   }
   .workspace-menu {
-    display: inline-block;
+    display: inline-flex;
   }
 }
 @media (max-width: 600px) {
+  header {
+    gap: var(--space-2);
+  }
+  .brand-controls {
+    gap: var(--space-1);
+  }
   .dashboard-columns {
     grid-template-columns: 1fr;
     gap: 0;

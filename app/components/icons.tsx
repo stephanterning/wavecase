@@ -4,6 +4,7 @@ export type IconName =
   | "repeat"
   | "download"
   | "close"
+  | "menu"
   | "plus"
   | "trash"
   | "edit"
@@ -99,6 +100,7 @@ export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
         </>
       )}
       {name === "close" && <path d="m6 6 12 12M18 6 6 18" />}
+      {name === "menu" && <path d="M4 6h16M4 12h16M4 18h16" />}
       {name === "settings" && (
         <>
           <path d="m9 3-1 3-3 1-2 3 2 2-1 3 3 2 3-1 2 3 3-1 1-3 3-1 2-3-2-2 1-3-3-2-3 1-2-3Z" />

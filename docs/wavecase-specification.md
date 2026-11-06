@@ -24,7 +24,7 @@ Linked demos derive private access exclusively from their current artist’s mem
 
 ## Private workspace
 
-Authenticated users start at `/dashboard`. A shared sidebar links Dashboard, Work in progress (`/library`), Releases (`/releases`), and Artists (`/artist-profiles`), including on private detail, account, and admin pages. Below 900 pixels the navigation opens in a keyboard-accessible modal panel. Public music and share pages remain outside this workspace.
+Authenticated users start at `/dashboard`. A shared sidebar links Dashboard, Work in progress (`/library`), Releases (`/releases`), and Artists (`/artist-profiles`), including on private detail, account, and admin pages. Below 900 pixels a hamburger button to the left of the header logo opens the navigation in a keyboard-accessible modal panel. Close it with its close icon, Escape, a tap outside, or a navigation selection. Public music and share pages remain outside this workspace.
 
 The dashboard shows current demo, artist, published release, and draft counts. Activity uses a URL-selected rolling 7-day, 30-day (default), or all-time period. Its selector sits beside the welcome heading and applies changes immediately. Demo cards count plays, nondeleted listener feedback, download requests, and currently active links. Separate release cards count visits, plays, download requests, and external clicks. Existing owner exclusions apply; release download requests include owners. Counts describe recorded activity, not verified people or completed transfers. Show up to five received feedback entries in the selected period and five newest demos/releases across all time. Feedback links open the relevant version. All queries are scoped to accessible personal/shared content, including for administrators.
 
