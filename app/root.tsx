@@ -13,7 +13,6 @@ import {
   isRouteErrorResponse,
   useRouteError,
 } from "react-router";
-import { Icon } from "./components/icons";
 import { WorkspaceMenu } from "./components/workspace-navigation";
 import "./style.css";
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -47,16 +46,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
             ) : (
               <Link to={data?.user ? "/dashboard" : "/"} className="brand">
                 ▥ wavecase
-              </Link>
-            )}
-            {!publicPage && data?.user?.admin && (
-              <Link
-                className="header-icon"
-                to="/admin"
-                aria-label="Installation settings"
-                title="Installation settings"
-              >
-                <Icon name="settings" size={24} />
               </Link>
             )}
           </div>

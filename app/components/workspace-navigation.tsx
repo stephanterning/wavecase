@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useRouteLoaderData } from "react-router";
+import type { loader } from "../root";
 import { Icon } from "./icons";
 import { IconButton } from "./icon-button";
 
@@ -16,6 +17,7 @@ export function WorkspaceNavigation({
   onNavigate?: () => void;
 }) {
   const { pathname } = useLocation();
+  const data = useRouteLoaderData<typeof loader>("root");
   return (
     <nav aria-label="Workspace" className="workspace-navigation">
       {items.map(([href, label, icon]) => (
@@ -35,6 +37,18 @@ export function WorkspaceNavigation({
           {label}
         </Link>
       ))}
+      {data?.user?.admin && (
+        <div className="workspace-navigation-footer">
+          <Link
+            to="/admin"
+            onClick={onNavigate}
+            aria-current={pathname === "/admin" ? "page" : undefined}
+          >
+            <Icon name="settings" />
+            Installation settings
+          </Link>
+        </div>
+      )}
     </nav>
   );
 }
