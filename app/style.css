@@ -1171,12 +1171,14 @@ body:has(.workspace-drawer[open]) {
 }
 .release-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   margin: var(--space-4) 0;
 }
 .release-actions > form {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-3);
 }
 .release-actions > .editor-trigger,
@@ -1185,10 +1187,19 @@ body:has(.workspace-drawer[open]) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+}
+.release-actions > a,
+.release-actions .icon-button {
   width: 44px;
   height: 44px;
   padding: var(--space-2);
-  margin: 0;
+}
+.release-add-track {
+  margin-top: var(--space-5);
 }
 .release-actions > a {
   border: 1px solid var(--color-border);
