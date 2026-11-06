@@ -63,18 +63,22 @@ function fixture(t: TestContext) {
     if (previous) Object.defineProperty(globalThis, "window", previous);
     else Reflect.deleteProperty(globalThis, "window");
   });
-  const context = {
+  const context = Object.assign(new EventTarget(), {
     state: "running",
     currentTime: 0,
     createGain: () => new Node(),
     destination: {},
-  } as unknown as AudioContext;
-  const nodes: Node[] = [];
-  const audio = new BufferedAudio(context, async () => {
-    const node = new Node();
-    nodes.push(node);
-    return node as unknown as AudioWorkletNode;
+    resume: async () => {},
   });
+  const nodes: Node[] = [];
+  const audio = new BufferedAudio(
+    context as unknown as AudioContext,
+    async () => {
+      const node = new Node();
+      nodes.push(node);
+      return node as unknown as AudioWorkletNode;
+    },
+  );
   t.after(() => {
     audio.destroy();
     compressedAudioCache.clear();
@@ -289,4 +293,88 @@ test("uncompressed PCM never enters the compressed cache", async (t) => {
   for (let i = 0; i < 10 && audio.readyState < 4; i++) await tick();
   assert.equal(gets, 2);
   assert.equal(compressedAudioCache.byteLength, 0);
+});
+
+test("system context stops preserve intent and worklet position, while explicit pause cancels resume", async (t) => {
+  const { audio, nodes, context } = fixture(t);
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL) =>
+    String(input).includes("stream=manifest")
+      ? Response.json({ ...manifest, frames: 480_000 })
+      : new Response(new ArrayBuffer(96_000 * 4)),
+  );
+  audio.src = "/audio";
+  await audio.play();
+  await tick();
+  context.currentTime = 0.5;
+  const events: string[] = [];
+  for (const name of ["play", "pause", "playing"])
+    audio.addEventListener(name, () => events.push(name));
+  const commands = nodes[0].port.commands.filter((c) =>
+    ["seek", "pause"].includes(c.type),
+  ).length;
+  context.state = "suspended";
+  context.dispatchEvent(new Event("statechange"));
+  assert.equal(audio.paused, true);
+  assert.equal(audio.currentTime, 0.5);
+  context.state = "running";
+  context.dispatchEvent(new Event("statechange"));
+  assert.equal(audio.paused, false);
+  assert.equal(audio.currentTime, 0.5);
+  assert.deepEqual(events, ["pause", "play", "playing"]);
+  assert.equal(
+    nodes[0].port.commands.filter((c) => ["seek", "pause"].includes(c.type))
+      .length,
+    commands,
+    "system resume must not rewind, seek or pause the worklet",
+  );
+  context.state = "interrupted";
+  context.dispatchEvent(new Event("statechange"));
+  audio.pause();
+  events.length = 0;
+  context.state = "running";
+  context.dispatchEvent(new Event("statechange"));
+  assert.equal(audio.paused, true);
+  assert.deepEqual(
+    events,
+    [],
+    "an explicit pause must survive system recovery",
+  );
+  audio.destroy();
+  context.state = "suspended";
+  context.dispatchEvent(new Event("statechange"));
+  assert.deepEqual(
+    events,
+    [],
+    "disposed players detach their context listener",
+  );
+});
+
+test("a seek during system suspension retains play intent without restarting the context", async (t) => {
+  const { audio, nodes, context } = fixture(t);
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL) =>
+    String(input).includes("stream=manifest")
+      ? Response.json({ ...manifest, frames: 480_000 })
+      : new Response(new ArrayBuffer(96_000 * 4)),
+  );
+  let resumes = 0;
+  t.mock.method(context, "resume", async () => {
+    resumes++;
+  });
+  audio.src = "/audio";
+  await audio.play();
+  await tick();
+  context.state = "suspended";
+  context.dispatchEvent(new Event("statechange"));
+  audio.currentTime = 3;
+  await tick();
+  assert.equal(audio.paused, true);
+  assert.equal(
+    nodes[0].port.commands.filter((c) => c.type === "seek").at(-1)?.playing,
+    true,
+  );
+  assert.equal(resumes, 0);
+  context.state = "running";
+  context.dispatchEvent(new Event("statechange"));
+  assert.equal(audio.paused, false);
+  assert.equal(audio.currentTime, 3);
 });

@@ -131,6 +131,8 @@ The 220-pixel waveform may normalize visual amplitude. Click/tap seeks, wheel zo
 
 Comment time fields use minutes:seconds with optional hundredths, converted to numeric seconds on submission. Comment/reply/download dialogs trap focus, support Escape/close, and return focus to their trigger. A comment retains its selected version/thread while open and closes after successful submission.
 
+The buffered player follows system-driven AudioContext suspension and resumption, reflecting the stopped state in its controls and Media Session while preserving the worklet cursor and playback intent. An explicit application pause cancels that intent and survives context recovery. Context state synchronization never forces a resume or seeks the worklet.
+
 Media Session provides title, artist, available artwork and play/pause only. Clear any previously published position state when attaching or leaving a player. Do not publish duration, position, playback rate, artificial rates or playback-state re-announcements. Do not register seek or previous/next track handlers. In-app waveform/slider seeking, repeat, automatic release progression, sample-accurate worklet playback, normalization and existing analytics remain available. Update metadata when tracks change; clear metadata and handlers on exit, failure or learned revocation. Private artwork keeps its access checks. The platform controls the final lock-screen layout: verify that the worklet path shows play/pause without a progress timeline on the physical iPhone; native fallback elements may expose their own browser-owned timeline.
 
 ### Analytics

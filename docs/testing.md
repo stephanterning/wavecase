@@ -122,3 +122,10 @@ becomes visible supports a background-resume blockage. No remote callback until
 foreground suggests command delivery was deferred, but JavaScript logging cannot
 observe the precise time an OS command was issued while the page was suspended.
 There are no polling timers, keep-alive sounds or automatic resume attempts.
+
+For system-controlled AudioContext suspension, confirm that the player and lock
+screen report paused, then follow an OS-driven resume without seeking or counting
+a new play. An explicit in-page pause during an interruption must remain paused
+when the context recovers. Include initial context startup, a seek during
+suspension, repeated interruptions, and disposal. Diagnostic media pause/play
+events should now accompany context state changes even without remote callbacks.

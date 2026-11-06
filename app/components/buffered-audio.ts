@@ -32,7 +32,8 @@ const sleep = (signal: AbortSignal) =>
 export class BufferedAudio extends EventTarget {
   preload = "auto";
   readonly playbackRate = 1;
-  paused = true;
+  private requestedPause = true;
+  private contextRunning: boolean;
   ended = false;
   seeking = false;
   error: Error | null = null;
@@ -67,11 +68,33 @@ export class BufferedAudio extends EventTarget {
     private output = createOutput,
   ) {
     super();
+    this.contextRunning = context.state === "running";
+    context.addEventListener("statechange", this.contextChanged);
     this.normalization = context.createGain();
     this.envelope = context.createGain();
     this.normalization.connect(this.envelope);
     this.envelope.connect(playbackDestination(context));
   }
+  get paused() {
+    return this.requestedPause || !this.contextRunning;
+  }
+  private contextChanged = () => {
+    const running = this.context.state === "running";
+    if (running === this.contextRunning || this.destroyed) return;
+    // Preserve transport intent and the worklet cursor. iOS can stop/start the
+    // context directly without invoking the Media Session action handlers.
+    if (!running) {
+      this.offset = this.currentTime;
+      this.clock = this.context.currentTime;
+    }
+    this.contextRunning = running;
+    if (this.requestedPause) return;
+    this.emit(running ? "play" : "pause");
+    if (running) {
+      if (this.running && !this.seeking) this.emit("playing");
+      this.fill();
+    }
+  };
   private emit(name: string) {
     this.dispatchEvent(new Event(name));
   }
@@ -129,7 +152,7 @@ export class BufferedAudio extends EventTarget {
     this.manifest = null;
     this.offset = 0;
     this.running = false;
-    this.paused = true;
+    this.requestedPause = true;
     this.ended = false;
     this.error = null;
     this.readyState = 0;
@@ -326,7 +349,7 @@ export class BufferedAudio extends EventTarget {
     this.node!.port.postMessage({
       type: "seek",
       frame: Math.round(this.offset * streamRate),
-      playing: !this.paused,
+      playing: !this.requestedPause,
       generation,
       fade: immediate,
     });
@@ -347,12 +370,12 @@ export class BufferedAudio extends EventTarget {
     const attempt = ++this.attempt;
     const resumed = resumePlayback(this.context);
     if (this.paused) {
-      this.paused = false;
+      this.requestedPause = false;
       this.emit("play");
     }
     try {
       await Promise.all([resumed, this.initialized]);
-      if (attempt !== this.attempt || this.paused) return;
+      if (attempt !== this.attempt || this.requestedPause) return;
       await this.seek(
         this.ended || this.offset >= this.duration ? 0 : this.currentTime,
       );
@@ -366,7 +389,7 @@ export class BufferedAudio extends EventTarget {
     this.offset = this.currentTime;
     this.running = false;
     const changed = !this.paused;
-    this.paused = true;
+    this.requestedPause = true;
     this.node?.port.postMessage({ type: "pause", generation: this.generation });
     if (changed) this.emit("pause");
   };
@@ -398,7 +421,7 @@ export class BufferedAudio extends EventTarget {
     const wasRunning = this.running;
     this.offset = state.frame / streamRate;
     this.clock = state.clock;
-    this.running = state.playing && !state.waiting && !this.paused;
+    this.running = state.playing && !state.waiting && !this.requestedPause;
     if (state.loops > this.loops) {
       this.boundary = true;
       while (this.loops < state.loops) {
@@ -407,11 +430,11 @@ export class BufferedAudio extends EventTarget {
       }
       this.boundary = false;
     }
-    if (state.waiting && wasRunning) this.emit("waiting");
-    if (this.running && !wasRunning) this.emit("playing");
+    if (state.waiting && wasRunning && !this.paused) this.emit("waiting");
+    if (this.running && !wasRunning && !this.paused) this.emit("playing");
     if (state.ended && !this.ended) {
       this.ended = true;
-      this.paused = true;
+      this.requestedPause = true;
       this.running = false;
       this.emit("timeupdate");
       this.emit("pause");
@@ -516,6 +539,7 @@ export class BufferedAudio extends EventTarget {
     this.node = undefined;
   }
   destroy() {
+    this.context.removeEventListener("statechange", this.contextChanged);
     this.destroyed = true;
     this.src = "";
     this.normalization.disconnect();
