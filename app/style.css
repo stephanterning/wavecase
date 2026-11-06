@@ -1149,10 +1149,30 @@ body:has(.workspace-drawer[open]) {
   margin: 0;
 }
 .release-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   margin: var(--space-4) 0;
 }
-.release-actions summary {
-  cursor: pointer;
+.release-actions > form {
+  display: flex;
+  gap: var(--space-3);
+}
+.release-actions > .editor-trigger,
+.release-actions > a,
+.release-actions > form > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: var(--space-2);
+  margin: 0;
+}
+.release-actions > a {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
 }
 .release-track-editor > summary {
   display: flex;
@@ -1231,6 +1251,9 @@ body:has(.workspace-drawer[open]) {
 .artist-biography {
   max-width: 65ch;
   white-space: pre-line;
+}
+.release-artwork-control > img.editor-cover {
+  display: block;
 }
 .editor-cover {
   width: 240px;
@@ -1793,11 +1816,13 @@ button:has(svg) {
 }
 
 /* Artist management details follow the music catalog's quiet icon treatment. */
-.artist-portrait-control {
+.artist-portrait-control,
+.release-artwork-control {
   position: relative;
   flex-shrink: 0;
 }
-.artist-portrait-control > .editor-trigger {
+.artist-portrait-control > .editor-trigger,
+.release-artwork-control > .editor-trigger {
   position: absolute;
   right: 0;
   bottom: 8px;

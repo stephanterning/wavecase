@@ -10,6 +10,7 @@ export type IconName =
   | "edit"
   | "link"
   | "copy"
+  | "eye-off"
   | "eye"
   | "heart"
   | "upload"
@@ -93,6 +94,11 @@ export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
         <path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2" />
       )}
       {name === "copy" && <path d="M9 9h12v12H9ZM15 5V3H3v12h2" />}
+      {name === "eye-off" && (
+        <>
+          <path d="m3 3 18 18M10.6 5.1 12 5c6 0 10 7 10 7a21 21 0 0 1-3.1 3.8M6.2 6.2A25 25 0 0 0 2 12s4 7 10 7a11 11 0 0 0 5.8-1.8M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+        </>
+      )}
       {name === "eye" && (
         <>
           <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" />
