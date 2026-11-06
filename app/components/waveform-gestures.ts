@@ -26,6 +26,7 @@ export function attachWaveformGestures(
   wave: WaveformViewport,
   media: PlaybackMedia,
   duration: number,
+  onPlay: () => void,
   onComment?: (selection: CommentSelection) => void,
 ) {
   const overlay = document.createElement("div");
@@ -181,8 +182,10 @@ export function attachWaveformGestures(
           Math.abs(event.clientX - finished.x) >= 5,
         ),
       );
-    else if (finished.kind === "tap" && event.button !== 2)
+    else if (finished.kind === "tap" && event.button !== 2) {
       seekPlayback(media, timeAt(event.clientX));
+      if (media.paused) onPlay();
+    }
   };
   const cancel = () => {
     cancelHold();

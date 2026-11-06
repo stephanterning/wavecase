@@ -31,7 +31,11 @@ test("waveform gestures support both selection directions, zoomed coordinates, t
   const surface = new Surface();
   let width = 1000,
     scroll = 0;
-  const media = Object.assign(new EventTarget(), { currentTime: 0 });
+  const media = Object.assign(new EventTarget(), {
+    currentTime: 0,
+    paused: true,
+  });
+  const starts: number[] = [];
   const selections: CommentSelection[] = [];
   const stop = attachWaveformGestures(
     surface as unknown as HTMLElement,
@@ -51,6 +55,10 @@ test("waveform gestures support both selection directions, zoomed coordinates, t
     },
     media as HTMLAudioElement,
     100,
+    () => {
+      starts.push(media.currentTime);
+      media.paused = false;
+    },
     (selection) => selections.push(selection),
   );
   t.after(stop);
@@ -129,8 +137,24 @@ test("waveform gestures support both selection directions, zoomed coordinates, t
   pointer("pointerup", 400);
   assert.equal(selections.length, count);
   pointer("pointerdown", 500, 0);
+  pointer("pointermove", 400, 0);
+  pointer("pointerup", 400, 0);
+  assert.deepEqual(starts, []);
+  pointer("pointerdown", 500, 0);
   pointer("pointerup", 500, 0);
-  assert.ok(media.currentTime > 0);
+  assert.equal(media.currentTime, 40);
+  assert.deepEqual(starts, [40]);
+  pointer("pointerdown", 600, 0);
+  pointer("pointerup", 600, 0);
+  assert.equal(media.currentTime, 45);
+  assert.equal(starts.length, 1);
+  assert.equal(media.paused, false);
+  media.paused = true;
+  pointer("pointerdown", 700, 0, 1, true);
+  pointer("pointerup", 700, 0, 1, true);
+  assert.equal(media.currentTime, 50);
+  assert.deepEqual(starts, [40, 50]);
+  assert.equal(media.paused, false);
   assert.equal(selections.length, count);
 });
 test("time selection never rounds past the supplied point and orders reverse ranges", () => {
