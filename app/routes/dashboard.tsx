@@ -35,23 +35,20 @@ export default function Dashboard() {
   const submit = useSubmit();
   return (
     <>
-      <p className="eyebrow">Dashboard</p>
-      <div className="dashboard-heading">
+      <div className="list-heading">
         <h1>Welcome, {d.name}.</h1>
         <Form method="get" className="period-form">
-          <label>
-            Activity period
-            <select
-              name="period"
-              defaultValue={d.period}
-              key={d.period}
-              onChange={(event) => void submit(event.currentTarget.form)}
-            >
-              <option value="7">Last 7 days</option>
-              <option value="30">Last 30 days</option>
-              <option value="all">All time</option>
-            </select>
-          </label>
+          <select
+            aria-label="Activity period"
+            name="period"
+            defaultValue={d.period}
+            key={d.period}
+            onChange={(event) => void submit(event.currentTarget.form)}
+          >
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="all">All time</option>
+          </select>
         </Form>
       </div>
       <p className="muted">

@@ -71,124 +71,96 @@ export default function Releases() {
       : data.artists[0]?.id || "",
   );
   const filter = search.get("q") || "";
-  const artistFilter = search.get("artist") || "";
-  const status = search.get("status") || "all";
-  const updateFilter = (key: string, value: string) => {
+  const updateFilter = (value: string) => {
     const next = new URLSearchParams(search);
-    if (value) next.set(key, value);
-    else next.delete(key);
+    if (value) next.set("q", value);
+    else next.delete("q");
     setSearch(next, { replace: true, preventScrollReset: true });
   };
-  const visible = data.releases.filter(
-    ({ release, artist }) =>
-      (!artistFilter || artist.id === artistFilter) &&
-      (status === "all" ||
-        (status === "published" ? release.published : !release.published)) &&
-      `${release.title} ${artist.name}`
-        .toLowerCase()
-        .includes(filter.toLowerCase()),
+  const visible = data.releases.filter(({ release, artist }) =>
+    `${release.title} ${artist.name}`
+      .toLowerCase()
+      .includes(filter.toLowerCase()),
   );
   return (
     <>
-      <p className="eyebrow">Your releases</p>
-      <h1>Releases</h1>
-      <CreateDialog
-        title="Add release"
-        error={result?.error}
-        submit={
-          <button className="button-primary" disabled={!data.artists.length}>
-            Create draft
-          </button>
-        }
-      >
-        <input type="hidden" name="intent" value="release" />
-        <label>
-          Artist
-          <select
-            name="artist"
-            required
-            value={artist}
-            onChange={(event) => setArtist(event.target.value)}
+      <div className="list-heading">
+        <div className="list-heading-title">
+          <h1>Releases</h1>
+          <CreateDialog
+            title="Add release"
+            error={result?.error}
+            submit={
+              <button
+                className="button-primary"
+                disabled={!data.artists.length}
+              >
+                Create draft
+              </button>
+            }
           >
-            {data.artists.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Title
-          <input
-            name="name"
-            required
-            maxLength={200}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        <AddressField
-          name={name}
-          prefix={`/artists/${data.artists.find((a) => a.id === artist)?.slug || "…"}`}
-          value={slug}
-          onChange={setSlug}
+            <input type="hidden" name="intent" value="release" />
+            <label>
+              Artist
+              <select
+                name="artist"
+                required
+                value={artist}
+                onChange={(event) => setArtist(event.target.value)}
+              >
+                {data.artists.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Title
+              <input
+                name="name"
+                required
+                maxLength={200}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </label>
+            <AddressField
+              name={name}
+              prefix={`/artists/${data.artists.find((a) => a.id === artist)?.slug || "…"}`}
+              value={slug}
+              onChange={setSlug}
+            />
+            <label>
+              Type
+              <select name="kind">
+                <option value="single">Single</option>
+                <option value="ep">EP</option>
+                <option value="album">Album</option>
+              </select>
+            </label>
+            {!data.artists.length && (
+              <p>
+                <Link to="/artist-profiles?create=1">
+                  Create an artist profile first.
+                </Link>
+              </p>
+            )}
+          </CreateDialog>
+        </div>
+        <input
+          className="list-search"
+          aria-label="Search releases"
+          type="search"
+          value={filter}
+          onChange={(event) => updateFilter(event.target.value)}
+          placeholder="Title or artist"
         />
-        <label>
-          Type
-          <select name="kind">
-            <option value="single">Single</option>
-            <option value="ep">EP</option>
-            <option value="album">Album</option>
-          </select>
-        </label>
-        {!data.artists.length && (
-          <p>
-            <Link to="/artist-profiles?create=1">
-              Create an artist profile first.
-            </Link>
-          </p>
-        )}
-      </CreateDialog>
-      <div className="filter-toolbar">
-        <label>
-          Search releases
-          <input
-            type="search"
-            value={filter}
-            onChange={(event) => updateFilter("q", event.target.value)}
-            placeholder="Title or artist"
-          />
-        </label>
-        <label>
-          Artist
-          <select
-            value={artistFilter}
-            onChange={(event) => updateFilter("artist", event.target.value)}
-          >
-            <option value="">All artists</option>
-            {data.artists.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Status
-          <select
-            value={status}
-            onChange={(event) => updateFilter("status", event.target.value)}
-          >
-            <option value="all">All</option>
-            <option value="draft">Drafts</option>
-            <option value="published">Published</option>
-          </select>
-        </label>
       </div>
       {!visible.length && (
         <p>
           {data.releases.length
-            ? "No releases match these filters."
+            ? "No releases match your search."
             : "No releases yet."}
         </p>
       )}

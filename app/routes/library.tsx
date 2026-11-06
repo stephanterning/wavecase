@@ -95,56 +95,53 @@ export default function Library() {
   const navigation = useNavigation();
   return (
     <>
-      <div className="heading">
-        <div>
-          <p className="eyebrow">Your library</p>
-          <h1>Work in progress</h1>
-        </div>
-      </div>
       <DemoList data={data}>
-        <CreateDialog
-          title="Add new track"
-          error={result?.error}
-          encType="multipart/form-data"
-          submit={
-            <button
-              className="button-primary"
-              disabled={navigation.state !== "idle"}
-            >
-              {navigation.state !== "idle" ? "Creating…" : "Create track"}
-            </button>
-          }
-        >
-          <label>
-            First audio version (optional)
-            <input
-              type="file"
-              name="audio"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                const title = e.target.form?.elements.namedItem("title");
-                if (file && title instanceof HTMLInputElement && !title.value)
-                  title.value = file.name
-                    .replace(/\.[^.]+$/, "")
-                    .replace(/[ _-]+v\d+(?:\.\d+)*$/i, "")
-                    .replace(/_/g, " ");
-              }}
-            />
-          </label>
-          <label>
-            Title
-            <input name="title" required maxLength={200} />
-          </label>
-          <label>
-            First version status
-            <select name="status" defaultValue={defaultVersionStatus}>
-              {versionStatuses.map((status) => (
-                <option key={status}>{status}</option>
-              ))}
-            </select>
-          </label>
-          <TrackArtistField profiles={data.artists} />
-        </CreateDialog>
+        <div className="list-heading-title">
+          <h1>Work in progress</h1>
+          <CreateDialog
+            title="Add new track"
+            error={result?.error}
+            encType="multipart/form-data"
+            submit={
+              <button
+                className="button-primary"
+                disabled={navigation.state !== "idle"}
+              >
+                {navigation.state !== "idle" ? "Creating…" : "Create track"}
+              </button>
+            }
+          >
+            <label>
+              First audio version (optional)
+              <input
+                type="file"
+                name="audio"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  const title = e.target.form?.elements.namedItem("title");
+                  if (file && title instanceof HTMLInputElement && !title.value)
+                    title.value = file.name
+                      .replace(/\.[^.]+$/, "")
+                      .replace(/[ _-]+v\d+(?:\.\d+)*$/i, "")
+                      .replace(/_/g, " ");
+                }}
+              />
+            </label>
+            <label>
+              Title
+              <input name="title" required maxLength={200} />
+            </label>
+            <label>
+              First version status
+              <select name="status" defaultValue={defaultVersionStatus}>
+                {versionStatuses.map((status) => (
+                  <option key={status}>{status}</option>
+                ))}
+              </select>
+            </label>
+            <TrackArtistField profiles={data.artists} />
+          </CreateDialog>
+        </div>
       </DemoList>
     </>
   );
