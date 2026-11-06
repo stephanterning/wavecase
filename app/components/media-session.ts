@@ -1,12 +1,18 @@
 import type { PlaybackMedia } from "./playback-audio";
 import { useEffect, useEffectEvent } from "react";
 
+type QueueControls = {
+  previousTrack?: () => void;
+  nextTrack?: () => void;
+};
+
 export function attachMediaSession(
   media: PlaybackMedia,
   metadata: MediaMetadataInit,
   onError: () => void,
   onPlay: () => Promise<void> = () => media.play(),
   onPause: () => void = () => media.pause(),
+  { previousTrack, nextTrack }: QueueControls = {},
 ) {
   if (!("mediaSession" in navigator)) return () => {};
   const session = navigator.mediaSession;
@@ -27,8 +33,8 @@ export function attachMediaSession(
     seekto: null,
     seekbackward: null,
     seekforward: null,
-    previoustrack: null,
-    nexttrack: null,
+    previoustrack: previousTrack ?? null,
+    nexttrack: nextTrack ?? null,
   };
   const setHandlers = (clear = false) => {
     for (const [action, handler] of Object.entries(handlers)) {
@@ -46,7 +52,9 @@ export function attachMediaSession(
   clearPosition();
   setHandlers();
   const updateState = () => {
-    session.metadata = media.error ? null : description;
+    // Reassigning unchanged metadata can make WebKit reload the artwork.
+    const current = media.error ? null : description;
+    if (session.metadata !== current) session.metadata = current;
     session.playbackState = media.error
       ? "none"
       : !media.paused && !media.ended
@@ -84,10 +92,15 @@ export function useMediaSession(
   onError: () => void,
   onPlay: () => Promise<void>,
   onPause?: () => void,
+  { previousTrack, nextTrack }: QueueControls = {},
 ) {
   const fail = useEffectEvent(onError);
   const play = useEffectEvent(onPlay);
   const pause = useEffectEvent(() => (onPause ? onPause() : media?.pause()));
+  const previous = useEffectEvent(() => previousTrack?.());
+  const next = useEffectEvent(() => nextTrack?.());
+  const canPrevious = !!previousTrack;
+  const canNext = !!nextTrack;
   const { src, sizes, type } = artwork ?? {};
   useEffect(() => {
     if (!media || title === undefined) return;
@@ -97,6 +110,10 @@ export function useMediaSession(
       () => fail(),
       () => play(),
       () => pause(),
+      {
+        previousTrack: canPrevious ? () => previous() : undefined,
+        nextTrack: canNext ? () => next() : undefined,
+      },
     );
-  }, [media, title, artist, album, src, sizes, type]);
+  }, [media, title, artist, album, src, sizes, type, canPrevious, canNext]);
 }

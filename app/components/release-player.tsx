@@ -70,6 +70,14 @@ function ReleasePlayer() {
     },
     () => playback.fail(),
     playback.play,
+    undefined,
+    {
+      previousTrack: playback.previousTrack,
+      nextTrack:
+        queue && index + 1 < queue.tracks.length
+          ? playback.nextTrack
+          : undefined,
+    },
   );
   if (!queue && !error) return null;
   return (

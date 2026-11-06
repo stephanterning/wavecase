@@ -152,6 +152,57 @@ test("lock-screen controls publish metadata and play/pause without track time or
   );
 });
 
+test("release queue controls use the shared player and disable next at the queue end", async (t) => {
+  const { session, handlers } = browserSession(t);
+  let assignments = 0;
+  let current = session.metadata;
+  Object.defineProperty(session, "metadata", {
+    get: () => current,
+    set: (value: MediaMetadataInit | null) => {
+      assignments++;
+      current = value;
+    },
+  });
+  const media = new Media();
+  let previous = 0;
+  let next = 0;
+  const attach = (canNext: boolean) =>
+    attachMediaSession(
+      media as unknown as HTMLAudioElement,
+      { title: "Release track" },
+      () => {},
+      () => media.play(),
+      undefined,
+      {
+        previousTrack: () => {
+          previous++;
+        },
+        nextTrack: canNext
+          ? () => {
+              next++;
+            }
+          : undefined,
+      },
+    );
+  const stop = attach(true);
+  handlers.get("previoustrack")!({ action: "previoustrack" });
+  handlers.get("nexttrack")!({ action: "nexttrack" });
+  assert.equal(previous, 1);
+  assert.equal(next, 1);
+  for (const action of ["seekto", "seekbackward", "seekforward"])
+    assert.equal(handlers.get(action), null);
+  assignments = 0;
+  await media.play();
+  media.pause();
+  assert.equal(assignments, 0, "unchanged metadata is not reassigned");
+  stop();
+  const stopLast = attach(false);
+  assert.equal(handlers.get("nexttrack"), null);
+  assert.ok(handlers.get("previoustrack"));
+  stopLast();
+  assert.ok([...handlers.values()].every((handler) => handler === null));
+});
+
 test("media failure and revocation clear private metadata and remote controls", async (t) => {
   const { session, handlers, metadata } = browserSession(t);
   const media = new Media();
