@@ -897,18 +897,32 @@ body:has(.release-mini) {
 .library-table tbody tr:hover {
   background: #090f0c;
 }
+main:has(.workspace) {
+  display: flex;
+  flex-direction: column;
+}
 .workspace {
+  flex: 1;
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   gap: var(--space-6);
 }
 .workspace-sidebar {
+  display: flex;
+  flex-direction: column;
   border-right: 1px solid var(--color-border-subtle);
   padding-right: var(--space-5);
 }
 .workspace-navigation {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   gap: var(--space-2);
+}
+.workspace-navigation-footer {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
 }
 .workspace-navigation a {
   display: flex;
@@ -956,6 +970,13 @@ body:has(.release-mini) {
 }
 body:has(.workspace-drawer[open]) {
   overflow: hidden;
+}
+.workspace-drawer[open] {
+  display: flex;
+  flex-direction: column;
+}
+.workspace-drawer > .dialog-heading {
+  flex-shrink: 0;
 }
 .workspace-drawer::backdrop {
   background: #000a;
