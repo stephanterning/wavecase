@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { formatClock } from "../domain/format";
 
 export function ReleaseSeek({
@@ -13,6 +13,8 @@ export function ReleaseSeek({
   const [preview, setPreview] = useState<number | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const pending = useRef<number | null>(null);
+  const elapsedTime = formatClock(preview ?? position);
+  const totalTime = formatClock(duration);
   function cancel() {
     pending.current = null;
     setPreview(null);
@@ -41,15 +43,27 @@ export function ReleaseSeek({
   }, [onSeek]);
   return (
     <label className="release-seek">
-      {formatClock(preview ?? position)} / {formatClock(duration)}
+      <span
+        className="playback-time"
+        style={{ minWidth: `${totalTime.length * 2 + 3}ch` }}
+      >
+        {elapsedTime} / {totalTime}
+      </span>
       <input
         ref={input}
         aria-label="Playback position"
+        aria-valuetext={`${elapsedTime} of ${totalTime}`}
         type="range"
         min={0}
         max={duration || 1}
         step={0.1}
         value={preview ?? position}
+        disabled={!duration}
+        style={
+          {
+            "--seek-progress": `${duration ? Math.max(0, Math.min(100, ((preview ?? position) / duration) * 100)) : 0}%`,
+          } as CSSProperties
+        }
         onChange={(event) => {
           const next = event.currentTarget.valueAsNumber;
           if (event.nativeEvent.type === "input") {

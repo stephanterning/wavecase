@@ -12,6 +12,7 @@ export function MiniPlayer({
   repeatLabel,
   repeating,
   onRepeat,
+  seek,
   children,
 }: {
   label: string;
@@ -20,8 +21,6 @@ export function MiniPlayer({
     title: string;
     details: string;
     href: string;
-    /** Names the page the artwork link opens. */
-    page: string;
     artwork?: string;
   };
   controls?: boolean;
@@ -30,6 +29,7 @@ export function MiniPlayer({
   repeatLabel: string;
   repeating: boolean;
   onRepeat: (repeat: boolean) => void;
+  seek?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -37,44 +37,39 @@ export function MiniPlayer({
       className={className ? `release-mini ${className}` : "release-mini"}
       aria-label={label}
     >
-      {track && (
-        <>
-          <Link
-            to={track.href}
-            className="release-mini-artwork"
-            aria-label={`Open ${track.page}`}
-          >
-            {track.artwork ? (
-              <img src={track.artwork} alt="" width={52} height={52} />
-            ) : (
-              <span aria-hidden="true">♫</span>
-            )}
-          </Link>
-          <div className="release-mini-description">
-            <Link to={track.href}>{track.title}</Link>
-            <span>{track.details}</span>
-          </div>
-        </>
+      {(controls || track?.artwork) && (
+        <div className="release-mini-transport">
+          {track?.artwork && (
+            <img src={track.artwork} alt="" width={52} height={52} />
+          )}
+          {controls && (
+            <IconButton
+              className="icon-action play-toggle"
+              icon={playing ? "pause" : "play"}
+              label={playing ? "Pause" : "Play"}
+              tooltip={playing ? "Pause (Space)" : "Play (Space)"}
+              aria-keyshortcuts="Space"
+              onClick={onToggle}
+            />
+          )}
+        </div>
       )}
+      {track && (
+        <div className="release-mini-description">
+          <Link to={track.href}>{track.title}</Link>
+          <span>{track.details}</span>
+        </div>
+      )}
+      {seek}
       {controls && (
-        <>
-          <IconButton
-            className="icon-action play-toggle"
-            icon={playing ? "pause" : "play"}
-            label={playing ? "Pause" : "Play"}
-            tooltip={playing ? "Pause (Space)" : "Play (Space)"}
-            aria-keyshortcuts="Space"
-            onClick={onToggle}
-          />
-          <IconButton
-            className="icon-action"
-            icon="repeat"
-            label={repeatLabel}
-            tooltip={`${repeatLabel} ${repeating ? "on" : "off"}`}
-            aria-pressed={repeating}
-            onClick={() => onRepeat(!repeating)}
-          />
-        </>
+        <IconButton
+          className="icon-action"
+          icon="repeat"
+          label={repeatLabel}
+          tooltip={`${repeatLabel} ${repeating ? "on" : "off"}`}
+          aria-pressed={repeating}
+          onClick={() => onRepeat(!repeating)}
+        />
       )}
       {children}
     </aside>
