@@ -12,6 +12,7 @@ import { useMediaSession } from "./media-session";
 import { setRepeatPreference, useRepeatPreference } from "./repeat-preference";
 import { BufferedAudio } from "./buffered-audio";
 import { MiniPlayer } from "./mini-player";
+import { ReleaseSeek } from "./release-seek";
 import { useSpaceToggle } from "./use-space-toggle";
 
 const PlaybackContext = createContext<ReleasePlayback | null>(null);
@@ -39,8 +40,17 @@ export function ReleasePlayerProvider({ children }: { children: ReactNode }) {
 }
 
 function ReleasePlayer() {
-  const { playback, queue, index, status, error, seeking, media } =
-    useReleasePlayer();
+  const {
+    playback,
+    queue,
+    index,
+    status,
+    error,
+    seeking,
+    media,
+    position,
+    duration,
+  } = useReleasePlayer();
   const repeat = useRepeatPreference();
   useEffect(() => {
     playback.setRepeat(repeat);
@@ -92,6 +102,14 @@ function ReleasePlayer() {
       repeating={repeat}
       onRepeat={setRepeatPreference}
     >
+      {track && (
+        <ReleaseSeek
+          key={track.id}
+          position={position}
+          duration={duration}
+          onSeek={playback.seek}
+        />
+      )}
       {track && (
         <>
           {status === "loading" && <span role="status">Loading audio…</span>}

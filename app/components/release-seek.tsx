@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { formatClock } from "../domain/format";
 
 export function ReleaseSeek({
@@ -45,11 +45,18 @@ export function ReleaseSeek({
       <input
         ref={input}
         aria-label="Playback position"
+        aria-valuetext={`${formatClock(preview ?? position)} of ${formatClock(duration)}`}
         type="range"
         min={0}
         max={duration || 1}
         step={0.1}
         value={preview ?? position}
+        disabled={!duration}
+        style={
+          {
+            "--seek-progress": `${duration ? Math.max(0, Math.min(100, ((preview ?? position) / duration) * 100)) : 0}%`,
+          } as CSSProperties
+        }
         onChange={(event) => {
           const next = event.currentTarget.valueAsNumber;
           if (event.nativeEvent.type === "input") {
