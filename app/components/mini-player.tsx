@@ -12,6 +12,7 @@ export function MiniPlayer({
   repeatLabel,
   repeating,
   onRepeat,
+  seek,
   children,
 }: {
   label: string;
@@ -30,6 +31,7 @@ export function MiniPlayer({
   repeatLabel: string;
   repeating: boolean;
   onRepeat: (repeat: boolean) => void;
+  seek?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -56,6 +58,7 @@ export function MiniPlayer({
           </div>
         </>
       )}
+      {seek}
       {controls && (
         <>
           <IconButton

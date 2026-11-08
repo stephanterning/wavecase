@@ -125,15 +125,17 @@ function WorkspacePlayer({
       repeatLabel="Repeat demo"
       repeating={repeat}
       onRepeat={setRepeatPreference}
+      seek={
+        source && (
+          <ReleaseSeek
+            key={source.key}
+            position={position}
+            duration={source.duration}
+            onSeek={(next) => playback.seek(source.versionId, next)}
+          />
+        )
+      }
     >
-      {source && (
-        <ReleaseSeek
-          key={source.key}
-          position={position}
-          duration={source.duration}
-          onSeek={(next) => playback.seek(source.versionId, next)}
-        />
-      )}
       {loading && <span role="status">Loading audio…</span>}
       {error && (
         <p role="alert">

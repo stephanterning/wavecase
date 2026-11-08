@@ -537,10 +537,10 @@ button:hover:not(:disabled),
 
 /* Released music has its own artwork-led public presentation. */
 :root:has(.release-mini) {
-  scroll-padding-bottom: calc(190px + env(safe-area-inset-bottom));
+  scroll-padding-bottom: calc(150px + env(safe-area-inset-bottom));
 }
 body:has(.release-mini) {
-  padding-bottom: calc(190px + env(safe-area-inset-bottom));
+  padding-bottom: calc(150px + env(safe-area-inset-bottom));
 }
 .release-mini {
   position: fixed;
@@ -594,7 +594,8 @@ body:has(.release-mini) {
   margin: 0;
 }
 .release-mini .release-seek {
-  flex-basis: 100%;
+  flex: 2;
+  min-width: 0;
   display: flex;
   align-items: center;
   margin: 0;
@@ -603,6 +604,12 @@ body:has(.release-mini) {
 .release-mini .release-seek input {
   flex: 1;
   min-width: 0;
+}
+@media (max-width: 600px) {
+  .release-mini .release-seek {
+    order: 1;
+    flex-basis: 100%;
+  }
 }
 .release-public {
   max-width: 1120px;

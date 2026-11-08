@@ -101,15 +101,17 @@ function ReleasePlayer() {
       repeatLabel="Repeat track"
       repeating={repeat}
       onRepeat={setRepeatPreference}
+      seek={
+        track && (
+          <ReleaseSeek
+            key={track.id}
+            position={position}
+            duration={duration}
+            onSeek={playback.seek}
+          />
+        )
+      }
     >
-      {track && (
-        <ReleaseSeek
-          key={track.id}
-          position={position}
-          duration={duration}
-          onSeek={playback.seek}
-        />
-      )}
       {track && (
         <>
           {status === "loading" && <span role="status">Loading audio…</span>}
