@@ -558,13 +558,35 @@ body:has(.release-mini) {
   border-top: 1px solid var(--color-border-control);
   box-shadow: 0 -8px 30px #0005;
 }
-.release-mini-artwork {
+.release-mini-transport {
+  position: relative;
   flex: 0 0 52px;
   height: 52px;
 }
-.release-mini-artwork img {
+.release-mini-transport img {
+  display: block;
   border-radius: 6px;
   object-fit: cover;
+}
+.release-mini-transport:has(img) .play-toggle {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+}
+.release-mini-transport:has(img) .play-toggle svg {
+  box-sizing: content-box;
+  padding: 6px;
+  border: 1px solid var(--color-accent);
+  border-radius: 50%;
+  background: #090b0ae6;
+  box-shadow: 0 1px 6px #0008;
+}
+.release-mini-transport:has(img) .play-toggle:hover svg {
+  background: var(--color-surface);
+  border-color: var(--color-accent-strong);
 }
 .release-mini-description {
   flex: 0 1 auto;

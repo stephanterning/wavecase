@@ -114,7 +114,6 @@ function WorkspacePlayer({
                 .filter(Boolean)
                 .join(" · "),
               href,
-              page: source.title,
               artwork: source.artwork,
             }
           : undefined

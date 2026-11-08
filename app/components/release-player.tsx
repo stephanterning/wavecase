@@ -91,7 +91,6 @@ function ReleasePlayer() {
               title: track.title,
               details: track.artist,
               href: queue.url,
-              page: queue.title,
               artwork: queue.artwork?.src,
             }
           : undefined
