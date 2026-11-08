@@ -13,6 +13,8 @@ export function ReleaseSeek({
   const [preview, setPreview] = useState<number | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const pending = useRef<number | null>(null);
+  const elapsedTime = formatClock(preview ?? position);
+  const totalTime = formatClock(duration);
   function cancel() {
     pending.current = null;
     setPreview(null);
@@ -41,11 +43,16 @@ export function ReleaseSeek({
   }, [onSeek]);
   return (
     <label className="release-seek">
-      {formatClock(preview ?? position)} / {formatClock(duration)}
+      <span
+        className="playback-time"
+        style={{ minWidth: `${totalTime.length * 2 + 3}ch` }}
+      >
+        {elapsedTime} / {totalTime}
+      </span>
       <input
         ref={input}
         aria-label="Playback position"
-        aria-valuetext={`${formatClock(preview ?? position)} of ${formatClock(duration)}`}
+        aria-valuetext={`${elapsedTime} of ${totalTime}`}
         type="range"
         min={0}
         max={duration || 1}
