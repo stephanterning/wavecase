@@ -54,7 +54,6 @@ docker compose run --rm --no-deps web sh -ec 'export DATABASE_URL="${DATABASE_UR
 
 Create the database only once. Building the image also checks the production build. The URL substitution assumes the supplied Compose database name, `wavecase`. Use a separate checkout and Compose project from a running installation; set `COMPOSE_PROJECT_NAME=wavecase-check` for these commands if checkout names collide. [CI](../.github/workflows/ci.yml) uses its own PostgreSQL service and runs the complete suite. It also checks formatting and fails when `app/server/schema.ts` has changes without a generated migration or when `THIRD_PARTY_NOTICES.md` is out of date.
 
-CI also runs `python3 -B -m unittest discover -s tests -p 'test_local_preview.py'`, which covers the reset safeguards in `scripts/local-test-data.py` ([local preview](local-preview.md)). Run it after changing that script.
 
 | Coverage | Tests |
 | --- | --- |

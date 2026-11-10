@@ -35,7 +35,6 @@ Data persists in `data/postgres` and `data/audio` across container rebuilds. Bac
 
 ## Documentation
 
-- [Local preview and resetting test data](docs/local-preview.md): the Mac’s isolated production-based test environment.
 - [Development and testing](docs/testing.md): local setup, isolated tests, and device checks.
 - [Product and technical specification](docs/wavecase-specification.md): behavior, access rules, audio policies, and repository structure.
 - [Implementation status](docs/implementation-status.md): supported scope and remaining acceptance work.

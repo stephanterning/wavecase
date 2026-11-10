@@ -71,3 +71,12 @@ The supplied Compose file uses `build: .`; it does not select published images. 
 | Explicit migration job | `["npm", "run", "db:migrate"]` | If run separately, start web with `["npm", "start"]`. |
 
 The image includes FFmpeg and ffprobe; PostgreSQL runs separately. Publishing images never triggers a deployment.
+
+
+## Local test data
+
+Use the repository's Compose setup for an independent local database and media
+store. Installation-specific tools that export production content, sanitize it
+or reset a configured preview belong to the operator's infrastructure tooling.
+They are not prerequisites for running or developing this application. Keep any
+real content and exports out of Git; `data/` remains ignored.
