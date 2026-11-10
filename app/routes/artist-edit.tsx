@@ -7,8 +7,7 @@ import { ReleaseCardContent } from "../components/release-card-content";
 import { Icon } from "../components/icons";
 import { EditForm, PreviewLink } from "../components/editing";
 import { LinkFields } from "../components/link-fields";
-import { unlink } from "node:fs/promises";
-import { join } from "node:path";
+import { removeAudioFiles } from "../server/audio-files";
 import {
   redirect,
   useActionData,
@@ -129,8 +128,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
         .update(artists)
         .set({ image: key })
         .where(eq(artists.id, artist.id));
-      if (artist.image)
-        await unlink(join(directory(), artist.image)).catch(() => {});
+      if (artist.image) await removeAudioFiles(directory(), [artist.image]);
     } else throw new Response("Unknown action", { status: 400 });
     if (f.has("_inline")) return { saved: true, error: undefined };
     return redirect(`/artist-profiles/${params.id}`);
@@ -189,7 +187,6 @@ export default function ArtistEdit() {
           </EditForm>
         </div>
         <div>
-          <p className="eyebrow">Artist</p>
           <h1>{a.name}</h1>
           <p className="artist-biography">
             {a.bio || "Add a biography to introduce your music."}
@@ -227,17 +224,19 @@ export default function ArtistEdit() {
         <div>
           <section>
             <div className="artist-section-heading">
-              <h2>
-                Releases <span className="section-count">{rows.length}</span>
-              </h2>
-              <Link
-                className="artist-icon-action tooltip"
-                to={`/releases?create=1&artist=${a.id}`}
-                aria-label={`Add release for ${a.name}`}
-                data-tooltip={`Add release for ${a.name}`}
-              >
-                <Icon name="plus" />
-              </Link>
+              <div className="list-heading-title">
+                <h2>
+                  Releases <span className="section-count">{rows.length}</span>
+                </h2>
+                <Link
+                  className="artist-icon-action tooltip"
+                  to={`/releases?create=1&artist=${a.id}`}
+                  aria-label={`Add release for ${a.name}`}
+                  data-tooltip={`Add release for ${a.name}`}
+                >
+                  <Icon name="plus" />
+                </Link>
+              </div>
             </div>
             <div className="catalog-grid">
               {rows.map((release) => (

@@ -70,10 +70,6 @@ async function deleteRelease(id: string) {
       .where(eq(releases.id, id))
       .for("update");
     if (!release) throw new Response("Release not found", { status: 404 });
-    if (release.published)
-      throw new Response("Unpublish this release before deleting it.", {
-        status: 409,
-      });
     const tracks = await tx
       .select()
       .from(releaseTracks)

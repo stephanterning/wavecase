@@ -1,6 +1,5 @@
 import type { LoaderFunctionArgs } from "react-router";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { webArtwork } from "../server/artwork";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../server/db";
@@ -13,9 +12,9 @@ export async function loader({ params }: LoaderFunctionArgs) {
     where: eq(artists.id, params.id!),
   });
   if (!a?.image) throw new Response("Not found", { status: 404 });
-  return new Response(await readFile(join(directory(), a.image)), {
+  return new Response(await webArtwork(directory(), a.image), {
     headers: {
-      "Content-Type": "image/png",
+      "Content-Type": "image/webp",
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
     },

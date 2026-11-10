@@ -1,3 +1,4 @@
+import { ArtworkBackdrop } from "../components/artwork-backdrop";
 import { DemoIdentity } from "../components/demo-editors";
 import { ShareLinks } from "../components/share-links";
 import { OwnerTrackActions } from "../components/owner-track-actions";
@@ -207,6 +208,7 @@ function TrackContents() {
   }, [data.versions, data.owner, data.fingerprint, statusUrl, revalidator]);
   return (
     <>
+      <ArtworkBackdrop src={artwork} />
       {data.owner && data.share && (
         <p>
           <a href={`/tracks/${data.track.id}`}>Back to editing</a>

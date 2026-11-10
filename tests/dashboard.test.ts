@@ -1,3 +1,5 @@
+import { artworkFile } from "../app/server/storage-keys";
+import { loader as artistImage } from "../app/routes/artist-image";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
@@ -207,6 +209,12 @@ test(
         )) instanceof Response,
       );
       const first = (await artistEditor(args({}, id))).artist.image!;
+      const webImage = await artistImage(args({}, id));
+      assert.equal(webImage.headers.get("content-type"), "image/webp");
+      assert.deepEqual(
+        Buffer.from(await webImage.arrayBuffer()),
+        await readFile(join(media, artworkFile(first, "web"))),
+      );
       assert.ok(
         (await editArtist(
           args({ intent: "artist-image", image }, id),
@@ -215,6 +223,7 @@ test(
       const second = (await artistEditor(args({}, id))).artist.image!;
       assert.notEqual(first, second);
       await assert.rejects(stat(join(media, first)));
+      await assert.rejects(stat(join(media, artworkFile(first, "web"))));
       assert.ok((await stat(join(media, second))).size > 0);
     } finally {
       if (previousDataDir === undefined) delete process.env.DATA_DIR;

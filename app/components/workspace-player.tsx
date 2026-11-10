@@ -13,6 +13,7 @@ import { type DemoPlayback } from "./demo-playback";
 import { useMediaSession } from "./media-session";
 import { setRepeatPreference, useRepeatPreference } from "./repeat-preference";
 import { MiniPlayer } from "./mini-player";
+import { ReleaseSeek } from "./release-seek";
 import { useSpaceToggle } from "./use-space-toggle";
 
 const WorkspaceAudio = createContext<WorkspacePlayback | null>(null);
@@ -59,6 +60,16 @@ function WorkspacePlayer({
       playback.getSnapshot,
     );
   const repeat = useRepeatPreference();
+  const [position, setPosition] = useState(0);
+  useEffect(() => {
+    const remember = () => setPosition(media?.currentTime ?? 0);
+    const events = ["timeupdate", "seeked", "wavecase-user-seeked"];
+    remember();
+    for (const event of events) media?.addEventListener(event, remember);
+    return () => {
+      for (const event of events) media?.removeEventListener(event, remember);
+    };
+  }, [media]);
   useEffect(() => {
     playback.setRepeat(repeat);
   }, [playback, repeat]);
@@ -74,6 +85,7 @@ function WorkspacePlayer({
       return !!state.source || state.loading;
     },
     toggle,
+    slider: true,
   });
   useMediaSession(
     media,
@@ -102,7 +114,6 @@ function WorkspacePlayer({
                 .filter(Boolean)
                 .join(" · "),
               href,
-              page: source.title,
               artwork: source.artwork,
             }
           : undefined
@@ -113,6 +124,16 @@ function WorkspacePlayer({
       repeatLabel="Repeat demo"
       repeating={repeat}
       onRepeat={setRepeatPreference}
+      seek={
+        source && (
+          <ReleaseSeek
+            key={source.key}
+            position={position}
+            duration={source.duration}
+            onSeek={(next) => playback.seek(source.versionId, next)}
+          />
+        )
+      }
     >
       {loading && <span role="status">Loading audio…</span>}
       {error && (

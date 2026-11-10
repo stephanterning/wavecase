@@ -1,5 +1,12 @@
-export type LibrarySort =
-  "favorite" | "title" | "artist" | "versionCount" | "updatedAt" | "createdAt";
+export const librarySorts = [
+  "favorite",
+  "title",
+  "artist",
+  "versionCount",
+  "updatedAt",
+  "createdAt",
+] as const;
+export type LibrarySort = (typeof librarySorts)[number];
 
 type TrackSortFields = {
   id: string;

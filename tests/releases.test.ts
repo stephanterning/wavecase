@@ -391,9 +391,10 @@ test(
         thumbnail,
       );
       const fullCover = await assetLoader(args(request(), "cover"));
-      assert.equal(fullCover.headers.get("content-type"), "image/png");
+      assert.equal(fullCover.headers.get("content-type"), "image/webp");
+      assert.ok((await fullCover.arrayBuffer()).byteLength > 0);
       assert.deepEqual(
-        Buffer.from(await fullCover.arrayBuffer()),
+        await readFile(join(dir, "artwork.png")),
         originalArtwork,
       );
       const head = await assetLoader(
@@ -678,12 +679,6 @@ test(
       await assert.rejects(stat(join(dir, "master.wav.mp3")), {
         code: "ENOENT",
       });
-      const publishedDelete = await editAction(
-        args(post({ intent: "delete" }, session), ""),
-      );
-      assert.deepEqual(publishedDelete, {
-        error: "Unpublish this release before deleting it.",
-      });
       await editAction({
         request: post({ intent: "unpublish" }, session),
         params: { id: release },
@@ -724,6 +719,11 @@ test(
           denied(404),
         );
       }
+      // A published release can be deleted directly after UI confirmation.
+      await db
+        .update(releases)
+        .set({ published: true })
+        .where(eq(releases.id, release));
       const deleted = await editAction(
         args(post({ intent: "delete" }, session), ""),
       );

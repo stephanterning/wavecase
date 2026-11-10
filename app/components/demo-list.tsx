@@ -8,7 +8,9 @@ import {
 import { Link, useFetcher } from "react-router";
 import type { DemoListData } from "../server/demo-list";
 import type { action as libraryAction } from "../routes/library";
-import { compareLibraryTracks, type LibrarySort } from "../domain/library";
+import { compareLibraryTracks } from "../domain/library";
+import { librarySortPreference } from "./library-sort-preference";
+import { useLocalPreference } from "./local-preference";
 import { formatDate } from "../domain/format";
 import type { DemoSource } from "./demo-playback";
 import { IconButton } from "./icon-button";
@@ -64,8 +66,7 @@ export function DemoList({
     workspace.getSnapshot().playback?.reconcile(data.availableSources);
   }, [workspace, data.availableSources]);
   const [filter, setFilter] = useState("");
-  const [sort, setSort] = useState<LibrarySort>("updatedAt");
-  const [ascending, setAscending] = useState(false);
+  const { sort, ascending } = useLocalPreference(librarySortPreference);
   const rows = data.tracks
     .filter((track) =>
       `${track.title} ${track.artist}`
@@ -75,20 +76,17 @@ export function DemoList({
     .sort((a, b) => compareLibraryTracks(a, b, sort, ascending));
   return (
     <>
-      <div className="library-toolbar">
+      <div className="list-heading">
         {children}
-        <div className="library-filter">
-          <div className="library-filter-input">
-            <input
-              aria-label="Search your music"
-              id={filterId}
-              type="search"
-              value={filter}
-              onChange={(event) => setFilter(event.target.value)}
-              placeholder="Search your music…"
-            />
-          </div>
-        </div>
+        <input
+          className="list-search"
+          aria-label="Search your music"
+          id={filterId}
+          type="search"
+          value={filter}
+          onChange={(event) => setFilter(event.target.value)}
+          placeholder="Search your music…"
+        />
       </div>
       <div
         className="library-scroll"
@@ -127,12 +125,13 @@ export function DemoList({
                     }
                     title={key === "favorite" ? "Sort by favorite" : undefined}
                     onClick={() => {
-                      setSort(key);
-                      setAscending(
-                        sort === key
-                          ? !ascending
-                          : key === "title" || key === "artist",
-                      );
+                      librarySortPreference.set({
+                        sort: key,
+                        ascending:
+                          sort === key
+                            ? !ascending
+                            : key === "title" || key === "artist",
+                      });
                     }}
                   >
                     {key === "favorite" ? <Icon name="heart" /> : label}

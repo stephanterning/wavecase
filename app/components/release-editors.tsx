@@ -1,7 +1,8 @@
 import { Form } from "react-router";
 import type { loader } from "../routes/release-edit";
 import { ConfirmButton } from "./confirm-dialog";
-import { EditForm } from "./editing";
+import { EditForm, PreviewLink } from "./editing";
+import { Icon } from "./icons";
 import { LinkFields } from "./link-fields";
 import { metadataLabels, releaseFields, trackFields } from "../domain/releases";
 
@@ -45,9 +46,11 @@ function Fields({
 export function ReleaseDetailsEditor({
   release,
   hasTracks,
+  previewHref,
 }: {
   release: Data["release"];
   hasTracks: boolean;
+  previewHref: string;
 }) {
   return (
     <>
@@ -86,67 +89,17 @@ export function ReleaseDetailsEditor({
             Audio and additional metadata are optional. A draft is only visible
             to you.
           </p>
-          <Form method="post">
-            <button
-              className="button-primary"
-              name="intent"
-              value="publish"
-              disabled={!release.cover || !hasTracks}
-            >
-              Publish release
-            </button>
-          </Form>
         </section>
       )}
-      <details className="release-actions">
-        <summary>Release actions</summary>
-        {release.published ? (
-          <Form method="post">
-            <ConfirmButton
-              name="intent"
-              value="unpublish"
-              confirmTitle={`Unpublish “${release.title}”?`}
-              confirmMessage={
-                <p>
-                  Its public page and downloads will become unavailable until
-                  you publish again.
-                </p>
-              }
-              confirmLabel="Unpublish"
-            >
-              Unpublish
-            </ConfirmButton>
-          </Form>
-        ) : (
-          <Form method="post">
-            <ConfirmButton
-              className="button-danger"
-              name="intent"
-              value="delete"
-              confirmTitle={`Delete “${release.title}”?`}
-              confirmMessage={
-                <p>
-                  This permanently deletes the draft and all its tracks,
-                  artwork, audio and activity. This cannot be undone.
-                </p>
-              }
-              confirmLabel="Delete draft"
-            >
-              Delete draft
-            </ConfirmButton>
-          </Form>
-        )}
-      </details>
-      <p className="muted">
-        {release.published
-          ? "Saved changes are immediately visible on the public page."
-          : "Save each section as you work. Preview opens your saved draft in a new tab."}{" "}
-        Each Save button saves only its own section.
-      </p>
-      <div className="editor-controls">
+      <div
+        className="release-actions"
+        role="group"
+        aria-label="Release actions"
+      >
         <EditForm
           label="Release details"
-          trigger="Edit release details"
+          trigger={<Icon name="edit" />}
+          triggerLabel="Edit release details"
           key={release.id}
           id="release-details"
           actions={<button className="button-primary">Save release</button>}
@@ -197,33 +150,107 @@ export function ReleaseDetailsEditor({
             Enable playback and email-gated downloads together
           </label>
         </EditForm>
-        <EditForm
-          label="Artwork"
-          trigger={release.cover ? "Change artwork" : "Add artwork"}
-          encType="multipart/form-data"
-          id="release-artwork"
-          actions={<button className="button-primary">Upload artwork</button>}
+        <PreviewLink
+          href={previewHref}
+          label={release.published ? "View public page" : "Preview draft"}
         >
-          <input type="hidden" name="intent" value="cover" />
-          {release.cover && (
-            <img
-              className="release-thumb"
-              src={`/release-assets/${release.id}/cover`}
-              alt="Release artwork"
-            />
+          <Icon name="eye" />
+        </PreviewLink>
+        <Form method="post">
+          {release.published ? (
+            <ConfirmButton
+              aria-label="Unpublish release"
+              name="intent"
+              value="unpublish"
+              confirmTitle={`Unpublish “${release.title}”?`}
+              confirmMessage={
+                <p>
+                  Its public page and downloads will become unavailable until
+                  you publish again.
+                </p>
+              }
+              confirmLabel="Unpublish"
+            >
+              Unpublish
+            </ConfirmButton>
+          ) : (
+            <button
+              aria-label="Publish release"
+              name="intent"
+              value="publish"
+              disabled={!release.cover || !hasTracks}
+            >
+              Publish
+            </button>
           )}
-          <label>
-            PNG, JPG or WebP, up to 10 MB
-            <input
-              name="cover"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              required
-            />
-          </label>
-        </EditForm>
+          <ConfirmButton
+            className="icon-button button-danger tooltip"
+            aria-label="Delete release"
+            data-tooltip="Delete release"
+            name="intent"
+            value="delete"
+            confirmTitle={`Delete “${release.title}”?`}
+            confirmMessage={
+              <p>
+                This permanently deletes the release and all its tracks,
+                artwork, audio and activity. This cannot be undone.
+                {release.published &&
+                  " Its public page and downloads will become unavailable immediately."}
+              </p>
+            }
+            confirmLabel="Delete release"
+          >
+            <Icon name="trash" />
+          </ConfirmButton>
+        </Form>
       </div>
     </>
+  );
+}
+
+export function ReleaseArtworkEditor({
+  release,
+}: {
+  release: Data["release"];
+}) {
+  return (
+    <div className="release-artwork-control">
+      {release.cover ? (
+        <img
+          className="editor-cover"
+          src={`/release-assets/${release.id}/cover`}
+          alt="Release artwork"
+        />
+      ) : (
+        <div className="editor-cover artwork-placeholder">Add artwork</div>
+      )}
+      <EditForm
+        label="Artwork"
+        trigger={<Icon name="image-plus" />}
+        triggerLabel={release.cover ? "Change artwork" : "Add artwork"}
+        encType="multipart/form-data"
+        id="release-artwork"
+        actions={<button className="button-primary">Upload artwork</button>}
+      >
+        <input type="hidden" name="intent" value="cover" />
+        {release.cover && (
+          <img
+            className="release-thumb"
+            src={`/release-assets/${release.id}/cover`}
+            alt="Release artwork"
+          />
+        )}
+        <label>
+          PNG, JPG or WebP, up to 10 MB
+          <input
+            name="cover"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            required
+          />
+        </label>
+      </EditForm>
+    </div>
   );
 }
 
@@ -362,22 +389,24 @@ export function TrackListEditor({
           )}
         </details>
       ))}
-      <EditForm
-        label="New track"
-        trigger="＋ Add track"
-        resetOnSave
-        actions={<button className="button-primary">Add track</button>}
-      >
-        <input type="hidden" name="intent" value="add-track" />
-        <label>
-          New track title
-          <input name="title" required maxLength={200} />
-        </label>
-        <p>
-          Audio is optional. Add all tracks, including those without
-          downloadable audio.
-        </p>
-      </EditForm>
+      <div className="release-add-track">
+        <EditForm
+          label="New track"
+          trigger="＋ Add track"
+          resetOnSave
+          actions={<button className="button-primary">Add track</button>}
+        >
+          <input type="hidden" name="intent" value="add-track" />
+          <label>
+            New track title
+            <input name="title" required maxLength={200} />
+          </label>
+          <p>
+            Audio is optional. Add all tracks, including those without
+            downloadable audio.
+          </p>
+        </EditForm>
+      </div>
     </>
   );
 }
