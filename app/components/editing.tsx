@@ -10,6 +10,7 @@ import { useBlocker, useFetcher, type FormProps } from "react-router";
 import { ConfirmDialog } from "./confirm-dialog";
 import { IconButton } from "./icon-button";
 import { Modal } from "./modal";
+import { useWorkspacePlayback } from "./workspace-player";
 
 const DialogActions = createContext<{
   cancel: () => void;
@@ -240,11 +241,25 @@ export function PreviewLink({
   label?: string;
 }) {
   const editors = useContext(Editing);
+  const workspace = useWorkspacePlayback();
   const trigger = useRef<HTMLAnchorElement>(null);
   const [labels, setLabels] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const open = () => window.open(href, "_blank", "noopener,noreferrer");
+  const pauseDemoForPreview = () => {
+    // iOS can present the new tab over the installed app, leaving it playing.
+    if (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone
+    ) {
+      workspace?.getSnapshot().playback?.pause();
+    }
+  };
+  const open = (preview?: Window | null) => {
+    pauseDemoForPreview();
+    if (preview) preview.location.replace(href);
+    else window.open(href, "_blank", "noopener,noreferrer");
+  };
   const close = () => {
     if (!busy) setLabels(null);
   };
@@ -264,7 +279,10 @@ export function PreviewLink({
           const dirty = [...(editors?.values() || [])].filter((editor) =>
             editor.dirty(),
           );
-          if (!dirty.length) return;
+          if (!dirty.length) {
+            pauseDemoForPreview();
+            return;
+          }
           event.preventDefault();
           setLabels(dirty.map((editor) => editor.label));
           setError("");
@@ -320,8 +338,7 @@ export function PreviewLink({
                     return;
                   }
                 }
-                if (preview) preview.location.replace(href);
-                else open();
+                open(preview);
                 setLabels(null);
               } finally {
                 setBusy(false);
