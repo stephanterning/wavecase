@@ -43,6 +43,10 @@
   --space-6: 32px;
   --space-7: 48px;
   --page-gutter: clamp(18px, 4vw, 72px);
+  --page-inset-top: env(safe-area-inset-top, 0px);
+  --page-inset-bottom: env(safe-area-inset-bottom, 0px);
+  scroll-padding-top: var(--page-inset-top);
+  scroll-padding-bottom: var(--page-inset-bottom);
   color-scheme: dark;
   font:
     var(--text-md) / var(--leading-normal) system-ui,
@@ -57,6 +61,7 @@ body {
   margin: 0;
   min-height: 100vh;
   min-height: 100dvh;
+  padding-block: var(--page-inset-top) var(--page-inset-bottom);
   display: flex;
   flex-direction: column;
 }
@@ -537,10 +542,10 @@ button:hover:not(:disabled),
 
 /* Released music has its own artwork-led public presentation. */
 :root:has(.release-mini) {
-  scroll-padding-bottom: calc(150px + env(safe-area-inset-bottom));
+  scroll-padding-bottom: calc(150px + var(--page-inset-bottom));
 }
 body:has(.release-mini) {
-  padding-bottom: calc(150px + env(safe-area-inset-bottom));
+  padding-bottom: calc(150px + var(--page-inset-bottom));
 }
 .release-mini {
   position: fixed;
@@ -553,7 +558,7 @@ body:has(.release-mini) {
   flex-wrap: wrap;
   gap: var(--space-3);
   padding: var(--space-3) var(--page-gutter);
-  padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--space-3) + var(--page-inset-bottom));
   background: var(--color-surface);
   border-top: 1px solid var(--color-border-control);
   box-shadow: 0 -8px 30px #0005;
@@ -1054,8 +1059,8 @@ main:has(.workspace) {
   color: inherit;
   border: 0;
   border-right: 1px solid var(--color-border);
-  padding: max(var(--space-4), env(safe-area-inset-top)) var(--space-4)
-    max(var(--space-4), env(safe-area-inset-bottom));
+  padding: calc(var(--space-4) + var(--page-inset-top)) var(--space-4)
+    calc(var(--space-4) + var(--page-inset-bottom));
   overscroll-behavior: contain;
 }
 body:has(.workspace-drawer[open]) {
@@ -1154,7 +1159,7 @@ body:has(.workspace-drawer[open]) {
 
 .account-menu {
   position: absolute;
-  inset: 78px var(--page-gutter) auto auto;
+  inset: calc(78px + var(--page-inset-top)) var(--page-gutter) auto auto;
   margin: 0;
   min-width: 180px;
   padding: var(--space-2);

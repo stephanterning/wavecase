@@ -31,8 +31,10 @@ export function WorkspacePlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const clearCache = attachAudioCacheSession();
     window.addEventListener("wavecase-access-revoked", workspace.dispose);
+    window.addEventListener("pagehide", workspace.dispose);
     return () => {
       window.removeEventListener("wavecase-access-revoked", workspace.dispose);
+      window.removeEventListener("pagehide", workspace.dispose);
       workspace.dispose();
       clearCache();
     };
