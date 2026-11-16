@@ -54,15 +54,6 @@
   color: var(--color-text);
   background: var(--color-bg);
 }
-@supports (-webkit-touch-callout: none) {
-  @media (display-mode: browser) and (max-width: 600px) and (orientation: portrait) and (pointer: coarse) {
-    :root {
-      /* In-app Safari can draw its floating toolbars inside the reported viewport. */
-      --page-inset-top: max(32px, env(safe-area-inset-top, 0px));
-      --page-inset-bottom: max(64px, env(safe-area-inset-bottom, 0px));
-    }
-  }
-}
 * {
   box-sizing: border-box;
 }

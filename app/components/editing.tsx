@@ -247,13 +247,8 @@ export function PreviewLink({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pauseDemoForPreview = () => {
-    // iOS can present the new tab over the installed app, leaving it playing.
-    if (
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (navigator as Navigator & { standalone?: boolean }).standalone
-    ) {
-      workspace?.getSnapshot().playback?.pause();
-    }
+    // A preview can open in a separate web view, leaving the workspace mounted.
+    workspace?.getSnapshot().playback?.pause();
   };
   const open = (preview?: Window | null) => {
     pauseDemoForPreview();
