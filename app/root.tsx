@@ -22,6 +22,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export const meta = () => [{ title: "Wavecase" }];
 export const links = () => [
   { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+  { rel: "manifest", href: "/manifest.webmanifest" },
 ];
 export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root");
