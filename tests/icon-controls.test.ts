@@ -50,7 +50,7 @@ test("share link icon controls name their link and show it as a focusable toolti
     );
   assert.ok(
     html.includes(
-      'aria-label="Preview as listener: Mixing team (opens in a new tab)"',
+      'aria-label="Preview as listener: Mixing team (opens in a new window)"',
     ),
   );
   assert.ok(

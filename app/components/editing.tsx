@@ -253,7 +253,7 @@ export function PreviewLink({
   const open = (preview?: Window | null) => {
     pauseDemoForPreview();
     if (preview) preview.location.replace(href);
-    else window.open(href, "_blank", "noopener,noreferrer");
+    else window.open(href, "_blank", "popup,noopener,noreferrer");
   };
   const close = () => {
     if (!busy) setLabels(null);
@@ -268,14 +268,24 @@ export function PreviewLink({
         {...(label && {
           className: "tooltip",
           "data-tooltip": label,
-          "aria-label": `${label} (opens in a new tab)`,
+          "aria-label": `${label} (opens in a new window)`,
         })}
         onClick={(event) => {
           const dirty = [...(editors?.values() || [])].filter((editor) =>
             editor.dirty(),
           );
           if (!dirty.length) {
-            pauseDemoForPreview();
+            if (
+              event.metaKey ||
+              event.ctrlKey ||
+              event.shiftKey ||
+              event.altKey
+            ) {
+              pauseDemoForPreview();
+              return;
+            }
+            event.preventDefault();
+            open();
             return;
           }
           event.preventDefault();
@@ -288,7 +298,7 @@ export function PreviewLink({
         ) : (
           <>
             {children} <span aria-hidden="true">↗</span>
-            <span className="sr-only"> (opens in a new tab)</span>
+            <span className="sr-only"> (opens in a new window)</span>
           </>
         )}
       </a>
@@ -319,8 +329,8 @@ export function PreviewLink({
           <button
             disabled={busy}
             onClick={async () => {
-              // Open synchronously so browsers do not block the tab after saving.
-              const preview = window.open("about:blank", "_blank");
+              // Reserve the popup during the click, before saving loses user activation.
+              const preview = window.open("about:blank", "_blank", "popup");
               if (preview) preview.opener = null;
               setBusy(true);
               try {
